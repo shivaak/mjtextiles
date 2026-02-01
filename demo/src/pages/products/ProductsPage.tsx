@@ -1,0 +1,734 @@
+// Products page - product and variant management
+
+import { useState, useMemo } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  IconButton,
+  Tooltip,
+  InputAdornment,
+  Grid,
+  Typography,
+  Autocomplete,
+} from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
+import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+import { PageHeader, Money, ConfirmDialog } from '../../components/common';
+import { useNotification } from '../../app/context/NotificationContext';
+import { useAuth } from '../../app/context/AuthContext';
+import {
+  getAllProducts,
+  getAllVariantsWithProducts,
+  getCategories,
+  getBrands,
+  createProduct,
+  updateProduct,
+  createVariant,
+  updateVariant,
+  setVariantStatus,
+  getSettings,
+} from '../../data/repositories';
+import type { Product, VariantWithProduct, VariantStatus } from '../../domain/types';
+import { calculateMarginPercent } from '../../domain/calculations';
+
+// Schemas
+const productSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  brand: z.string().min(1, 'Brand is required'),
+  category: z.string().min(1, 'Category is required'),
+  description: z.string().optional(),
+});
+
+const variantSchema = z.object({
+  productId: z.string().min(1, 'Product is required'),
+  sku: z.string().min(1, 'SKU is required'),
+  barcode: z.string().min(1, 'Barcode is required'),
+  size: z.string().min(1, 'Size is required'),
+  color: z.string().min(1, 'Color is required'),
+  sellingPrice: z.number().min(0.01, 'Selling price is required'),
+  avgCost: z.number().min(0, 'Cost must be positive'),
+});
+
+type ProductFormData = z.infer<typeof productSchema>;
+type VariantFormData = z.infer<typeof variantSchema>;
+
+export default function ProductsPage() {
+  const { showSuccess, showError } = useNotification();
+  const { isAdmin } = useAuth();
+  const settings = getSettings();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [brandFilter, setBrandFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+
+  // Dialog states
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingVariant, setEditingVariant] = useState<VariantWithProduct | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ variant: VariantWithProduct; newStatus: VariantStatus } | null>(null);
+
+  // Data
+  const products = getAllProducts();
+  const variants = getAllVariantsWithProducts();
+  const categories = getCategories();
+  const brands = getBrands();
+
+  // Filtered data
+  const filteredVariants = useMemo(() => {
+    return variants.filter(v => {
+      const matchesSearch = !searchQuery || 
+        v.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.barcode.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = !categoryFilter || v.productCategory === categoryFilter;
+      const matchesBrand = !brandFilter || v.productBrand === brandFilter;
+      const matchesStatus = !statusFilter || v.status === statusFilter;
+      return matchesSearch && matchesCategory && matchesBrand && matchesStatus;
+    });
+  }, [variants, searchQuery, categoryFilter, brandFilter, statusFilter]);
+
+  // Product form
+  const productForm = useForm<ProductFormData>({
+    resolver: zodResolver(productSchema),
+    defaultValues: { name: '', brand: '', category: '', description: '' },
+  });
+
+  // Variant form
+  const variantForm = useForm<VariantFormData>({
+    resolver: zodResolver(variantSchema),
+    defaultValues: {
+      productId: '',
+      sku: '',
+      barcode: '',
+      size: '',
+      color: '',
+      sellingPrice: 0,
+      avgCost: 0,
+    },
+  });
+
+  // Open product dialog
+  const openProductDialog = (product?: Product) => {
+    if (product) {
+      setEditingProduct(product);
+      productForm.reset({
+        name: product.name,
+        brand: product.brand,
+        category: product.category,
+        description: product.description || '',
+      });
+    } else {
+      setEditingProduct(null);
+      productForm.reset({ name: '', brand: '', category: '', description: '' });
+    }
+    setProductDialogOpen(true);
+  };
+
+  // Open variant dialog
+  const openVariantDialog = (variant?: VariantWithProduct) => {
+    if (variant) {
+      setEditingVariant(variant);
+      variantForm.reset({
+        productId: variant.productId,
+        sku: variant.sku,
+        barcode: variant.barcode,
+        size: variant.size,
+        color: variant.color,
+        sellingPrice: variant.sellingPrice,
+        avgCost: variant.avgCost,
+      });
+    } else {
+      setEditingVariant(null);
+      variantForm.reset({
+        productId: '',
+        sku: '',
+        barcode: '',
+        size: '',
+        color: '',
+        sellingPrice: 0,
+        avgCost: 0,
+      });
+    }
+    setVariantDialogOpen(true);
+  };
+
+  // Save product
+  const handleSaveProduct = (data: ProductFormData) => {
+    try {
+      if (editingProduct) {
+        updateProduct(editingProduct.id, data);
+        showSuccess('Product updated successfully');
+      } else {
+        createProduct(data);
+        showSuccess('Product created successfully');
+      }
+      setProductDialogOpen(false);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save product';
+      showError(errorMessage);
+    }
+  };
+
+  // Save variant
+  const handleSaveVariant = (data: VariantFormData) => {
+    try {
+      if (editingVariant) {
+        updateVariant(editingVariant.id, data);
+        showSuccess('Variant updated successfully');
+      } else {
+        createVariant({ ...data, stockQty: 0, status: 'ACTIVE' });
+        showSuccess('Variant created. Add stock via Purchases or Inventory adjustment.');
+      }
+      setVariantDialogOpen(false);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save variant';
+      showError(errorMessage);
+    }
+  };
+
+  // Toggle variant status
+  const handleStatusChange = () => {
+    if (!statusConfirm) return;
+    try {
+      setVariantStatus(statusConfirm.variant.id, statusConfirm.newStatus);
+      showSuccess(`Variant ${statusConfirm.newStatus === 'ACTIVE' ? 'activated' : 'deactivated'}`);
+      setStatusConfirm(null);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      showError(errorMessage);
+    }
+  };
+
+  // Columns for variants grid - cost columns are admin-only
+  const columns: GridColDef[] = [
+    {
+      field: 'barcode',
+      headerName: 'Barcode',
+      width: 130,
+    },
+    {
+      field: 'sku',
+      headerName: 'SKU',
+      width: 150,
+    },
+    {
+      field: 'productName',
+      headerName: 'Product',
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params: GridRenderCellParams<VariantWithProduct>) => (
+        <Box>
+          <Typography variant="body2" fontWeight={500}>
+            {params.row.productName}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {params.row.productBrand}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'size',
+      headerName: 'Size',
+      width: 80,
+    },
+    {
+      field: 'color',
+      headerName: 'Color',
+      width: 100,
+    },
+    {
+      field: 'stockQty',
+      headerName: 'Stock',
+      width: 80,
+      align: 'center',
+      renderCell: (params: GridRenderCellParams<VariantWithProduct>) => (
+        <Chip
+          label={params.value}
+          size="small"
+          color={
+            params.value === 0 ? 'error' :
+            (params.value as number) <= settings.lowStockThreshold ? 'warning' : 'default'
+          }
+        />
+      ),
+    },
+    {
+      field: 'sellingPrice',
+      headerName: 'Price',
+      width: 100,
+      align: 'right',
+      renderCell: (params: GridRenderCellParams) => (
+        <Money value={params.value as number} />
+      ),
+    },
+    // Admin-only columns: avgCost, margin
+    ...(isAdmin ? [{
+      field: 'avgCost',
+      headerName: 'Cost',
+      width: 100,
+      align: 'right' as const,
+      renderCell: (params: GridRenderCellParams) => (
+        <Money value={params.value as number} />
+      ),
+    },
+    {
+      field: 'margin',
+      headerName: 'Margin',
+      width: 80,
+      align: 'right' as const,
+      valueGetter: (_value: unknown, row: VariantWithProduct) => calculateMarginPercent(row.sellingPrice, row.avgCost),
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" color={(params.value as number) >= 20 ? 'success.main' : 'warning.main'}>
+          {(params.value as number).toFixed(1)}%
+        </Typography>
+      ),
+    }] : []),
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 100,
+      renderCell: (params: GridRenderCellParams<VariantWithProduct>) => (
+        <Chip
+          label={params.value}
+          size="small"
+          color={params.value === 'ACTIVE' ? 'success' : 'default'}
+        />
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<VariantWithProduct>) => (
+        <Box>
+          <Tooltip title="Edit">
+            <IconButton size="small" onClick={() => openVariantDialog(params.row)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={params.row.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}>
+            <IconButton
+              size="small"
+              onClick={() => setStatusConfirm({
+                variant: params.row,
+                newStatus: params.row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+              })}
+            >
+              {params.row.status === 'ACTIVE' ? (
+                <BlockIcon fontSize="small" color="error" />
+              ) : (
+                <CheckCircleIcon fontSize="small" color="success" />
+              )}
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ];
+
+  return (
+    <Box>
+      <PageHeader
+        title="Products"
+        subtitle="Manage products and variants"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Products' },
+        ]}
+        action={
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => openProductDialog()}
+            >
+              Add Product
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => openVariantDialog()}
+            >
+              Add Variant
+            </Button>
+          </Box>
+        }
+      />
+
+      {/* Filters */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid size={{ xs: 12, md: 4 }}>
+              <TextField
+                fullWidth
+                placeholder="Search by name, SKU, barcode..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={categoryFilter}
+                  label="Category"
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {categories.map(cat => (
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Brand</InputLabel>
+                <Select
+                  value={brandFilter}
+                  label="Brand"
+                  onChange={(e) => setBrandFilter(e.target.value)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {brands.map(brand => (
+                    <MenuItem key={brand} value={brand}>{brand}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Status"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="ACTIVE">Active</MenuItem>
+                  <MenuItem value="INACTIVE">Inactive</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Data Grid */}
+      <Card>
+        <DataGrid
+          rows={filteredVariants}
+          columns={columns}
+          pageSizeOptions={[10, 25, 50]}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 25 } },
+            sorting: { sortModel: [{ field: 'productName', sort: 'asc' }] },
+          }}
+          disableRowSelectionOnClick
+          sx={{ border: 0, minHeight: 500 }}
+          getRowHeight={() => 60}
+        />
+      </Card>
+
+      {/* Product Dialog */}
+      <Dialog
+        open={productDialogOpen}
+        onClose={() => setProductDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <form onSubmit={productForm.handleSubmit(handleSaveProduct)}>
+          <DialogTitle>
+            {editingProduct ? 'Edit Product' : 'Add Product'}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid size={{ xs: 12 }}>
+                <Controller
+                  name="name"
+                  control={productForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Product Name"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="brand"
+                  control={productForm.control}
+                  render={({ field, fieldState }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={brands}
+                      value={field.value}
+                      onChange={(_, value) => field.onChange(value || '')}
+                      onInputChange={(_, value) => field.onChange(value)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Brand"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="category"
+                  control={productForm.control}
+                  render={({ field, fieldState }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={categories}
+                      value={field.value}
+                      onChange={(_, value) => field.onChange(value || '')}
+                      onInputChange={(_, value) => field.onChange(value)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Category"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message}
+                        />
+                      )}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Controller
+                  name="description"
+                  control={productForm.control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Description (Optional)"
+                      multiline
+                      rows={2}
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button type="button" onClick={() => setProductDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained">
+              {editingProduct ? 'Update' : 'Create'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Variant Dialog */}
+      <Dialog
+        open={variantDialogOpen}
+        onClose={() => setVariantDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <form onSubmit={variantForm.handleSubmit(handleSaveVariant)}>
+          <DialogTitle>
+            {editingVariant ? 'Edit Variant' : 'Add Variant'}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid size={{ xs: 12 }}>
+                <Controller
+                  name="productId"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <FormControl fullWidth error={!!fieldState.error}>
+                      <InputLabel>Product</InputLabel>
+                      <Select {...field} label="Product">
+                        {products.map(product => (
+                          <MenuItem key={product.id} value={product.id}>
+                            {product.name} ({product.brand})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="sku"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="SKU"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="barcode"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Barcode"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="size"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Size"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="color"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Color"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="sellingPrice"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Selling Price"
+                      type="number"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      }}
+                    />
+                  )}
+                />
+              </Grid>
+              {isAdmin && (
+                <Grid size={{ xs: 6 }}>
+                  <Controller
+                    name="avgCost"
+                    control={variantForm.control}
+                    render={({ field, fieldState }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Cost"
+                        type="number"
+                        error={!!fieldState.error}
+                        helperText={fieldState.error?.message}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+              )}
+              {!editingVariant && (
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                    💡 Stock starts at 0. Add stock through <strong>Purchases</strong> (from supplier) or <strong>Inventory → Adjust Stock</strong> (for existing inventory).
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button type="button" onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained">
+              {editingVariant ? 'Update' : 'Create'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Status Change Confirmation */}
+      <ConfirmDialog
+        open={!!statusConfirm}
+        title={statusConfirm?.newStatus === 'ACTIVE' ? 'Activate Variant' : 'Deactivate Variant'}
+        message={
+          statusConfirm?.newStatus === 'ACTIVE'
+            ? 'This variant will be available for sale again.'
+            : 'This variant will no longer be available for sale.'
+        }
+        confirmText={statusConfirm?.newStatus === 'ACTIVE' ? 'Activate' : 'Deactivate'}
+        confirmColor={statusConfirm?.newStatus === 'ACTIVE' ? 'success' : 'error'}
+        onConfirm={handleStatusChange}
+        onCancel={() => setStatusConfirm(null)}
+      />
+    </Box>
+  );
+}
