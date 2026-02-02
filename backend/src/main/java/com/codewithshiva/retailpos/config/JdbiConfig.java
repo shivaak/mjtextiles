@@ -6,6 +6,7 @@ import com.codewithshiva.retailpos.model.Role;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.ColumnMapper;
 import org.jdbi.v3.core.statement.StatementContext;
+import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,16 +16,12 @@ import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 /**
  * JDBI configuration with custom type mappings and DAO beans.
  */
 @Configuration
 public class JdbiConfig {
-
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Bean
     public Jdbi jdbi(DataSource dataSource) {
@@ -36,9 +33,7 @@ public class JdbiConfig {
         
         // Install plugins
         jdbi.installPlugin(new SqlObjectPlugin());
-        
-        // Register column mapper for LocalDateTime (SQLite stores as TEXT)
-        jdbi.registerColumnMapper(LocalDateTime.class, new LocalDateTimeMapper());
+        jdbi.installPlugin(new PostgresPlugin());
         
         // Register column mapper for Role enum
         jdbi.registerColumnMapper(Role.class, new RoleMapper());
@@ -72,25 +67,6 @@ public class JdbiConfig {
     // ==========================================
     // Column Mappers
     // ==========================================
-
-    /**
-     * Column mapper for LocalDateTime from SQLite TEXT format.
-     */
-    private static class LocalDateTimeMapper implements ColumnMapper<LocalDateTime> {
-        @Override
-        public LocalDateTime map(ResultSet rs, int columnNumber, StatementContext ctx) throws SQLException {
-            String value = rs.getString(columnNumber);
-            if (value == null) {
-                return null;
-            }
-            // Handle both "yyyy-MM-dd HH:mm:ss" and ISO format "yyyy-MM-ddTHH:mm:ss"
-            value = value.replace("T", " ");
-            if (value.length() > 19) {
-                value = value.substring(0, 19);
-            }
-            return LocalDateTime.parse(value, DATE_FORMATTER);
-        }
-    }
 
     /**
      * Column mapper for Role enum.

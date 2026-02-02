@@ -71,18 +71,17 @@
 			<scope>test</scope>
 		</dependency>
 
-        <!-- Source: https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc -->
-        <dependency>
-            <groupId>org.xerial</groupId>
-            <artifactId>sqlite-jdbc</artifactId>
-            <version>3.51.1.0</version>
-            <scope>compile</scope>
-        </dependency>
-
-		<!-- Hibernate Community Dialects for SQLite support -->
+		<!-- PostgreSQL JDBC Driver -->
 		<dependency>
-			<groupId>org.hibernate.orm</groupId>
-			<artifactId>hibernate-community-dialects</artifactId>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Flyway PostgreSQL support -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
 		<!-- SpringDoc OpenAPI (Swagger) -->
@@ -110,7 +109,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.jdbi</groupId>
-			<artifactId>jdbi3-sqlite</artifactId>
+			<artifactId>jdbi3-postgres</artifactId>
 			<version>3.49.1</version>
 		</dependency>
 
