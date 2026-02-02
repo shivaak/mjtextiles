@@ -3,9 +3,11 @@ package com.codewithshiva.retailpos.dao;
 import com.codewithshiva.retailpos.model.User;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
+import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -54,4 +56,59 @@ public interface UserDao {
                 @Bind("passwordHash") String passwordHash,
                 @Bind("fullName") String fullName, 
                 @Bind("role") String role);
+
+    @SqlUpdate("""
+        INSERT INTO users (username, password_hash, full_name, role)
+        VALUES (:username, :passwordHash, :fullName, :role)
+        """)
+    @GetGeneratedKeys("id")
+    Long createReturningId(@Bind("username") String username,
+                           @Bind("passwordHash") String passwordHash,
+                           @Bind("fullName") String fullName,
+                           @Bind("role") String role);
+
+    @SqlQuery("""
+        SELECT id, username, password_hash as passwordHash, full_name as fullName,
+               role, is_active as isActive, created_at as createdAt,
+               updated_at as updatedAt, last_login_at as lastLoginAt
+        FROM users
+        ORDER BY created_at DESC
+        """)
+    List<User> findAll();
+
+    @SqlQuery("""
+        SELECT id, username, password_hash as passwordHash, full_name as fullName,
+               role, is_active as isActive, created_at as createdAt,
+               updated_at as updatedAt, last_login_at as lastLoginAt
+        FROM users
+        WHERE (:role IS NULL OR role = :role)
+          AND (:isActive IS NULL OR is_active = :isActive)
+          AND (:search IS NULL OR (
+               LOWER(username) LIKE LOWER('%' || :search || '%') OR
+               LOWER(full_name) LIKE LOWER('%' || :search || '%')
+          ))
+        ORDER BY created_at DESC
+        """)
+    List<User> findWithFilters(@Bind("role") String role,
+                               @Bind("isActive") Boolean isActive,
+                               @Bind("search") String search);
+
+    @SqlUpdate("""
+        UPDATE users
+        SET full_name = :fullName,
+            role = :role,
+            is_active = :isActive
+        WHERE id = :id
+        """)
+    void update(@Bind("id") Long id,
+                @Bind("fullName") String fullName,
+                @Bind("role") String role,
+                @Bind("isActive") Boolean isActive);
+
+    @SqlUpdate("""
+        UPDATE users
+        SET is_active = :isActive
+        WHERE id = :id
+        """)
+    void updateStatus(@Bind("id") Long id, @Bind("isActive") Boolean isActive);
 }
