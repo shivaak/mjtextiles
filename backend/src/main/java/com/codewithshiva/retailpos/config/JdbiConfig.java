@@ -1,6 +1,7 @@
 package com.codewithshiva.retailpos.config;
 
 import com.codewithshiva.retailpos.dao.RefreshTokenDao;
+import com.codewithshiva.retailpos.dao.SettingsDao;
 import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.model.Role;
 import org.jdbi.v3.core.Jdbi;
@@ -53,6 +54,11 @@ public class JdbiConfig {
     @Bean
     public RefreshTokenDao refreshTokenDao(Jdbi jdbi) {
         return jdbi.onDemand(RefreshTokenDao.class);
+    }
+
+    @Bean
+    public SettingsDao settingsDao(Jdbi jdbi) {
+        return jdbi.onDemand(SettingsDao.class);
     }
 
     // ==========================================

@@ -34,14 +34,14 @@ public interface UserDao {
 
     @SqlUpdate("""
         UPDATE users
-        SET last_login_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime')
+        SET last_login_at = NOW()
         WHERE id = :id
         """)
     void updateLastLogin(@Bind("id") Long id);
 
     @SqlUpdate("""
         UPDATE users
-        SET password_hash = :passwordHash, updated_at = datetime('now', 'localtime')
+        SET password_hash = :passwordHash
         WHERE id = :id
         """)
     void updatePassword(@Bind("id") Long id, @Bind("passwordHash") String passwordHash);

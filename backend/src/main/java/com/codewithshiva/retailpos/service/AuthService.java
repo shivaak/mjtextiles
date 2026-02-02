@@ -17,7 +17,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
 /**
@@ -38,8 +37,6 @@ public class AuthService {
 
     @Value("${jwt.inactivity-timeout}")
     private long inactivityTimeout;
-
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /**
      * Authenticate user and generate tokens.
@@ -83,7 +80,7 @@ public class AuthService {
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(refreshTokenExpiration);
 
         // Save refresh token
-        refreshTokenDao.save(user.getId(), refreshToken, expiresAt.format(DATE_FORMATTER));
+        refreshTokenDao.save(user.getId(), refreshToken, expiresAt);
 
         // Update last login
         userDao.updateLastLogin(user.getId());
