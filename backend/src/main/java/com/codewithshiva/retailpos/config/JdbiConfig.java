@@ -2,6 +2,7 @@ package com.codewithshiva.retailpos.config;
 
 import com.codewithshiva.retailpos.dao.DashboardDao;
 import com.codewithshiva.retailpos.dao.InventoryDao;
+import com.codewithshiva.retailpos.dao.LookupDao;
 import com.codewithshiva.retailpos.dao.ProductDao;
 import com.codewithshiva.retailpos.dao.PurchaseDao;
 import com.codewithshiva.retailpos.dao.RefreshTokenDao;
@@ -107,6 +108,11 @@ public class JdbiConfig {
     @Bean
     public ReportDao reportDao(Jdbi jdbi) {
         return jdbi.onDemand(ReportDao.class);
+    }
+
+    @Bean
+    public LookupDao lookupDao(Jdbi jdbi) {
+        return jdbi.onDemand(LookupDao.class);
     }
 
     // ==========================================
