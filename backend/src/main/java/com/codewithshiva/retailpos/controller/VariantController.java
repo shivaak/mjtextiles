@@ -94,7 +94,6 @@ public class VariantController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update Variant", description = "Update an existing variant")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<VariantDetailResponse>> updateVariant(
@@ -106,7 +105,6 @@ public class VariantController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update Variant Status", description = "Activate or deactivate a variant")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Void>> updateVariantStatus(
