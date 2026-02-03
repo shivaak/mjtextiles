@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../app/context/AuthContext';
 import { useNotification } from '../../app/context/NotificationContext';
+import { formatApiError } from '../../services/api';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -59,8 +60,7 @@ export default function LoginPage() {
       notification.success('Login successful!');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Invalid credentials';
-      notification.error(errorMessage);
+      notification.error(formatApiError(error, 'Login failed'));
     } finally {
       setIsLoading(false);
     }

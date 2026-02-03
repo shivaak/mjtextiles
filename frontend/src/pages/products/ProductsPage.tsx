@@ -39,6 +39,7 @@ import { useNotification } from '../../app/context/NotificationContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { productService } from '../../services/productService';
 import { settingsService } from '../../services/settingsService';
+import { formatApiError } from '../../services/api';
 import type {
   Product,
   Variant,
@@ -138,8 +139,7 @@ export default function ProductsPage() {
       setVariants(data.content);
       setTotalElements(data.totalElements);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch variants';
-      showError(errorMessage);
+      showError(formatApiError(error, 'Failed to fetch variants'));
       console.error(error);
     } finally {
       setLoading(false);
@@ -158,9 +158,10 @@ export default function ProductsPage() {
       setBrands(brandsData);
       setProducts(productsData.content);
     } catch (error) {
+      showError(formatApiError(error, 'Failed to load filter options'));
       console.error('Failed to fetch filter options', error);
     }
-  }, []);
+  }, [showError]);
 
   // Fetch settings
   const fetchSettings = useCallback(async () => {
@@ -168,11 +169,12 @@ export default function ProductsPage() {
       const data = await settingsService.getSettings();
       setSettings(data);
     } catch (error) {
+      showError(formatApiError(error, 'Failed to load settings'));
       console.error('Failed to fetch settings', error);
       // Default threshold if fetch fails
       setSettings({ lowStockThreshold: 10 } as Settings);
     }
-  }, []);
+  }, [showError]);
 
   // Initial load
   useEffect(() => {
@@ -241,15 +243,15 @@ export default function ProductsPage() {
       fetchFilterOptions(); // Refresh products for dropdown
       fetchVariants(); // Refresh variants list
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save product';
-      showError(errorMessage);
+      showError(formatApiError(error, 'Failed to save product'));
     }
   };
 
   const handleSaveVariant = async (data: VariantFormData) => {
     try {
       if (editingVariant) {
-        await productService.updateVariant(editingVariant.id, data as UpdateVariantRequest);
+        const { productId: _productId, ...updateData } = data;
+        await productService.updateVariant(editingVariant.id, updateData as UpdateVariantRequest);
         showSuccess('Variant updated successfully');
       } else {
         await productService.createVariant(data as CreateVariantRequest);
@@ -258,8 +260,7 @@ export default function ProductsPage() {
       setVariantDialogOpen(false);
       fetchVariants();
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save variant';
-      showError(errorMessage);
+      showError(formatApiError(error, 'Failed to save variant'));
     }
   };
 
@@ -271,8 +272,7 @@ export default function ProductsPage() {
       setStatusConfirm(null);
       fetchVariants();
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      showError(errorMessage);
+      showError(formatApiError(error, 'Failed to update variant status'));
     }
   };
 

@@ -16,6 +16,50 @@ export class ApiError extends Error {
   }
 }
 
+export const unwrapApiResponse = <T>(
+  response: { data: ApiResponse<T> },
+  options?: { allowEmptyData?: boolean }
+): T => {
+  const apiResponse = response.data;
+  if (!apiResponse) {
+    throw new ApiError('Empty response from server', 'EMPTY_RESPONSE');
+  }
+
+  if (apiResponse.success === false) {
+    throw new ApiError(
+      apiResponse.error?.message || 'Request failed',
+      apiResponse.error?.code || 'UNKNOWN_ERROR'
+    );
+  }
+
+  if (apiResponse.data === undefined) {
+    if (options?.allowEmptyData) {
+      return undefined as T;
+    }
+    throw new ApiError('No data in response', 'NO_DATA');
+  }
+
+  return apiResponse.data;
+};
+
+export const formatApiError = (error: unknown, fallbackMessage: string): string => {
+  if (error instanceof ApiError) {
+    if (error.message && error.message !== fallbackMessage) {
+      return `${fallbackMessage}. ${error.message}`;
+    }
+    return fallbackMessage;
+  }
+
+  if (error instanceof Error && error.message) {
+    if (error.message !== fallbackMessage) {
+      return `${fallbackMessage}. ${error.message}`;
+    }
+    return fallbackMessage;
+  }
+
+  return fallbackMessage;
+};
+
 // Helper to extract error message from API response
 const extractErrorMessage = (error: AxiosError<ApiResponse<unknown>>): ApiError => {
   const response = error.response;
