@@ -26,7 +26,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  token: string;
+  accessToken: string;
   refreshToken: string;
   expiresIn: number;
   user: User;
@@ -37,4 +37,101 @@ export interface AuthSession {
   token: string;
   refreshToken: string;
   expiresAt: number;
+}
+
+// Product types
+export interface Product {
+  id: number;
+  name: string;
+  brand: string;
+  category: string;
+  description?: string;
+  variantCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Variant {
+  id: number;
+  productId: number;
+  productName: string;
+  productBrand: string;
+  productCategory: string;
+  sku: string;
+  barcode: string;
+  size: string;
+  color: string;
+  sellingPrice: number;
+  avgCost: number;
+  stockQty: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+}
+
+export type VariantStatus = 'ACTIVE' | 'INACTIVE';
+
+// Product Request/Response types
+export interface CreateProductRequest {
+  name: string;
+  brand: string;
+  category: string;
+  description?: string;
+}
+
+export interface UpdateProductRequest {
+  name: string;
+  brand: string;
+  category: string;
+  description?: string;
+}
+
+// Variant Request/Response types
+export interface CreateVariantRequest {
+  productId: number;
+  sku: string;
+  barcode?: string;
+  size?: string;
+  color?: string;
+  sellingPrice: number;
+  avgCost?: number;
+}
+
+export interface UpdateVariantRequest {
+  sku: string;
+  barcode?: string;
+  size?: string;
+  color?: string;
+  sellingPrice: number;
+  avgCost?: number;
+}
+
+export interface UpdateVariantStatusRequest {
+  status: VariantStatus;
+}
+
+// Pagination
+export interface PagedResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+// Settings
+export interface Settings {
+  shopName: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  gstNumber?: string;
+  currency: string;
+  taxPercent: number;
+  invoicePrefix: string;
+  lastBillNumber: number;
+  lowStockThreshold: number;
+  createdAt?: string;
+  updatedAt?: string;
 }

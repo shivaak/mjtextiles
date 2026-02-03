@@ -16,20 +16,20 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Controller for shop settings endpoints.
- * All endpoints require ADMIN role.
+ * GET is accessible to all authenticated users.
+ * PUT requires ADMIN role.
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/settings")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Settings", description = "Shop settings management")
 public class SettingsController {
 
     private final SettingsService settingsService;
 
     @GetMapping
-    @Operation(summary = "Get Settings", description = "Get shop settings")
+    @Operation(summary = "Get Settings", description = "Get shop settings (accessible to all authenticated users)")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<SettingsResponse>> getSettings() {
         log.debug("Get settings request received");
@@ -38,7 +38,8 @@ public class SettingsController {
     }
 
     @PutMapping
-    @Operation(summary = "Update Settings", description = "Update shop settings")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Update Settings", description = "Update shop settings (admin only)")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<SettingsResponse>> updateSettings(
             @Valid @RequestBody UpdateSettingsRequest request) {
