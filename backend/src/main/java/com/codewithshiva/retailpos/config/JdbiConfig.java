@@ -4,6 +4,7 @@ import com.codewithshiva.retailpos.dao.ProductDao;
 import com.codewithshiva.retailpos.dao.RefreshTokenDao;
 import com.codewithshiva.retailpos.dao.SettingsDao;
 import com.codewithshiva.retailpos.dao.UserDao;
+import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.model.Role;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.ColumnMapper;
@@ -65,6 +66,11 @@ public class JdbiConfig {
     @Bean
     public ProductDao productDao(Jdbi jdbi) {
         return jdbi.onDemand(ProductDao.class);
+    }
+
+    @Bean
+    public VariantDao variantDao(Jdbi jdbi) {
+        return jdbi.onDemand(VariantDao.class);
     }
 
     // ==========================================
