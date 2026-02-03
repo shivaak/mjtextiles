@@ -20,9 +20,6 @@ import {
   Grid,
   Typography,
   Autocomplete,
-  CircularProgress,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams, GridPaginationModel } from '@mui/x-data-grid';
@@ -76,8 +73,6 @@ type ProductFormData = z.infer<typeof productSchema>;
 type VariantFormData = z.infer<typeof variantSchema>;
 
 export default function ProductsPage() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSuccess, showError } = useNotification();
   const { isAdmin } = useAuth();
 
@@ -427,12 +422,11 @@ export default function ProductsPage() {
           { label: 'Products' },
         ]}
         action={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={() => openProductDialog()}
-              size={isMobile ? 'small' : 'medium'}
             >
               Add Product
             </Button>
@@ -440,7 +434,6 @@ export default function ProductsPage() {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => openVariantDialog()}
-              size={isMobile ? 'small' : 'medium'}
             >
               Add Variant
             </Button>
@@ -452,7 +445,7 @@ export default function ProductsPage() {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
                 placeholder="Search by name, SKU, barcode..."
@@ -468,7 +461,7 @@ export default function ProductsPage() {
                 size="small"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid size={{ xs: 6, md: 2 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -483,7 +476,7 @@ export default function ProductsPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid size={{ xs: 6, md: 2 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Brand</InputLabel>
                 <Select
@@ -498,7 +491,7 @@ export default function ProductsPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid size={{ xs: 6, md: 2 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Status</InputLabel>
                 <Select
@@ -542,7 +535,6 @@ export default function ProductsPage() {
         onClose={() => setProductDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        fullScreen={isMobile}
       >
         <form onSubmit={productForm.handleSubmit(handleSaveProduct)}>
           <DialogTitle>
@@ -550,7 +542,7 @@ export default function ProductsPage() {
           </DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Controller
                   name="name"
                   control={productForm.control}
@@ -565,7 +557,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="brand"
                   control={productForm.control}
@@ -588,7 +580,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="category"
                   control={productForm.control}
@@ -611,7 +603,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Controller
                   name="description"
                   control={productForm.control}
@@ -643,7 +635,6 @@ export default function ProductsPage() {
         onClose={() => setVariantDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        fullScreen={isMobile}
       >
         <form onSubmit={variantForm.handleSubmit(handleSaveVariant)}>
           <DialogTitle>
@@ -651,7 +642,7 @@ export default function ProductsPage() {
           </DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Controller
                   name="productId"
                   control={variantForm.control}
@@ -665,16 +656,11 @@ export default function ProductsPage() {
                           </MenuItem>
                         ))}
                       </Select>
-                      {fieldState.error && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
-                          {fieldState.error.message}
-                        </Typography>
-                      )}
                     </FormControl>
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="sku"
                   control={variantForm.control}
@@ -689,7 +675,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="barcode"
                   control={variantForm.control}
@@ -704,7 +690,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="size"
                   control={variantForm.control}
@@ -719,7 +705,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="color"
                   control={variantForm.control}
@@ -734,7 +720,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={isAdmin ? 6 : 12}>
+              <Grid size={{ xs: 6 }}>
                 <Controller
                   name="sellingPrice"
                   control={variantForm.control}
@@ -755,7 +741,7 @@ export default function ProductsPage() {
                 />
               </Grid>
               {isAdmin && (
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 6 }}>
                   <Controller
                     name="avgCost"
                     control={variantForm.control}
@@ -777,7 +763,7 @@ export default function ProductsPage() {
                 </Grid>
               )}
               {!editingVariant && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                     💡 Stock starts at 0. Add stock through <strong>Purchases</strong> (from supplier) or <strong>Inventory → Adjust Stock</strong> (for existing inventory).
                   </Typography>
