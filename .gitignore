@@ -31,3 +31,6 @@ logs/
 # Misc
 *.bak
 *.tmp
+
+# claude
+.claude/
