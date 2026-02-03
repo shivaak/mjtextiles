@@ -58,8 +58,9 @@ export default function LoginPage() {
       await login(data);
       notification.success('Login successful!');
       navigate('/dashboard');
-    } catch (error: any) {
-      notification.error(error.response?.data?.error?.message || 'Invalid credentials');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid credentials';
+      notification.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

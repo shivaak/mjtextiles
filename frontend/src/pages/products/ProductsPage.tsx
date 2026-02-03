@@ -137,8 +137,9 @@ export default function ProductsPage() {
       });
       setVariants(data.content);
       setTotalElements(data.totalElements);
-    } catch (error) {
-      showError('Failed to fetch variants');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch variants';
+      showError(errorMessage);
       console.error(error);
     } finally {
       setLoading(false);
