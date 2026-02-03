@@ -9,6 +9,7 @@ import type {
   VariantStatus,
   PagedResponse,
   ApiResponse,
+  VariantSearchResponse,
 } from '../domain/types';
 
 // Product API calls
@@ -84,5 +85,12 @@ export const productService = {
   async updateVariantStatus(id: number, status: VariantStatus): Promise<void> {
     const response = await api.put<ApiResponse<void>>(`/variants/${id}/status`, { status });
     unwrapApiResponse(response, { allowEmptyData: true });
+  },
+
+  async searchVariants(query: string, limit = 10): Promise<VariantSearchResponse[]> {
+    const response = await api.get<ApiResponse<VariantSearchResponse[]>>('/variants/search', {
+      params: { q: query, limit },
+    });
+    return unwrapApiResponse(response);
   },
 };

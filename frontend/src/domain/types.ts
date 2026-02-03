@@ -70,6 +70,19 @@ export interface Variant {
 
 export type VariantStatus = 'ACTIVE' | 'INACTIVE';
 
+export interface VariantSearchResponse {
+  id: number;
+  productName: string;
+  sku: string;
+  barcode: string;
+  size: string;
+  color: string;
+  sellingPrice: number;
+  avgCost: number;
+  stockQty: number;
+  status: VariantStatus;
+}
+
 // Product Request/Response types
 export interface CreateProductRequest {
   name: string;
@@ -118,6 +131,77 @@ export interface PagedResponse<T> {
   totalPages: number;
   first: boolean;
   last: boolean;
+}
+
+// Suppliers
+export interface Supplier {
+  id: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstNumber?: string;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface CreateSupplierRequest {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstNumber?: string;
+}
+
+// Purchases
+export interface PurchaseList {
+  id: number;
+  supplierId: number;
+  supplierName: string;
+  invoiceNo?: string;
+  purchasedAt: string;
+  totalCost: number;
+  itemCount?: number;
+  notes?: string;
+  createdBy: number;
+  createdByName?: string;
+  createdAt?: string;
+}
+
+export interface PurchaseItem {
+  id: number;
+  variantId: number;
+  variantSku?: string;
+  variantBarcode?: string;
+  productName?: string;
+  size?: string;
+  color?: string;
+  qty: number;
+  unitCost: number;
+  totalCost?: number;
+}
+
+export interface PurchaseDetail extends PurchaseList {
+  items: PurchaseItem[];
+}
+
+export interface CreatePurchaseItemRequest {
+  variantId: number;
+  qty: number;
+  unitCost: number;
+}
+
+export interface CreatePurchaseRequest {
+  supplierId: number;
+  invoiceNo?: string;
+  purchasedAt: string;
+  notes?: string;
+  items: CreatePurchaseItemRequest[];
+}
+
+export interface DateRange {
+  startDate: string;
+  endDate: string;
 }
 
 // Settings

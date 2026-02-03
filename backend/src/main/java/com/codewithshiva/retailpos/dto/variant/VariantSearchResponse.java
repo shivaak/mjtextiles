@@ -25,6 +25,7 @@ public class VariantSearchResponse {
     private String size;
     private String color;
     private BigDecimal sellingPrice;
+    private BigDecimal avgCost;
     private Integer stockQty;
     private String status;
 
@@ -40,6 +41,7 @@ public class VariantSearchResponse {
                 .size(variant.getSize())
                 .color(variant.getColor())
                 .sellingPrice(variant.getSellingPrice())
+                .avgCost(variant.getAvgCost())
                 .stockQty(variant.getStockQty())
                 .status(variant.getStatus())
                 .build();
