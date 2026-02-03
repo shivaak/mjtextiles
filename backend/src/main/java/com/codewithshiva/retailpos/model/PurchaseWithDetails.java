@@ -1,0 +1,51 @@
+package com.codewithshiva.retailpos.model;
+
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.beans.ConstructorProperties;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+
+/**
+ * Model representing purchase with details from v_purchases_with_details view.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+public class PurchaseWithDetails {
+    private Long id;
+    private Long supplierId;
+    private String invoiceNo;
+    private OffsetDateTime purchasedAt;
+    private BigDecimal totalCost;
+    private String notes;
+    private Long createdBy;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+    private String supplierName;
+    private String createdByName;
+    private Integer itemCount;
+
+    @ConstructorProperties({"id", "supplierId", "invoiceNo", "purchasedAt", "totalCost", 
+                           "notes", "createdBy", "createdAt", "updatedAt", 
+                           "supplierName", "createdByName", "itemCount"})
+    public PurchaseWithDetails(Long id, Long supplierId, String invoiceNo, OffsetDateTime purchasedAt,
+                               BigDecimal totalCost, String notes, Long createdBy,
+                               OffsetDateTime createdAt, OffsetDateTime updatedAt,
+                               String supplierName, String createdByName, Integer itemCount) {
+        this.id = id;
+        this.supplierId = supplierId;
+        this.invoiceNo = invoiceNo;
+        this.purchasedAt = purchasedAt;
+        this.totalCost = totalCost;
+        this.notes = notes;
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.supplierName = supplierName;
+        this.createdByName = createdByName;
+        this.itemCount = itemCount;
+    }
+}
