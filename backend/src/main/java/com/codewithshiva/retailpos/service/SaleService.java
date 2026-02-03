@@ -230,11 +230,17 @@ public class SaleService {
                         "Sale not found with ID: " + id
                 ));
 
-        // 2. Check if already voided
-        if ("VOIDED".equals(sale.getStatus())) {
+        // 2. Check if sale is in COMPLETED status (only COMPLETED sales can be voided)
+        if (!"COMPLETED".equals(sale.getStatus())) {
+            if ("VOIDED".equals(sale.getStatus())) {
+                throw new BadRequestException(
+                        "SALE_ALREADY_VOIDED",
+                        "Sale " + sale.getBillNo() + " is already voided"
+                );
+            }
             throw new BadRequestException(
-                    "SALE_ALREADY_VOIDED",
-                    "Sale " + sale.getBillNo() + " is already voided"
+                    "INVALID_SALE_STATUS",
+                    "Only COMPLETED sales can be voided. Current status: " + sale.getStatus()
             );
         }
 

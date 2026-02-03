@@ -1,6 +1,7 @@
 package com.codewithshiva.retailpos.controller;
 
 import com.codewithshiva.retailpos.dto.ApiResponse;
+import com.codewithshiva.retailpos.dto.PagedResponse;
 import com.codewithshiva.retailpos.dto.sale.*;
 import com.codewithshiva.retailpos.security.CustomUserDetails;
 import com.codewithshiva.retailpos.service.SaleService;
@@ -30,20 +31,23 @@ public class SaleController {
     private final SaleService saleService;
 
     @GetMapping
-    @Operation(summary = "List Sales", description = "Get all sales with optional filters")
+    @Operation(summary = "List Sales", description = "Get all sales with optional filters and pagination")
     @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ApiResponse<List<SaleListResponse>>> listSales(
+    public ResponseEntity<ApiResponse<PagedResponse<SaleListResponse>>> listSales(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String paymentMode,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long createdBy,
-            @RequestParam(required = false) String search) {
-        log.debug("List sales request - startDate: {}, endDate: {}, paymentMode: {}, status: {}, createdBy: {}, search: {}",
-                startDate, endDate, paymentMode, status, createdBy, search);
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.debug("List sales request - startDate: {}, endDate: {}, paymentMode: {}, status: {}, createdBy: {}, search: {}, page: {}, size: {}",
+                startDate, endDate, paymentMode, status, createdBy, search, page, size);
         List<SaleListResponse> sales = saleService.listSales(
                 startDate, endDate, paymentMode, status, createdBy, search);
-        return ResponseEntity.ok(ApiResponse.success(sales));
+        PagedResponse<SaleListResponse> pagedResponse = PagedResponse.of(sales, page, size);
+        return ResponseEntity.ok(ApiResponse.success(pagedResponse));
     }
 
     @GetMapping("/{id}")

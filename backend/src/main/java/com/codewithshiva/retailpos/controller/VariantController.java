@@ -1,6 +1,7 @@
 package com.codewithshiva.retailpos.controller;
 
 import com.codewithshiva.retailpos.dto.ApiResponse;
+import com.codewithshiva.retailpos.dto.PagedResponse;
 import com.codewithshiva.retailpos.dto.variant.*;
 import com.codewithshiva.retailpos.security.CustomUserDetails;
 import com.codewithshiva.retailpos.service.VariantService;
@@ -30,21 +31,24 @@ public class VariantController {
     private final VariantService variantService;
 
     @GetMapping
-    @Operation(summary = "List Variants", description = "Get all variants with optional filters")
+    @Operation(summary = "List Variants", description = "Get all variants with optional filters and pagination")
     @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ApiResponse<List<VariantListResponse>>> listVariants(
+    public ResponseEntity<ApiResponse<PagedResponse<VariantListResponse>>> listVariants(
             @RequestParam(required = false) Long productId,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String brand,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Boolean lowStock,
             @RequestParam(required = false) Boolean outOfStock,
-            @RequestParam(required = false) String search) {
-        log.debug("List variants request - productId: {}, category: {}, brand: {}, status: {}, lowStock: {}, outOfStock: {}, search: {}",
-                productId, category, brand, status, lowStock, outOfStock, search);
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.debug("List variants request - productId: {}, category: {}, brand: {}, status: {}, lowStock: {}, outOfStock: {}, search: {}, page: {}, size: {}",
+                productId, category, brand, status, lowStock, outOfStock, search, page, size);
         List<VariantListResponse> variants = variantService.listVariants(
                 productId, category, brand, status, lowStock, outOfStock, search);
-        return ResponseEntity.ok(ApiResponse.success(variants));
+        PagedResponse<VariantListResponse> pagedResponse = PagedResponse.of(variants, page, size);
+        return ResponseEntity.ok(ApiResponse.success(pagedResponse));
     }
 
     @GetMapping("/{id}")

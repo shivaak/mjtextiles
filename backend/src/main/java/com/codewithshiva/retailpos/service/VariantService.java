@@ -7,8 +7,8 @@ import com.codewithshiva.retailpos.exception.ConflictException;
 import com.codewithshiva.retailpos.exception.ResourceNotFoundException;
 import com.codewithshiva.retailpos.model.Variant;
 import com.codewithshiva.retailpos.model.VariantWithProduct;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +22,17 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class VariantService {
 
     private final VariantDao variantDao;
     private final ProductDao productDao;
+    private final LookupService lookupService;
+
+    public VariantService(VariantDao variantDao, ProductDao productDao, @Lazy LookupService lookupService) {
+        this.variantDao = variantDao;
+        this.productDao = productDao;
+        this.lookupService = lookupService;
+    }
 
     /**
      * List variants with optional filters.
@@ -152,6 +158,9 @@ public class VariantService {
 
         log.info("Variant created successfully with ID: {}", variantId);
 
+        // Evict lookup cache since sizes/colors may have changed
+        lookupService.evictLookupCache();
+
         // Fetch and return created variant with product info
         return getVariantById(variantId);
     }
@@ -206,6 +215,9 @@ public class VariantService {
         );
 
         log.info("Variant updated successfully: {}", id);
+
+        // Evict lookup cache since sizes/colors may have changed
+        lookupService.evictLookupCache();
 
         // Fetch and return updated variant with product info
         return getVariantById(id);

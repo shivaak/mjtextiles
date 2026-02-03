@@ -1,7 +1,9 @@
 package com.codewithshiva.retailpos.dto.sale;
 
+import com.codewithshiva.retailpos.dto.Views;
 import com.codewithshiva.retailpos.model.SaleWithDetails;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonView;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,23 +21,41 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SaleListResponse {
+    @JsonView(Views.Employee.class)
     private Long id;
+    @JsonView(Views.Employee.class)
     private String billNo;
+    @JsonView(Views.Employee.class)
     private OffsetDateTime soldAt;
+    @JsonView(Views.Employee.class)
     private String customerName;
+    @JsonView(Views.Employee.class)
     private String customerPhone;
+    @JsonView(Views.Employee.class)
     private String paymentMode;
+    @JsonView(Views.Employee.class)
     private BigDecimal subtotal;
+    @JsonView(Views.Employee.class)
     private BigDecimal discountPercent;
+    @JsonView(Views.Employee.class)
     private BigDecimal discountAmount;
+    @JsonView(Views.Employee.class)
     private BigDecimal taxPercent;
+    @JsonView(Views.Employee.class)
     private BigDecimal taxAmount;
+    @JsonView(Views.Employee.class)
     private BigDecimal total;
+    @JsonView(Views.Admin.class) // Only visible to ADMIN
     private BigDecimal profit;
+    @JsonView(Views.Employee.class)
     private Integer itemCount;
+    @JsonView(Views.Employee.class)
     private String status;
+    @JsonView(Views.Employee.class)
     private Long createdBy;
+    @JsonView(Views.Employee.class)
     private String createdByName;
+    @JsonView(Views.Employee.class)
     private OffsetDateTime createdAt;
 
     /**

@@ -1,6 +1,7 @@
 package com.codewithshiva.retailpos.controller;
 
 import com.codewithshiva.retailpos.dto.ApiResponse;
+import com.codewithshiva.retailpos.dto.PagedResponse;
 import com.codewithshiva.retailpos.dto.product.*;
 import com.codewithshiva.retailpos.security.CustomUserDetails;
 import com.codewithshiva.retailpos.service.ProductService;
@@ -30,15 +31,19 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    @Operation(summary = "List Products", description = "Get all products with optional filters")
+    @Operation(summary = "List Products", description = "Get all products with optional filters and pagination")
     @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> listProducts(
+    public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> listProducts(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String brand,
-            @RequestParam(required = false) String search) {
-        log.debug("List products request - category: {}, brand: {}, search: {}", category, brand, search);
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.debug("List products request - category: {}, brand: {}, search: {}, page: {}, size: {}", 
+                category, brand, search, page, size);
         List<ProductResponse> products = productService.listProducts(category, brand, search);
-        return ResponseEntity.ok(ApiResponse.success(products));
+        PagedResponse<ProductResponse> pagedResponse = PagedResponse.of(products, page, size);
+        return ResponseEntity.ok(ApiResponse.success(pagedResponse));
     }
 
     @GetMapping("/{id}")

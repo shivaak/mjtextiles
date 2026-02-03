@@ -9,18 +9,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
  * Controller for dashboard endpoints.
+ * All dashboard APIs are restricted to ADMIN users only.
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-@Tag(name = "Dashboard", description = "Dashboard statistics and metrics")
+@PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Dashboard", description = "Dashboard statistics and metrics (Admin only)")
 public class DashboardController {
 
     private final DashboardService dashboardService;

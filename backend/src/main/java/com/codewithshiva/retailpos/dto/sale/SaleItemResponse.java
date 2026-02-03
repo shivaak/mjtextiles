@@ -1,7 +1,9 @@
 package com.codewithshiva.retailpos.dto.sale;
 
+import com.codewithshiva.retailpos.dto.Views;
 import com.codewithshiva.retailpos.model.SaleItemWithVariant;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonView;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,17 +20,29 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SaleItemResponse {
+    @JsonView(Views.Employee.class)
     private Long id;
+    @JsonView(Views.Employee.class)
     private Long variantId;
+    @JsonView(Views.Employee.class)
     private String variantSku;
+    @JsonView(Views.Employee.class)
     private String variantBarcode;
+    @JsonView(Views.Employee.class)
     private String productName;
+    @JsonView(Views.Employee.class)
     private String size;
+    @JsonView(Views.Employee.class)
     private String color;
+    @JsonView(Views.Employee.class)
     private Integer qty;
+    @JsonView(Views.Employee.class)
     private BigDecimal unitPrice;
+    @JsonView(Views.Admin.class) // Only visible to ADMIN
     private BigDecimal unitCostAtSale;
+    @JsonView(Views.Employee.class)
     private BigDecimal totalPrice;
+    @JsonView(Views.Admin.class) // Only visible to ADMIN
     private BigDecimal profit;
 
     /**

@@ -1,9 +1,12 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.config.CacheConfig;
 import com.codewithshiva.retailpos.dao.LookupDao;
 import com.codewithshiva.retailpos.dto.lookup.LookupDataResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,10 +38,12 @@ public class LookupService {
 
     /**
      * Get all lookup data for dropdowns.
+     * Results are cached to reduce database queries.
      */
+    @Cacheable(CacheConfig.LOOKUPS_CACHE)
     @Transactional(readOnly = true)
     public LookupDataResponse getAllLookupData() {
-        log.debug("Fetching all lookup data");
+        log.debug("Fetching all lookup data from database (cache miss)");
 
         List<String> categories = lookupDao.findAllCategories();
         List<String> brands = lookupDao.findAllBrands();
@@ -54,5 +59,14 @@ public class LookupService {
                 .adjustmentReasons(ADJUSTMENT_REASONS)
                 .userRoles(USER_ROLES)
                 .build();
+    }
+
+    /**
+     * Evict the lookup cache.
+     * Call this when products or variants are created/updated.
+     */
+    @CacheEvict(value = CacheConfig.LOOKUPS_CACHE, allEntries = true)
+    public void evictLookupCache() {
+        log.debug("Evicting lookup cache");
     }
 }

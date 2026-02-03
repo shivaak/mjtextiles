@@ -8,6 +8,7 @@ import com.codewithshiva.retailpos.model.Product;
 import com.codewithshiva.retailpos.model.Variant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,15 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProductService {
 
     private final ProductDao productDao;
+    private final LookupService lookupService;
+
+    public ProductService(ProductDao productDao, @Lazy LookupService lookupService) {
+        this.productDao = productDao;
+        this.lookupService = lookupService;
+    }
 
     /**
      * List products with optional filters.
@@ -93,6 +99,9 @@ public class ProductService {
 
         log.info("Product created successfully with ID: {}", productId);
 
+        // Evict lookup cache since categories/brands may have changed
+        lookupService.evictLookupCache();
+
         // Fetch and return created product
         Product product = productDao.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -140,6 +149,9 @@ public class ProductService {
         );
 
         log.info("Product updated successfully: {}", id);
+
+        // Evict lookup cache since categories/brands may have changed
+        lookupService.evictLookupCache();
 
         // Fetch and return updated product
         Product updatedProduct = productDao.findById(id)
