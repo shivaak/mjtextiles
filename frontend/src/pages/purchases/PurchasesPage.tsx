@@ -56,6 +56,7 @@ import type {
   VariantSearchResponse,
   DateRange,
   CreatePurchaseRequest,
+  Variant,
 } from '../../domain/types';
 
 const purchaseSchema = z.object({
@@ -139,6 +140,39 @@ export default function PurchasesPage() {
       setIsLoading(false);
     }
   }, [dateRange, searchQuery, showError]);
+
+  const mapVariantToSearch = (variant: Variant): VariantSearchResponse => ({
+    id: variant.id,
+    productName: variant.productName,
+    sku: variant.sku,
+    barcode: variant.barcode,
+    size: variant.size,
+    color: variant.color,
+    sellingPrice: variant.sellingPrice,
+    avgCost: variant.avgCost,
+    stockQty: variant.stockQty,
+    status: variant.status,
+  });
+
+  const preloadVariants = useCallback(async () => {
+    if (variantSearch.length >= 2 || variantResults.length > 0) {
+      return;
+    }
+    try {
+      const response = await productService.getVariants({ status: 'ACTIVE', size: 10 });
+      const results = response.content.map(mapVariantToSearch);
+      setVariantResults(results);
+      setVariantCache((prev) => {
+        const next = { ...prev };
+        results.forEach((variant) => {
+          next[variant.id] = variant;
+        });
+        return next;
+      });
+    } catch (error) {
+      showError(formatApiError(error, 'Failed to load products'));
+    }
+  }, [showError, variantResults.length, variantSearch.length]);
 
   useEffect(() => {
     fetchSuppliers();
@@ -502,8 +536,27 @@ export default function PurchasesPage() {
                                   }
                                   value={f.value ? variantCache[f.value] || null : null}
                                   inputValue={f.value ? getVariantName(f.value) : variantSearch}
-                                  onInputChange={(_, value) => handleVariantSearch(value)}
-                                  onChange={(_, value) => {
+                                  onInputChange={(_, value, reason) => {
+                                    if (reason === 'clear') {
+                                      form.setValue(`items.${index}.variantId`, 0, { shouldValidate: true });
+                                      form.setValue(`items.${index}.qty`, 1, { shouldValidate: true });
+                                      form.setValue(`items.${index}.unitCost`, 0, { shouldValidate: true });
+                                      setVariantSearch('');
+                                      setVariantResults([]);
+                                      return;
+                                    }
+                                    handleVariantSearch(value);
+                                  }}
+                                  onFocus={preloadVariants}
+                                  onChange={(_, value, reason) => {
+                                    if (!value && reason === 'clear') {
+                                      form.setValue(`items.${index}.variantId`, 0, { shouldValidate: true });
+                                      form.setValue(`items.${index}.qty`, 1, { shouldValidate: true });
+                                      form.setValue(`items.${index}.unitCost`, 0, { shouldValidate: true });
+                                      setVariantSearch('');
+                                      setVariantResults([]);
+                                      return;
+                                    }
                                     if (value) {
                                       handleAddVariant(value, index);
                                     }
