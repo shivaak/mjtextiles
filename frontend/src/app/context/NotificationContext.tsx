@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -19,12 +19,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 export function useNotification() {
   const { enqueueSnackbar } = useSnackbar();
 
-  return {
-    success: (message: string) => enqueueSnackbar(message, { variant: 'success' }),
-    error: (message: string) => enqueueSnackbar(message, { variant: 'error' }),
-    warning: (message: string) => enqueueSnackbar(message, { variant: 'warning' }),
-    info: (message: string) => enqueueSnackbar(message, { variant: 'info' }),
-    show: (message: string, variant: 'success' | 'error' | 'warning' | 'info' | 'default') => 
-      enqueueSnackbar(message, { variant }),
-  };
+  return useMemo(
+    () => ({
+      success: (message: string) => enqueueSnackbar(message, { variant: 'success' }),
+      error: (message: string) => enqueueSnackbar(message, { variant: 'error' }),
+      warning: (message: string) => enqueueSnackbar(message, { variant: 'warning' }),
+      info: (message: string) => enqueueSnackbar(message, { variant: 'info' }),
+      show: (message: string, variant: 'success' | 'error' | 'warning' | 'info' | 'default') =>
+        enqueueSnackbar(message, { variant }),
+    }),
+    [enqueueSnackbar]
+  );
 }

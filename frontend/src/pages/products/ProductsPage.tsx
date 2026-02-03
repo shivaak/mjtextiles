@@ -74,7 +74,7 @@ type ProductFormData = z.infer<typeof productSchema>;
 type VariantFormData = z.infer<typeof variantSchema>;
 
 export default function ProductsPage() {
-  const { showSuccess, showError } = useNotification();
+  const { success: showSuccess, error: showError } = useNotification();
   const { isAdmin } = useAuth();
 
   // State
