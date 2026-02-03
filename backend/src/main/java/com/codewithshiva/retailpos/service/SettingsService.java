@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.SettingsDao;
 import com.codewithshiva.retailpos.dto.settings.SettingsResponse;
 import com.codewithshiva.retailpos.dto.settings.UpdateSettingsRequest;
@@ -37,6 +40,7 @@ public class SettingsService {
     /**
      * Update shop settings.
      */
+    @Auditable(entity = EntityType.SETTINGS, action = AuditAction.UPDATE)
     public SettingsResponse updateSettings(UpdateSettingsRequest request) {
         log.info("Updating shop settings");
 

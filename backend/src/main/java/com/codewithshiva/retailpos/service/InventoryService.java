@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.InventoryDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.inventory.*;
@@ -99,6 +102,7 @@ public class InventoryService {
      * Validates that the resulting stock won't be negative for negative adjustments.
      */
     @Transactional
+    @Auditable(entity = EntityType.STOCK_ADJUSTMENT, action = AuditAction.ADJUSTMENT)
     public StockAdjustmentResponse createStockAdjustment(CreateStockAdjustmentRequest request, Long createdBy) {
         log.info("Creating stock adjustment for variant ID: {} with delta: {}", 
                 request.getVariantId(), request.getDeltaQty());

@@ -1,5 +1,7 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.AuditService;
 import com.codewithshiva.retailpos.dao.RefreshTokenDao;
 import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.dto.auth.*;
@@ -31,6 +33,7 @@ public class AuthService {
     private final RefreshTokenDao refreshTokenDao;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
@@ -48,6 +51,9 @@ public class AuthService {
         User user = userDao.findByUsername(request.getUsername())
                 .orElseThrow(() -> {
                     log.warn("Login failed - user not found: {}", request.getUsername());
+                    // Audit failed login attempt
+                    auditService.logAuthWithUserId(AuditAction.LOGIN_FAILED, null, request.getUsername(),
+                            "Login failed - user not found");
                     return new AuthenticationException(
                             AuthenticationException.INVALID_CREDENTIALS,
                             "Invalid username or password"
@@ -57,6 +63,9 @@ public class AuthService {
         // Check if user is active
         if (!user.isActive()) {
             log.warn("Login failed - account disabled: {}", request.getUsername());
+            // Audit failed login attempt
+            auditService.logAuthWithUserId(AuditAction.LOGIN_FAILED, user.getId(), user.getUsername(),
+                    "Login failed - account disabled");
             throw new AuthenticationException(
                     AuthenticationException.ACCOUNT_DISABLED,
                     "Account is disabled"
@@ -66,6 +75,9 @@ public class AuthService {
         // Verify password
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             log.warn("Login failed - invalid password for user: {}", request.getUsername());
+            // Audit failed login attempt
+            auditService.logAuthWithUserId(AuditAction.LOGIN_FAILED, user.getId(), user.getUsername(),
+                    "Login failed - invalid password");
             throw new AuthenticationException(
                     AuthenticationException.INVALID_CREDENTIALS,
                     "Invalid username or password"
@@ -84,6 +96,10 @@ public class AuthService {
 
         // Update last login
         userDao.updateLastLogin(user.getId());
+
+        // Audit successful login
+        auditService.logAuthWithUserId(AuditAction.LOGIN, user.getId(), user.getUsername(),
+                "User logged in successfully");
 
         log.info("Login successful for user: {}", user.getUsername());
 
@@ -173,6 +189,9 @@ public class AuthService {
 
         refreshTokenDao.revokeByToken(request.getRefreshToken());
 
+        // Audit logout
+        auditService.logAuth(AuditAction.LOGOUT, null, "User logged out");
+
         log.info("Logout successful");
     }
 
@@ -213,6 +232,10 @@ public class AuthService {
 
         // Revoke all refresh tokens for this user (force re-login on all devices)
         refreshTokenDao.revokeAllByUserId(user.getId());
+
+        // Audit password change
+        auditService.logAuthWithUserId(AuditAction.PASSWORD_CHANGE, user.getId(), user.getUsername(),
+                "Password changed successfully");
 
         log.info("Password changed successfully for user: {}", user.getUsername());
     }

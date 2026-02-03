@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.PurchaseDao;
 import com.codewithshiva.retailpos.dao.SupplierDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
@@ -88,6 +91,7 @@ public class PurchaseService {
      * 6. Updates variant stock using PostgreSQL function
      */
     @Transactional
+    @Auditable(entity = EntityType.PURCHASE, action = AuditAction.CREATE)
     public PurchaseDetailResponse createPurchase(CreatePurchaseRequest request, Long createdBy) {
         log.info("Creating purchase for supplier ID: {} with {} items", 
                 request.getSupplierId(), request.getItems().size());

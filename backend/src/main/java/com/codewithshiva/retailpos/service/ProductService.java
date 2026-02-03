@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.ProductDao;
 import com.codewithshiva.retailpos.dto.product.*;
 import com.codewithshiva.retailpos.exception.ConflictException;
@@ -75,6 +78,7 @@ public class ProductService {
      * Create a new product.
      */
     @Transactional
+    @Auditable(entity = EntityType.PRODUCT, action = AuditAction.CREATE)
     public ProductResponse createProduct(CreateProductRequest request, Long createdBy) {
         log.info("Creating product: {} - {}", request.getBrand(), request.getName());
 
@@ -116,6 +120,7 @@ public class ProductService {
      * Update an existing product.
      */
     @Transactional
+    @Auditable(entity = EntityType.PRODUCT, action = AuditAction.UPDATE)
     public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
         log.info("Updating product with ID: {}", id);
 

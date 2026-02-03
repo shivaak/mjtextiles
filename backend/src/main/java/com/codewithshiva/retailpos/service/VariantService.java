@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.ProductDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.variant.*;
@@ -117,6 +120,7 @@ public class VariantService {
      * Create a new variant.
      */
     @Transactional
+    @Auditable(entity = EntityType.VARIANT, action = AuditAction.CREATE)
     public VariantDetailResponse createVariant(CreateVariantRequest request, Long createdBy) {
         log.info("Creating variant with SKU: {} for product ID: {}", request.getSku(), request.getProductId());
 
@@ -169,6 +173,7 @@ public class VariantService {
      * Update an existing variant.
      */
     @Transactional
+    @Auditable(entity = EntityType.VARIANT, action = AuditAction.UPDATE)
     public VariantDetailResponse updateVariant(Long id, UpdateVariantRequest request) {
         log.info("Updating variant with ID: {}", id);
 
@@ -227,6 +232,7 @@ public class VariantService {
      * Update variant status.
      */
     @Transactional
+    @Auditable(entity = EntityType.VARIANT, action = AuditAction.STATUS_CHANGE)
     public void updateVariantStatus(Long id, String status) {
         log.info("Updating variant status for ID: {} to: {}", id, status);
 

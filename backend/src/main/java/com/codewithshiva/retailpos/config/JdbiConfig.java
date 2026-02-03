@@ -1,5 +1,6 @@
 package com.codewithshiva.retailpos.config;
 
+import com.codewithshiva.retailpos.audit.AuditDao;
 import com.codewithshiva.retailpos.dao.DashboardDao;
 import com.codewithshiva.retailpos.dao.InventoryDao;
 import com.codewithshiva.retailpos.dao.LookupDao;
@@ -113,6 +114,11 @@ public class JdbiConfig {
     @Bean
     public LookupDao lookupDao(Jdbi jdbi) {
         return jdbi.onDemand(LookupDao.class);
+    }
+
+    @Bean
+    public AuditDao auditDao(Jdbi jdbi) {
+        return jdbi.onDemand(AuditDao.class);
     }
 
     // ==========================================

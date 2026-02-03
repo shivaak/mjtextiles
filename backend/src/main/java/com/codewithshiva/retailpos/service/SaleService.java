@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.SaleDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.sale.*;
@@ -88,6 +91,7 @@ public class SaleService {
      * 7. Creates sale and sale items records
      */
     @Transactional
+    @Auditable(entity = EntityType.SALE, action = AuditAction.CREATE)
     public SaleDetailResponse createSale(CreateSaleRequest request, Long createdBy) {
         log.info("Creating sale with {} items, payment mode: {}", request.getItems().size(), request.getPaymentMode());
 
@@ -220,6 +224,7 @@ public class SaleService {
      * 3. Marks sale as VOIDED
      */
     @Transactional
+    @Auditable(entity = EntityType.SALE, action = AuditAction.VOID)
     public SaleDetailResponse voidSale(Long id, VoidSaleRequest request, Long voidedBy) {
         log.info("Voiding sale ID: {} with reason: {}", id, request.getReason());
 

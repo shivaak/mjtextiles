@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.RefreshTokenDao;
 import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.dto.auth.UserResponse;
@@ -66,6 +69,7 @@ public class UserService {
     /**
      * Create a new user.
      */
+    @Auditable(entity = EntityType.USER, action = AuditAction.CREATE)
     public UserResponse createUser(CreateUserRequest request) {
         log.info("Creating user: {}", request.getUsername());
 
@@ -95,6 +99,7 @@ public class UserService {
     /**
      * Update an existing user.
      */
+    @Auditable(entity = EntityType.USER, action = AuditAction.UPDATE)
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         log.info("Updating user with ID: {}", id);
 
@@ -142,6 +147,7 @@ public class UserService {
     /**
      * Update user's active status.
      */
+    @Auditable(entity = EntityType.USER, action = AuditAction.STATUS_CHANGE)
     public void updateStatus(Long id, UpdateStatusRequest request) {
         log.info("Updating status for user ID: {} to isActive: {}", id, request.getIsActive());
 

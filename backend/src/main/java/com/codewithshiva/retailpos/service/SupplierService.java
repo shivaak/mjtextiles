@@ -1,5 +1,8 @@
 package com.codewithshiva.retailpos.service;
 
+import com.codewithshiva.retailpos.audit.Auditable;
+import com.codewithshiva.retailpos.audit.AuditAction;
+import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.SupplierDao;
 import com.codewithshiva.retailpos.dto.supplier.CreateSupplierRequest;
 import com.codewithshiva.retailpos.dto.supplier.SupplierResponse;
@@ -65,6 +68,7 @@ public class SupplierService {
      * Create a new supplier.
      */
     @Transactional
+    @Auditable(entity = EntityType.SUPPLIER, action = AuditAction.CREATE)
     public SupplierResponse createSupplier(CreateSupplierRequest request, Long createdBy) {
         log.info("Creating supplier: {}", request.getName());
 
@@ -97,6 +101,7 @@ public class SupplierService {
      * Update an existing supplier.
      */
     @Transactional
+    @Auditable(entity = EntityType.SUPPLIER, action = AuditAction.UPDATE)
     public SupplierResponse updateSupplier(Long id, UpdateSupplierRequest request) {
         log.info("Updating supplier with ID: {}", id);
 
