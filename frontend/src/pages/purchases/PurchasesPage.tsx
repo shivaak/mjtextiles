@@ -272,6 +272,18 @@ export default function PurchasesPage() {
     }
   };
 
+  const handleResetPurchaseForm = () => {
+    form.reset({
+      supplierId: 0,
+      purchasedAt: dayjs().format('YYYY-MM-DD'),
+      invoiceNo: '',
+      notes: '',
+      items: [{ variantId: 0, qty: 1, unitCost: 0 }],
+    });
+    setVariantSearch('');
+    setVariantResults([]);
+  };
+
   const handleCreateSupplier = async () => {
     if (!newSupplierName.trim()) return;
     try {
@@ -649,6 +661,7 @@ export default function PurchasesPage() {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleResetPurchaseForm}>Reset</Button>
             <Button type="submit" variant="contained" disabled={isSaving}>
               {isSaving ? <CircularProgress size={20} color="inherit" /> : 'Save Purchase'}
             </Button>
