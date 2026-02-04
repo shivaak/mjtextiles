@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, useEffect, memo } from 'react';
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -20,7 +20,10 @@ import {
   useMediaQuery,
   useTheme as useMuiTheme,
   Badge,
-  InputBase,
+  Autocomplete,
+  CircularProgress,
+  InputAdornment,
+  TextField,
   alpha,
 } from '@mui/material';
 import {
@@ -43,6 +46,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotification } from '../context/NotificationContext';
+import { productService } from '../../services/productService';
+import type { Product, VariantSearchResponse } from '../../domain/types';
 
 const DRAWER_WIDTH = 260;
 
@@ -52,6 +57,14 @@ interface NavItem {
   icon: React.ReactNode;
   adminOnly?: boolean;
 }
+
+type GlobalSearchOption = {
+  type: 'product' | 'variant';
+  id: number;
+  label: string;
+  subLabel: string;
+  query: string;
+};
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
@@ -261,6 +274,76 @@ const TopBar = memo(function TopBar({
   isDark, 
   onThemeToggle 
 }: TopBarProps) {
+  const navigate = useNavigate();
+  const notification = useNotification();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOptions, setSearchOptions] = useState<GlobalSearchOption[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    if (trimmed.length < 2) {
+      setSearchOptions([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    let active = true;
+    setSearchLoading(true);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const [products, variants] = await Promise.all([
+          productService.getProducts({ search: trimmed, page: 0, size: 6 }),
+          productService.searchVariants(trimmed, 6),
+        ]);
+
+        if (!active) return;
+
+        const productOptions: GlobalSearchOption[] = products.content.map((product: Product) => ({
+          type: 'product',
+          id: product.id,
+          label: product.name,
+          subLabel: `${product.brand} · ${product.category}`,
+          query: product.name,
+        }));
+
+        const variantOptions: GlobalSearchOption[] = variants
+          .filter((variant: VariantSearchResponse) => variant.status === 'ACTIVE')
+          .map((variant: VariantSearchResponse) => {
+            const sku = variant.sku ? `SKU ${variant.sku}` : 'SKU N/A';
+            const barcode = variant.barcode ? `Barcode ${variant.barcode}` : 'Barcode N/A';
+            const sizeColor = [variant.size, variant.color].filter(Boolean).join(' · ');
+            return {
+              type: 'variant',
+              id: variant.id,
+              label: variant.productName,
+              subLabel: [sizeColor, sku, barcode, `Stock ${variant.stockQty}`]
+                .filter(Boolean)
+                .join(' · '),
+              query: variant.sku || variant.barcode || variant.productName,
+            };
+          });
+
+        setSearchOptions([...productOptions, ...variantOptions]);
+      } catch (error) {
+        if (!active) return;
+        setSearchOptions([]);
+        notification.error('Search failed');
+      } finally {
+        if (active) {
+          setSearchLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [notification, searchQuery]);
+
   return (
     <AppBar
       position="fixed"
@@ -296,11 +379,65 @@ const TopBar = memo(function TopBar({
             maxWidth: 400,
           }}
         >
-          <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
-          <InputBase
-            placeholder="Search products, SKU, barcode..."
-            sx={{ flex: 1 }}
-            inputProps={{ 'aria-label': 'search' }}
+          <Autocomplete
+            freeSolo
+            fullWidth
+            options={searchOptions}
+            loading={searchLoading}
+            inputValue={searchQuery}
+            onInputChange={(_, value) => setSearchQuery(value)}
+            onChange={(_, option) => {
+              if (!option) return;
+              navigate(`/inventory?q=${encodeURIComponent(option.query)}`);
+              setSearchQuery('');
+              setSearchOptions([]);
+            }}
+            groupBy={(option) => (option.type === 'product' ? 'Products' : 'Variants')}
+            getOptionLabel={(option) => option.label}
+            filterOptions={(options) => options}
+            noOptionsText={searchQuery.trim().length < 2 ? 'Type at least 2 characters' : 'No results'}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search products, SKU, barcode..."
+                variant="standard"
+                InputProps={{
+                  ...params.InputProps,
+                  disableUnderline: true,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: 'text.secondary' }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <>
+                      {searchLoading ? <CircularProgress color="inherit" size={16} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+                inputProps={{
+                  ...params.inputProps,
+                  'aria-label': 'search',
+                }}
+              />
+            )}
+            renderOption={(props, option) => (
+              <Box component="li" {...props} key={`${option.type}-${option.id}`}>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="body2">{option.label}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {option.subLabel}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            sx={{
+              flex: 1,
+              '& .MuiInputBase-root': {
+                fontSize: '0.95rem',
+              },
+            }}
           />
         </Box>
 

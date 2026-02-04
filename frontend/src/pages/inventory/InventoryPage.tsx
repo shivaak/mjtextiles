@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -74,8 +74,10 @@ type AdjustmentFormData = z.infer<typeof adjustmentSchema>;
 export default function InventoryPage() {
   const { isAdmin } = useAuth();
   const { success: showSuccess, error: showError } = useNotification();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearchQuery = searchParams.get('q') || '';
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<string>('');
@@ -189,6 +191,30 @@ export default function InventoryPage() {
   useEffect(() => {
     fetchVariants();
   }, [fetchVariants]);
+
+  useEffect(() => {
+    const urlQuery = searchParams.get('q') || '';
+    if (urlQuery !== searchQuery) {
+      setSearchQuery(urlQuery);
+      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    }
+  }, [searchParams, searchQuery]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+
+    const nextParams = new URLSearchParams(searchParams);
+    const trimmed = value.trim();
+
+    if (trimmed) {
+      nextParams.set('q', trimmed);
+    } else {
+      nextParams.delete('q');
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const stats = useMemo(() => {
     const totalValue = summary?.totalValue || 0;
@@ -430,7 +456,7 @@ export default function InventoryPage() {
                 fullWidth
                 placeholder="Search by name, SKU, barcode..."
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(event) => handleSearchChange(event.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
