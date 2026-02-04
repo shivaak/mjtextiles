@@ -93,4 +93,9 @@ export const productService = {
     });
     return unwrapApiResponse(response);
   },
+
+  async getVariantByBarcode(barcode: string): Promise<VariantSearchResponse> {
+    const response = await api.get<ApiResponse<VariantSearchResponse>>(`/variants/barcode/${barcode}`);
+    return unwrapApiResponse(response);
+  },
 };

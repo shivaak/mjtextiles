@@ -1,5 +1,8 @@
 export type UserRole = 'ADMIN' | 'EMPLOYEE';
 
+export type PaymentMode = 'CASH' | 'CARD' | 'UPI' | 'CREDIT';
+export type SaleStatus = 'COMPLETED' | 'VOIDED';
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -202,6 +205,105 @@ export interface CreatePurchaseRequest {
 export interface DateRange {
   startDate: string;
   endDate: string;
+}
+
+// Sales / Billing
+export interface CartItem {
+  variantId: number;
+  variant: VariantSearchResponse;
+  qty: number;
+  unitPrice: number;
+}
+
+export interface SaleItem {
+  id: number;
+  variantId: number;
+  variantSku?: string;
+  variantBarcode?: string;
+  productName?: string;
+  size?: string;
+  color?: string;
+  qty: number;
+  unitPrice: number;
+  unitCostAtSale?: number;
+  totalPrice?: number;
+}
+
+export interface SaleDetail {
+  id: number;
+  billNo: string;
+  soldAt: string;
+  customerName?: string;
+  customerPhone?: string;
+  paymentMode: PaymentMode;
+  subtotal: number;
+  discountPercent: number;
+  discountAmount: number;
+  taxPercent: number;
+  taxAmount: number;
+  total: number;
+  profit?: number;
+  status: SaleStatus;
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  voidedAt?: string;
+  voidedBy?: number;
+  voidedByName?: string;
+  voidReason?: string;
+  items: SaleItem[];
+}
+
+export interface SaleList {
+  id: number;
+  billNo: string;
+  soldAt: string;
+  customerName?: string;
+  customerPhone?: string;
+  paymentMode: PaymentMode;
+  subtotal: number;
+  discountPercent: number;
+  discountAmount: number;
+  taxPercent: number;
+  taxAmount: number;
+  total: number;
+  profit?: number;
+  itemCount?: number;
+  status: SaleStatus;
+  createdBy: number;
+  createdByName?: string;
+  createdAt?: string;
+}
+
+export interface UserLookup {
+  id: number;
+  fullName: string;
+  role: UserRole;
+  isActive: boolean;
+}
+
+export interface LookupDataResponse {
+  categories: string[];
+  brands: string[];
+  sizes: string[];
+  colors: string[];
+  paymentModes: string[];
+  adjustmentReasons: string[];
+  userRoles: string[];
+}
+
+export interface CreateSaleItemRequest {
+  variantId: number;
+  qty: number;
+  unitPrice: number;
+}
+
+export interface CreateSaleRequest {
+  customerName?: string;
+  customerPhone?: string;
+  paymentMode: PaymentMode;
+  discountPercent: number;
+  items: CreateSaleItemRequest[];
 }
 
 // Settings

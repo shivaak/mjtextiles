@@ -40,6 +40,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { productService } from '../../services/productService';
 import { settingsService } from '../../services/settingsService';
 import { formatApiError } from '../../services/api';
+import { lookupService } from '../../services/lookupService';
 import type {
   Product,
   Variant,
@@ -149,13 +150,12 @@ export default function ProductsPage() {
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
-      const [categoriesData, brandsData, productsData] = await Promise.all([
-        productService.getCategories(),
-        productService.getBrands(),
+      const [lookups, productsData] = await Promise.all([
+        lookupService.getLookups(),
         productService.getProducts({ size: 1000 }),
       ]);
-      setCategories(categoriesData);
-      setBrands(brandsData);
+      setCategories(lookups.categories || []);
+      setBrands(lookups.brands || []);
       setProducts(productsData.content);
     } catch (error) {
       showError(formatApiError(error, 'Failed to load filter options'));

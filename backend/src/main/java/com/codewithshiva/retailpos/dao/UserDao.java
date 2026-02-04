@@ -6,6 +6,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jdbi.v3.sqlobject.customizer.BindList;
 
 import java.util.List;
 import java.util.Optional;
@@ -92,6 +93,16 @@ public interface UserDao {
     List<User> findWithFilters(@Bind("role") String role,
                                @Bind("isActive") Boolean isActive,
                                @Bind("search") String search);
+
+    @SqlQuery("""
+        SELECT id, username, password_hash as passwordHash, full_name as fullName,
+               role, is_active as isActive, created_at as createdAt,
+               updated_at as updatedAt, last_login_at as lastLoginAt
+        FROM users
+        WHERE role IN (<roles>)
+        ORDER BY created_at DESC
+        """)
+    List<User> findByRoles(@BindList("roles") List<String> roles);
 
     @SqlUpdate("""
         UPDATE users

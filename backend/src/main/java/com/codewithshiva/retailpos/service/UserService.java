@@ -7,6 +7,7 @@ import com.codewithshiva.retailpos.dao.RefreshTokenDao;
 import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.dto.auth.UserResponse;
 import com.codewithshiva.retailpos.dto.user.CreateUserRequest;
+import com.codewithshiva.retailpos.dto.user.UserLookupResponse;
 import com.codewithshiva.retailpos.dto.user.ResetPasswordRequest;
 import com.codewithshiva.retailpos.dto.user.UpdateStatusRequest;
 import com.codewithshiva.retailpos.dto.user.UpdateUserRequest;
@@ -19,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -48,6 +50,22 @@ public class UserService {
 
         return users.stream()
                 .map(UserResponse::fromUser)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * List users for lookup dropdowns (optional roles filter).
+     */
+    public List<UserLookupResponse> listUsersForLookup(List<String> roles) {
+        List<User> users;
+        if (roles == null || roles.isEmpty()) {
+            users = userDao.findAll();
+        } else {
+            users = userDao.findByRoles(new ArrayList<>(roles));
+        }
+
+        return users.stream()
+                .map(UserLookupResponse::fromUser)
                 .collect(Collectors.toList());
     }
 
