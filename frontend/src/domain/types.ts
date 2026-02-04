@@ -342,6 +342,43 @@ export interface RecentSale {
   status: string;
 }
 
+// Inventory
+export interface InventorySummary {
+  totalSkus: number;
+  totalItems: number;
+  totalValue: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+}
+
+export interface StockMovement {
+  id: number;
+  type: string;
+  date: string;
+  qty: number;
+  referenceId?: number;
+  referenceNo?: string;
+  supplierName?: string;
+  unitCost?: number;
+  notes?: string;
+}
+
+export interface SupplierSummary {
+  supplierId: number;
+  supplierName: string;
+  totalQty: number;
+  purchaseCount: number;
+  lastPurchaseDate: string;
+  avgUnitCost: number;
+}
+
+export interface StockAdjustmentRequest {
+  variantId: number;
+  deltaQty: number;
+  reason: string;
+  notes?: string;
+}
+
 export interface CreateSaleItemRequest {
   variantId: number;
   qty: number;

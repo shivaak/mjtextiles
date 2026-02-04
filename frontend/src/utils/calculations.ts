@@ -63,3 +63,10 @@ export function calculateGrandTotal(
 ): number {
   return Math.round((subtotal - discountAmount + taxAmount) * 100) / 100;
 }
+
+/**
+ * Calculate stock value for a variant
+ */
+export function calculateStockValue(variant: { stockQty: number; avgCost: number }): number {
+  return Math.round(variant.stockQty * variant.avgCost * 100) / 100;
+}

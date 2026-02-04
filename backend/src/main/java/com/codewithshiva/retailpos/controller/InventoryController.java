@@ -26,7 +26,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/inventory")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Inventory Management", description = "Inventory summary, stock movements, and adjustments (Admin only)")
 public class InventoryController {
 
@@ -35,6 +34,7 @@ public class InventoryController {
     @GetMapping("/summary")
     @Operation(summary = "Get Inventory Summary", description = "Get aggregated inventory statistics")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE')")
     public ResponseEntity<ApiResponse<InventorySummaryResponse>> getInventorySummary() {
         log.debug("Get inventory summary request");
         InventorySummaryResponse summary = inventoryService.getInventorySummary();
@@ -44,6 +44,7 @@ public class InventoryController {
     @GetMapping("/movements/{variantId}")
     @Operation(summary = "Get Stock Movements", description = "Get stock movement history for a variant")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE')")
     public ResponseEntity<ApiResponse<List<StockMovementResponse>>> getStockMovements(
             @PathVariable Long variantId,
             @RequestParam(required = false) String startDate,
@@ -59,6 +60,7 @@ public class InventoryController {
     @GetMapping("/suppliers/{variantId}")
     @Operation(summary = "Get Supplier Summary", description = "Get all suppliers who have supplied a particular variant")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE')")
     public ResponseEntity<ApiResponse<List<SupplierSummaryResponse>>> getSupplierSummary(
             @PathVariable Long variantId) {
         log.debug("Get supplier summary request for variant ID: {}", variantId);
@@ -69,6 +71,7 @@ public class InventoryController {
     @PostMapping("/adjustments")
     @Operation(summary = "Create Stock Adjustment", description = "Manually adjust stock for damage, theft, correction, etc.")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<StockAdjustmentResponse>> createStockAdjustment(
             @Valid @RequestBody CreateStockAdjustmentRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
