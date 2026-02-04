@@ -292,6 +292,56 @@ export interface LookupDataResponse {
   userRoles: string[];
 }
 
+// Dashboard
+export interface DashboardStats {
+  totalSales: number;
+  totalProfit: number;
+  totalTransactions: number;
+  avgOrderValue: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  totalSkus: number;
+}
+
+export interface SalesTrend {
+  date: string;
+  sales: number;
+  profit: number;
+  transactions: number;
+}
+
+export interface TopProduct {
+  variantId: number;
+  productName: string;
+  sku?: string;
+  size?: string;
+  color?: string;
+  qtySold: number;
+  revenue: number;
+  profit: number;
+}
+
+export interface LowStockItem {
+  variantId: number;
+  productName: string;
+  sku?: string;
+  size?: string;
+  color?: string;
+  stockQty: number;
+  threshold?: number;
+}
+
+export interface RecentSale {
+  id: number;
+  billNo: string;
+  soldAt: string;
+  customerName?: string;
+  total: number;
+  itemCount: number;
+  paymentMode: string;
+  status: string;
+}
+
 export interface CreateSaleItemRequest {
   variantId: number;
   qty: number;

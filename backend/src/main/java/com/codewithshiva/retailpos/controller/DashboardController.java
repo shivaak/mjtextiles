@@ -22,7 +22,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Dashboard", description = "Dashboard statistics and metrics (Admin only)")
 public class DashboardController {
 
@@ -31,6 +30,7 @@ public class DashboardController {
     @GetMapping("/stats")
     @Operation(summary = "Get Dashboard Stats", description = "Get key metrics for dashboard based on period")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<DashboardStatsResponse>> getDashboardStats(
             @RequestParam(required = false, defaultValue = "today") String period,
             @RequestParam(required = false) String startDate,
@@ -43,6 +43,7 @@ public class DashboardController {
     @GetMapping("/sales-trend")
     @Operation(summary = "Get Sales Trend", description = "Get daily sales data for chart")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<SalesTrendResponse>>> getSalesTrend(
             @RequestParam(required = false, defaultValue = "30") Integer days) {
         log.debug("Sales trend request - days: {}", days);
@@ -53,6 +54,7 @@ public class DashboardController {
     @GetMapping("/top-products")
     @Operation(summary = "Get Top Selling Products", description = "Get top selling products/variants for period")
     @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<TopProductResponse>>> getTopSellingProducts(
             @RequestParam(required = false, defaultValue = "30days") String period,
             @RequestParam(required = false, defaultValue = "10") Integer limit) {
