@@ -347,10 +347,11 @@ export default function BillingPage() {
               <Autocomplete
                 freeSolo
                 options={searchResults}
+                filterOptions={(options) => options}
                 getOptionLabel={(option) =>
                   typeof option === 'string'
                     ? option
-                    : `${option.productName} - ${option.size} ${option.color} (${option.barcode})`
+                    : `${option.productName} - ${option.sku} - ${option.size} ${option.color} (${option.barcode})`
                 }
                 inputValue={searchQuery}
                 onInputChange={(_, value) => handleSearch(value)}
@@ -380,7 +381,7 @@ export default function BillingPage() {
                         {option.productName}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.size} | {option.color} | {option.barcode}
+                        {option.sku} | {option.size} | {option.color} | {option.barcode}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'right' }}>
