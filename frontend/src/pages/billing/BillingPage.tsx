@@ -58,10 +58,7 @@ import type {
   Settings,
 } from '../../domain/types';
 import {
-  calculateSubtotal,
   calculateDiscountAmount,
-  calculateTaxAmount,
-  calculateGrandTotal,
   formatCurrency,
 } from '../../utils/calculations';
 
@@ -141,8 +138,13 @@ export default function BillingPage() {
   const currencySymbol = getCurrencySymbol(settings?.currency);
   const taxPercent = Number(settings?.taxPercent || 0);
   const lowStockThreshold = Number(settings?.lowStockThreshold || 10);
+  const taxMultiplier = 1 + taxPercent / 100;
+  const getBaseUnitPrice = useCallback(
+    (price: number) => (taxPercent > 0 ? price / taxMultiplier : price),
+    [taxPercent, taxMultiplier]
+  );
 
-  const subtotal = calculateSubtotal(cart);
+  const subtotal = cart.reduce((sum, item) => sum + (getBaseUnitPrice(item.unitPrice) * item.qty), 0);
   const discountAmount = discountType === 'percent'
     ? calculateDiscountAmount(subtotal, discountValue)
     : Math.min(discountValue, subtotal);
@@ -150,8 +152,8 @@ export default function BillingPage() {
     ? Math.min(discountValue, 100)
     : subtotal > 0 ? Math.min((discountValue / subtotal) * 100, 100) : 0;
   const afterDiscount = subtotal - discountAmount;
-  const taxAmount = calculateTaxAmount(afterDiscount, taxPercent);
-  const grandTotal = calculateGrandTotal(subtotal, discountAmount, taxAmount);
+  const taxAmount = taxPercent > 0 ? (afterDiscount * taxPercent) / 100 : 0;
+  const grandTotal = afterDiscount + taxAmount;
 
   const addToCart = useCallback((variant: VariantSearchResponse) => {
     setCart((prev) => {
@@ -425,20 +427,28 @@ export default function BillingPage() {
                       <TableRow>
                         <TableCell>Product</TableCell>
                         <TableCell align="center">Qty</TableCell>
-                        <TableCell align="right">Price</TableCell>
+                      <TableCell align="right">Price (excl tax)</TableCell>
+                      <TableCell align="right">Tax ({taxPercent}%)</TableCell>
                         <TableCell align="right">Total</TableCell>
                         <TableCell align="center" width={50}></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {cart.map((item) => (
+                    {cart.map((item) => {
+                      const baseUnitPrice = getBaseUnitPrice(item.unitPrice);
+                      const lineTax = (item.unitPrice - baseUnitPrice) * item.qty;
+
+                      return (
                         <TableRow key={item.variantId}>
                           <TableCell>
                             <Typography variant="body2" fontWeight={500}>
                               {item.variant.productName}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {item.variant.size} | {item.variant.color} | {item.variant.barcode}
+                            <Typography variant="caption" color="text.secondary" component="div">
+                              {item.variant.size} | {item.variant.color} | {item.variant.sku}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" component="div">
+                              MRP: {formatCurrency(item.unitPrice, currencySymbol)}
                             </Typography>
                             {item.qty >= item.variant.stockQty && (
                               <Chip label="Max stock" size="small" color="warning" sx={{ ml: 1 }} />
@@ -466,7 +476,10 @@ export default function BillingPage() {
                             </Box>
                           </TableCell>
                           <TableCell align="right">
-                            <Money value={item.unitPrice} symbol={currencySymbol} />
+                            <Money value={baseUnitPrice} symbol={currencySymbol} />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Money value={lineTax} symbol={currencySymbol} />
                           </TableCell>
                           <TableCell align="right">
                             <Typography fontWeight={500}>
@@ -479,7 +492,8 @@ export default function BillingPage() {
                             </IconButton>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      );
+                    })}
                     </TableBody>
                   </Table>
                 </TableContainer>
