@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -6,6 +7,7 @@ import {
   CardContent,
   Typography,
   Chip,
+  Link,
   Table,
   TableBody,
   TableCell,
@@ -376,9 +378,15 @@ export default function DashboardPage() {
                     {recentSales.map((sale) => (
                       <TableRow key={sale.id}>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>
+                          <Link
+                            component={RouterLink}
+                            to={`/sales/${sale.id}`}
+                            underline="always"
+                            color="primary"
+                            sx={{ fontWeight: 600, fontSize: '0.875rem' }}
+                          >
                             {sale.billNo}
-                          </Typography>
+                          </Link>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">

@@ -7,6 +7,16 @@ export const saleService = {
     return unwrapApiResponse(response);
   },
 
+  async getSaleById(id: number): Promise<SaleDetail> {
+    const response = await api.get<ApiResponse<SaleDetail>>(`/sales/${id}`);
+    return unwrapApiResponse(response);
+  },
+
+  async voidSale(id: number, reason: string): Promise<SaleDetail> {
+    const response = await api.put<ApiResponse<SaleDetail>>(`/sales/${id}/void`, { reason });
+    return unwrapApiResponse(response);
+  },
+
   async getSales(params?: {
     startDate?: string;
     endDate?: string;
