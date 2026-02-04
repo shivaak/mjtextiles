@@ -381,7 +381,7 @@ export default function ProductsPage() {
         />
       ),
     },
-    {
+    ...(isAdmin ? [{
       field: 'actions',
       headerName: 'Actions',
       width: 100,
@@ -410,7 +410,7 @@ export default function ProductsPage() {
           </Tooltip>
         </Box>
       ),
-    },
+    }] : []),
   ];
 
   return (
