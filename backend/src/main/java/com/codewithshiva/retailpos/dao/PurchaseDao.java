@@ -44,7 +44,11 @@ public interface PurchaseDao {
         WHERE (:supplierId IS NULL OR supplier_id = :supplierId)
           AND (:startDate IS NULL OR purchased_at >= :startDate)
           AND (:endDate IS NULL OR purchased_at < :endDate)
-          AND (:search IS NULL OR LOWER(invoice_no) LIKE LOWER('%' || :search || '%'))
+          AND (
+                :search IS NULL
+                OR LOWER(invoice_no) LIKE LOWER('%' || :search || '%')
+                OR LOWER(supplier_name) LIKE LOWER('%' || :search || '%')
+              )
         ORDER BY purchased_at DESC
         """)
     @RegisterConstructorMapper(PurchaseWithDetails.class)

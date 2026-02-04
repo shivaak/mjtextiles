@@ -49,12 +49,13 @@ public class PurchaseService {
         // Parse date strings to OffsetDateTime
         OffsetDateTime startDateTime = parseStartDate(startDate);
         OffsetDateTime endDateTime = parseEndDate(endDate);
+        String trimmedSearch = normalizeSearch(search);
 
         List<PurchaseWithDetails> purchases;
-        if (supplierId == null && startDateTime == null && endDateTime == null && search == null) {
+        if (supplierId == null && startDateTime == null && endDateTime == null && trimmedSearch == null) {
             purchases = purchaseDao.findAll();
         } else {
-            purchases = purchaseDao.findWithFilters(supplierId, startDateTime, endDateTime, search);
+            purchases = purchaseDao.findWithFilters(supplierId, startDateTime, endDateTime, trimmedSearch);
         }
 
         return purchases.stream()
@@ -194,5 +195,13 @@ public class PurchaseService {
         } catch (Exception e) {
             throw new BadRequestException("INVALID_DATE", "Invalid end date format. Use YYYY-MM-DD");
         }
+    }
+
+    private String normalizeSearch(String search) {
+        if (search == null) {
+            return null;
+        }
+        String trimmed = search.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
