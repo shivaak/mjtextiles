@@ -27,6 +27,11 @@ public class PurchaseListResponse {
     private BigDecimal totalCost;
     private Integer itemCount;
     private String notes;
+    private String status;
+    private OffsetDateTime voidedAt;
+    private Long voidedBy;
+    private String voidedByName;
+    private String voidReason;
     private Long createdBy;
     private String createdByName;
     private OffsetDateTime createdAt;
@@ -44,6 +49,11 @@ public class PurchaseListResponse {
                 .totalCost(purchase.getTotalCost())
                 .itemCount(purchase.getItemCount())
                 .notes(purchase.getNotes())
+                .status(purchase.getStatus())
+                .voidedAt(purchase.getVoidedAt())
+                .voidedBy(purchase.getVoidedBy())
+                .voidedByName(purchase.getVoidedByName())
+                .voidReason(purchase.getVoidReason())
                 .createdBy(purchase.getCreatedBy())
                 .createdByName(purchase.getCreatedByName())
                 .createdAt(purchase.getCreatedAt())

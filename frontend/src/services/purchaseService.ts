@@ -4,6 +4,9 @@ import type {
   PurchaseDetail,
   PurchaseList,
   CreatePurchaseRequest,
+  UpdatePurchaseMetadataRequest,
+  UpdatePurchaseItemsRequest,
+  VoidPurchaseRequest,
 } from '../domain/types';
 
 export const purchaseService = {
@@ -24,6 +27,21 @@ export const purchaseService = {
 
   async createPurchase(data: CreatePurchaseRequest): Promise<PurchaseDetail> {
     const response = await api.post<ApiResponse<PurchaseDetail>>('/purchases', data);
+    return unwrapApiResponse(response);
+  },
+
+  async voidPurchase(id: number, data: VoidPurchaseRequest): Promise<void> {
+    const response = await api.put<ApiResponse<void>>(`/purchases/${id}/void`, data);
+    unwrapApiResponse(response, { allowEmptyData: true });
+  },
+
+  async updatePurchaseMetadata(id: number, data: UpdatePurchaseMetadataRequest): Promise<PurchaseDetail> {
+    const response = await api.patch<ApiResponse<PurchaseDetail>>(`/purchases/${id}/metadata`, data);
+    return unwrapApiResponse(response);
+  },
+
+  async updatePurchaseItems(id: number, data: UpdatePurchaseItemsRequest): Promise<PurchaseDetail> {
+    const response = await api.put<ApiResponse<PurchaseDetail>>(`/purchases/${id}/items`, data);
     return unwrapApiResponse(response);
   },
 };

@@ -89,6 +89,7 @@ public interface SaleDao {
     @SqlQuery("""
         SELECT si.id, si.variant_id as variantId, v.sku as variantSku, 
                v.barcode as variantBarcode, p.name as productName,
+               p.hsn as productHsn,
                v.size, v.color, si.qty, si.unit_price as unitPrice, 
                si.unit_cost_at_sale as unitCostAtSale
         FROM sale_items si

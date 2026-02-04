@@ -3,6 +3,7 @@ package com.codewithshiva.retailpos.service;
 import com.codewithshiva.retailpos.audit.Auditable;
 import com.codewithshiva.retailpos.audit.AuditAction;
 import com.codewithshiva.retailpos.audit.EntityType;
+import com.codewithshiva.retailpos.dao.InventoryDao;
 import com.codewithshiva.retailpos.dao.PurchaseDao;
 import com.codewithshiva.retailpos.dao.SupplierDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
@@ -22,6 +23,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,6 +38,7 @@ public class PurchaseService {
     private final PurchaseDao purchaseDao;
     private final SupplierDao supplierDao;
     private final VariantDao variantDao;
+    private final InventoryDao inventoryDao;
 
     /**
      * List purchases with optional filters.
@@ -164,6 +167,202 @@ public class PurchaseService {
 
         // Return created purchase with details
         return getPurchaseById(purchaseId);
+    }
+
+    /**
+     * Void a purchase and create compensating stock adjustments.
+     */
+    @Transactional
+    @Auditable(entity = EntityType.PURCHASE, action = AuditAction.VOID)
+    public void voidPurchase(Long id, String voidReason, Long voidedBy) {
+        PurchaseWithDetails purchase = purchaseDao.findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PURCHASE_NOT_FOUND",
+                        "Purchase not found with ID: " + id
+                ));
+
+        if ("VOIDED".equals(purchase.getStatus())) {
+            throw new BadRequestException("PURCHASE_ALREADY_VOIDED", "Purchase is already voided");
+        }
+
+        List<PurchaseItemWithVariant> items = purchaseDao.findItemsByPurchaseId(id);
+        for (PurchaseItemWithVariant item : items) {
+            Integer currentStock = inventoryDao.getVariantStockQty(item.getVariantId());
+            int newStock = currentStock - item.getQty();
+            if (newStock < 0) {
+                throw new BadRequestException(
+                        "INSUFFICIENT_STOCK",
+                        "Cannot void purchase. Variant " + item.getVariantId() + " would go negative."
+                );
+            }
+        }
+
+        for (PurchaseItemWithVariant item : items) {
+            String notes = "Void purchase #" + id + ": " + voidReason;
+            inventoryDao.createAdjustment(
+                    item.getVariantId(),
+                    -item.getQty(),
+                    "CORRECTION",
+                    notes,
+                    voidedBy
+            );
+            inventoryDao.updateVariantStock(item.getVariantId(), -item.getQty());
+        }
+
+        purchaseDao.updateStatus(id, "VOIDED", OffsetDateTime.now(ZoneOffset.UTC), voidedBy, voidReason);
+        log.info("Purchase voided successfully: {}", id);
+    }
+
+    /**
+     * Update purchase metadata (invoice no, notes).
+     */
+    @Transactional
+    @Auditable(entity = EntityType.PURCHASE, action = AuditAction.UPDATE)
+    public PurchaseDetailResponse updatePurchaseMetadata(Long id, String invoiceNo, String notes) {
+        PurchaseWithDetails purchase = purchaseDao.findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PURCHASE_NOT_FOUND",
+                        "Purchase not found with ID: " + id
+                ));
+
+        if ("VOIDED".equals(purchase.getStatus())) {
+            throw new BadRequestException("PURCHASE_VOIDED", "Cannot edit a voided purchase");
+        }
+
+        purchaseDao.updateMetadata(id, invoiceNo, notes);
+        return getPurchaseById(id);
+    }
+
+    /**
+     * Update purchase items if no subsequent stock movements exist per item.
+     */
+    @Transactional
+    @Auditable(entity = EntityType.PURCHASE, action = AuditAction.UPDATE)
+    public PurchaseDetailResponse updatePurchaseItems(Long id, List<CreatePurchaseItemRequest> items) {
+        PurchaseWithDetails purchase = purchaseDao.findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PURCHASE_NOT_FOUND",
+                        "Purchase not found with ID: " + id
+                ));
+
+        if ("VOIDED".equals(purchase.getStatus())) {
+            throw new BadRequestException("PURCHASE_VOIDED", "Cannot edit a voided purchase");
+        }
+
+        List<PurchaseItemWithVariant> existingItems = purchaseDao.findItemsByPurchaseId(id);
+
+        Set<Long> newVariantIds = new HashSet<>();
+        for (CreatePurchaseItemRequest item : items) {
+            if (!newVariantIds.add(item.getVariantId())) {
+                throw new BadRequestException("DUPLICATE_VARIANT", "Duplicate variant in purchase items");
+            }
+        }
+
+        // Validate all variants exist
+        for (Long variantId : newVariantIds) {
+            variantDao.findById(variantId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "VARIANT_NOT_FOUND",
+                            "Variant not found with ID: " + variantId
+                    ));
+        }
+
+        // Map existing items by variant ID
+        Map<Long, PurchaseItemWithVariant> existingByVariant = existingItems.stream()
+                .collect(Collectors.toMap(PurchaseItemWithVariant::getVariantId, item -> item));
+
+        Set<Long> variantsToValidate = new HashSet<>();
+
+        // Detect changed or new items
+        for (CreatePurchaseItemRequest item : items) {
+            PurchaseItemWithVariant existing = existingByVariant.get(item.getVariantId());
+            if (existing == null) {
+                variantsToValidate.add(item.getVariantId());
+                continue;
+            }
+
+            if (!existing.getQty().equals(item.getQty())
+                    || existing.getUnitCost().compareTo(item.getUnitCost()) != 0) {
+                variantsToValidate.add(item.getVariantId());
+            }
+        }
+
+        // Detect removed items
+        for (PurchaseItemWithVariant existing : existingItems) {
+            if (!newVariantIds.contains(existing.getVariantId())) {
+                variantsToValidate.add(existing.getVariantId());
+            }
+        }
+
+        // Guard against subsequent movements
+        for (Long variantId : variantsToValidate) {
+            int movements = purchaseDao.countSubsequentMovements(variantId, purchase.getPurchasedAt(), id);
+            if (movements > 0) {
+                throw new BadRequestException(
+                        "SUBSEQUENT_MOVEMENTS",
+                        "Cannot edit purchase items for variant " + variantId + " due to later stock movements"
+                );
+            }
+        }
+
+        // Apply stock deltas and update items
+        BigDecimal totalCost = BigDecimal.ZERO;
+        for (CreatePurchaseItemRequest item : items) {
+            PurchaseItemWithVariant existing = existingByVariant.get(item.getVariantId());
+            int oldQty = existing != null ? existing.getQty() : 0;
+            int newQty = item.getQty();
+            int deltaQty = newQty - oldQty;
+
+            if (deltaQty < 0) {
+                Integer currentStock = inventoryDao.getVariantStockQty(item.getVariantId());
+                int newStock = currentStock + deltaQty;
+                if (newStock < 0) {
+                    throw new BadRequestException(
+                            "INSUFFICIENT_STOCK",
+                            "Cannot reduce stock below zero for variant " + item.getVariantId()
+                    );
+                }
+            }
+
+            if (deltaQty != 0) {
+                BigDecimal costForDelta = existing != null && deltaQty < 0
+                        ? existing.getUnitCost()
+                        : item.getUnitCost();
+                purchaseDao.updateVariantStockOnPurchase(item.getVariantId(), deltaQty, costForDelta);
+            }
+
+            if (existing == null) {
+                purchaseDao.createItem(id, item.getVariantId(), item.getQty(), item.getUnitCost());
+            } else if (!existing.getQty().equals(item.getQty())
+                    || existing.getUnitCost().compareTo(item.getUnitCost()) != 0) {
+                purchaseDao.updateItem(existing.getId(), item.getQty(), item.getUnitCost());
+            }
+
+            BigDecimal itemTotal = item.getUnitCost().multiply(BigDecimal.valueOf(item.getQty()));
+            totalCost = totalCost.add(itemTotal);
+        }
+
+        // Delete removed items
+        for (PurchaseItemWithVariant existing : existingItems) {
+            if (!newVariantIds.contains(existing.getVariantId())) {
+                int deltaQty = -existing.getQty();
+                if (deltaQty != 0) {
+                    Integer currentStock = inventoryDao.getVariantStockQty(existing.getVariantId());
+                    int newStock = currentStock + deltaQty;
+                    if (newStock < 0) {
+                        throw new BadRequestException(
+                                "INSUFFICIENT_STOCK",
+                                "Cannot remove item. Variant " + existing.getVariantId() + " would go negative."
+                        );
+                    }
+                    purchaseDao.updateVariantStockOnPurchase(existing.getVariantId(), deltaQty, existing.getUnitCost());
+                }
+                purchaseDao.deleteItem(existing.getId());
+            }
+        }
+
+        purchaseDao.updateTotalCost(id, totalCost);
+        return getPurchaseById(id);
     }
 
     /**

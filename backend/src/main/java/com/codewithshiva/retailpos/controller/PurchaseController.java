@@ -4,6 +4,9 @@ import com.codewithshiva.retailpos.dto.ApiResponse;
 import com.codewithshiva.retailpos.dto.purchase.CreatePurchaseRequest;
 import com.codewithshiva.retailpos.dto.purchase.PurchaseDetailResponse;
 import com.codewithshiva.retailpos.dto.purchase.PurchaseListResponse;
+import com.codewithshiva.retailpos.dto.purchase.UpdatePurchaseItemsRequest;
+import com.codewithshiva.retailpos.dto.purchase.UpdatePurchaseMetadataRequest;
+import com.codewithshiva.retailpos.dto.purchase.VoidPurchaseRequest;
 import com.codewithshiva.retailpos.security.CustomUserDetails;
 import com.codewithshiva.retailpos.service.PurchaseService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -69,5 +72,40 @@ public class PurchaseController {
         PurchaseDetailResponse purchase = purchaseService.createPurchase(request, userDetails.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(purchase, "Purchase created successfully. Stock updated."));
+    }
+
+    @PutMapping("/{id}/void")
+    @Operation(summary = "Void Purchase", description = "Void a purchase and create compensating stock adjustments")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<Void>> voidPurchase(
+            @PathVariable Long id,
+            @Valid @RequestBody VoidPurchaseRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Void purchase request for ID: {}", id);
+        purchaseService.voidPurchase(id, request.getVoidReason(), userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success("Purchase voided successfully"));
+    }
+
+    @PatchMapping("/{id}/metadata")
+    @Operation(summary = "Update Purchase Metadata", description = "Update purchase invoice number and notes")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<PurchaseDetailResponse>> updatePurchaseMetadata(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePurchaseMetadataRequest request) {
+        log.info("Update purchase metadata request for ID: {}", id);
+        PurchaseDetailResponse purchase = purchaseService.updatePurchaseMetadata(
+                id, request.getInvoiceNo(), request.getNotes());
+        return ResponseEntity.ok(ApiResponse.success(purchase, "Purchase updated successfully"));
+    }
+
+    @PutMapping("/{id}/items")
+    @Operation(summary = "Update Purchase Items", description = "Update purchase items if no subsequent stock movements exist")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<PurchaseDetailResponse>> updatePurchaseItems(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePurchaseItemsRequest request) {
+        log.info("Update purchase items request for ID: {}", id);
+        PurchaseDetailResponse purchase = purchaseService.updatePurchaseItems(id, request.getItems());
+        return ResponseEntity.ok(ApiResponse.success(purchase, "Purchase items updated successfully"));
     }
 }

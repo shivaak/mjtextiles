@@ -188,6 +188,11 @@ export interface PurchaseList {
   totalCost: number;
   itemCount?: number;
   notes?: string;
+  status?: 'ACTIVE' | 'VOIDED';
+  voidedAt?: string;
+  voidedBy?: number;
+  voidedByName?: string;
+  voidReason?: string;
   createdBy: number;
   createdByName?: string;
   createdAt?: string;
@@ -208,6 +213,19 @@ export interface PurchaseItem {
 
 export interface PurchaseDetail extends PurchaseList {
   items: PurchaseItem[];
+}
+
+export interface VoidPurchaseRequest {
+  voidReason: string;
+}
+
+export interface UpdatePurchaseMetadataRequest {
+  invoiceNo?: string;
+  notes?: string;
+}
+
+export interface UpdatePurchaseItemsRequest {
+  items: CreatePurchaseItemRequest[];
 }
 
 export interface CreatePurchaseItemRequest {

@@ -31,6 +31,8 @@ public class SaleItemResponse {
     @JsonView(Views.Employee.class)
     private String productName;
     @JsonView(Views.Employee.class)
+    private String productHsn;
+    @JsonView(Views.Employee.class)
     private String size;
     @JsonView(Views.Employee.class)
     private String color;
@@ -59,6 +61,7 @@ public class SaleItemResponse {
                 .variantSku(item.getVariantSku())
                 .variantBarcode(item.getVariantBarcode())
                 .productName(item.getProductName())
+                .productHsn(item.getProductHsn())
                 .size(item.getSize())
                 .color(item.getColor())
                 .qty(item.getQty())

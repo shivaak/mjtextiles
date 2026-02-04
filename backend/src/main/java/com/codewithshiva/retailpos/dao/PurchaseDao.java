@@ -23,11 +23,11 @@ public interface PurchaseDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT id, supplier_id as supplierId, invoice_no as invoiceNo, 
-               purchased_at as purchasedAt, total_cost as totalCost, notes,
-               created_by as createdBy, created_at as createdAt, updated_at as updatedAt,
-               supplier_name as supplierName, created_by_name as createdByName, 
-               item_count as itemCount
+        SELECT id, supplierId, invoiceNo,
+               purchasedAt, totalCost, notes, status, voidedAt, voidedBy, voidReason,
+               createdBy, createdAt, updatedAt,
+               supplierName, createdByName, voidedByName,
+               itemCount
         FROM v_purchases_with_details
         ORDER BY purchased_at DESC
         """)
@@ -35,21 +35,21 @@ public interface PurchaseDao {
     List<PurchaseWithDetails> findAll();
 
     @SqlQuery("""
-        SELECT id, supplier_id as supplierId, invoice_no as invoiceNo, 
-               purchased_at as purchasedAt, total_cost as totalCost, notes,
-               created_by as createdBy, created_at as createdAt, updated_at as updatedAt,
-               supplier_name as supplierName, created_by_name as createdByName, 
-               item_count as itemCount
+        SELECT id, supplierId, invoiceNo,
+               purchasedAt, totalCost, notes, status, voidedAt, voidedBy, voidReason,
+               createdBy, createdAt, updatedAt,
+               supplierName, createdByName, voidedByName,
+               itemCount
         FROM v_purchases_with_details
-        WHERE (:supplierId IS NULL OR supplier_id = :supplierId)
-          AND (:startDate IS NULL OR purchased_at >= :startDate)
-          AND (:endDate IS NULL OR purchased_at < :endDate)
+        WHERE (:supplierId IS NULL OR supplierId = :supplierId)
+          AND (:startDate IS NULL OR purchasedAt >= :startDate)
+          AND (:endDate IS NULL OR purchasedAt < :endDate)
           AND (
                 :search IS NULL
-                OR LOWER(invoice_no) LIKE LOWER('%' || :search || '%')
-                OR LOWER(supplier_name) LIKE LOWER('%' || :search || '%')
+                OR LOWER(invoiceNo) LIKE LOWER('%' || :search || '%')
+                OR LOWER(supplierName) LIKE LOWER('%' || :search || '%')
               )
-        ORDER BY purchased_at DESC
+        ORDER BY purchasedAt DESC
         """)
     @RegisterConstructorMapper(PurchaseWithDetails.class)
     List<PurchaseWithDetails> findWithFilters(@Bind("supplierId") Long supplierId,
@@ -58,11 +58,11 @@ public interface PurchaseDao {
                                               @Bind("search") String search);
 
     @SqlQuery("""
-        SELECT id, supplier_id as supplierId, invoice_no as invoiceNo, 
-               purchased_at as purchasedAt, total_cost as totalCost, notes,
-               created_by as createdBy, created_at as createdAt, updated_at as updatedAt,
-               supplier_name as supplierName, created_by_name as createdByName, 
-               item_count as itemCount
+        SELECT id, supplierId, invoiceNo,
+               purchasedAt, totalCost, notes, status, voidedAt, voidedBy, voidReason,
+               createdBy, createdAt, updatedAt,
+               supplierName, createdByName, voidedByName,
+               itemCount
         FROM v_purchases_with_details
         WHERE id = :id
         """)
@@ -86,6 +86,16 @@ public interface PurchaseDao {
     @RegisterConstructorMapper(PurchaseItemWithVariant.class)
     List<PurchaseItemWithVariant> findItemsByPurchaseId(@Bind("purchaseId") Long purchaseId);
 
+    @SqlQuery("""
+        SELECT COUNT(*) FROM v_stock_movements
+        WHERE variant_id = :variantId
+          AND movement_date > :purchasedAt
+          AND NOT (movement_type = 'PURCHASE' AND reference_id = :purchaseId)
+        """)
+    int countSubsequentMovements(@Bind("variantId") Long variantId,
+                                 @Bind("purchasedAt") OffsetDateTime purchasedAt,
+                                 @Bind("purchaseId") Long purchaseId);
+
     // ==========================================
     // Purchase Mutations
     // ==========================================
@@ -102,6 +112,37 @@ public interface PurchaseDao {
                 @Bind("notes") String notes,
                 @Bind("createdBy") Long createdBy);
 
+    @SqlUpdate("""
+        UPDATE purchases
+        SET invoice_no = :invoiceNo,
+            notes = :notes
+        WHERE id = :id
+        """)
+    void updateMetadata(@Bind("id") Long id,
+                        @Bind("invoiceNo") String invoiceNo,
+                        @Bind("notes") String notes);
+
+    @SqlUpdate("""
+        UPDATE purchases
+        SET status = :status,
+            voided_at = :voidedAt,
+            voided_by = :voidedBy,
+            void_reason = :voidReason
+        WHERE id = :id
+        """)
+    void updateStatus(@Bind("id") Long id,
+                      @Bind("status") String status,
+                      @Bind("voidedAt") OffsetDateTime voidedAt,
+                      @Bind("voidedBy") Long voidedBy,
+                      @Bind("voidReason") String voidReason);
+
+    @SqlUpdate("""
+        UPDATE purchases
+        SET total_cost = :totalCost
+        WHERE id = :id
+        """)
+    void updateTotalCost(@Bind("id") Long id, @Bind("totalCost") BigDecimal totalCost);
+
     // ==========================================
     // Purchase Item Mutations
     // ==========================================
@@ -115,6 +156,22 @@ public interface PurchaseDao {
                     @Bind("variantId") Long variantId,
                     @Bind("qty") Integer qty,
                     @Bind("unitCost") BigDecimal unitCost);
+
+    @SqlUpdate("""
+        UPDATE purchase_items
+        SET qty = :qty,
+            unit_cost = :unitCost
+        WHERE id = :id
+        """)
+    void updateItem(@Bind("id") Long id,
+                    @Bind("qty") Integer qty,
+                    @Bind("unitCost") BigDecimal unitCost);
+
+    @SqlUpdate("""
+        DELETE FROM purchase_items
+        WHERE id = :id
+        """)
+    void deleteItem(@Bind("id") Long id);
 
     // ==========================================
     // Stock Update Function Call

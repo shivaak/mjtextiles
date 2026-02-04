@@ -56,15 +56,30 @@ LEFT JOIN users vu ON s.voided_by = vu.id;
 -- v_purchases_with_details
 -- Purchases with supplier and user details
 -- ===========================================
-CREATE OR REPLACE VIEW v_purchases_with_details AS
+DROP VIEW IF EXISTS v_purchases_with_details;
+CREATE VIEW v_purchases_with_details AS
 SELECT 
-    p.*,
-    sup.name AS supplier_name,
-    u.full_name AS created_by_name,
-    (SELECT COUNT(*) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS item_count
+    p.id AS id,
+    p.supplier_id AS supplierId,
+    p.invoice_no AS invoiceNo,
+    p.purchased_at AS purchasedAt,
+    p.total_cost AS totalCost,
+    p.notes AS notes,
+    p.status AS status,
+    p.voided_at AS voidedAt,
+    p.voided_by AS voidedBy,
+    p.void_reason AS voidReason,
+    p.created_by AS createdBy,
+    p.created_at AS createdAt,
+    p.updated_at AS updatedAt,
+    sup.name AS supplierName,
+    u.full_name AS createdByName,
+    vu.full_name AS voidedByName,
+    (SELECT COUNT(*) FROM purchase_items pi WHERE pi.purchase_id = p.id) AS itemCount
 FROM purchases p
 JOIN suppliers sup ON p.supplier_id = sup.id
-LEFT JOIN users u ON p.created_by = u.id;
+LEFT JOIN users u ON p.created_by = u.id
+LEFT JOIN users vu ON p.voided_by = vu.id;
 
 -- ===========================================
 -- v_low_stock_variants
