@@ -408,3 +408,130 @@ export interface Settings {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Reports
+export interface SalesSummaryReport {
+  summary: {
+    totalSales: number;
+    totalProfit: number;
+    totalTransactions: number;
+    avgOrderValue: number;
+  };
+  breakdown: Array<{
+    period: string;
+    sales: number;
+    profit: number;
+    transactions: number;
+    avgOrderValue: number;
+  }>;
+  paymentModeBreakdown: Array<{
+    mode: string;
+    amount: number;
+    count: number;
+  }>;
+}
+
+export interface ProductPerformanceReport {
+  topSellers: Array<{
+    variantId: number;
+    productName: string;
+    sku?: string;
+    category?: string;
+    brand?: string;
+    qtySold: number;
+    revenue: number;
+    cost: number;
+    profit: number;
+    marginPercent: number;
+  }>;
+  slowMovers: Array<{
+    variantId: number;
+    productName: string;
+    sku?: string;
+    qtySold: number;
+    daysSinceLastSale?: number;
+    stockQty?: number;
+  }>;
+  categoryBreakdown: Array<{
+    category: string;
+    qtySold: number;
+    revenue: number;
+    profit: number;
+  }>;
+}
+
+export interface ProfitReport {
+  summary: {
+    totalRevenue: number;
+    totalCost: number;
+    grossProfit: number;
+    profitMargin: number;
+  };
+  trend: Array<{
+    period: string;
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin: number;
+  }>;
+  byCategory: Array<{
+    category: string;
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin: number;
+  }>;
+  byCashier: Array<{
+    userId: number;
+    userName: string;
+    revenue: number;
+    profit: number;
+    transactions: number;
+  }>;
+}
+
+export interface InventoryValuationReport {
+  summary: {
+    totalSkus: number;
+    totalItems: number;
+    totalCostValue: number;
+    totalRetailValue: number;
+    potentialProfit: number;
+  };
+  byCategory: Array<{
+    category: string;
+    skuCount: number;
+    itemCount: number;
+    costValue: number;
+    retailValue: number;
+  }>;
+  byBrand: Array<{
+    brand: string;
+    skuCount: number;
+    itemCount: number;
+    costValue: number;
+    retailValue: number;
+  }>;
+}
+
+export interface LowStockReport {
+  summary: {
+    lowStockCount: number;
+    outOfStockCount: number;
+    totalReorderValue: number;
+  };
+  items: Array<{
+    variantId: number;
+    productName: string;
+    sku?: string;
+    category?: string;
+    brand?: string;
+    currentStock: number;
+    threshold: number;
+    avgMonthlySales?: number;
+    suggestedReorder: number;
+    lastPurchasePrice?: number;
+    reorderCost?: number;
+    lastSupplier?: string;
+  }>;
+}
