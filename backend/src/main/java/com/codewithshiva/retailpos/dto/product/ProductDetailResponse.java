@@ -25,6 +25,7 @@ public class ProductDetailResponse {
     private String name;
     private String brand;
     private String category;
+    private String hsn;
     private String description;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
@@ -43,6 +44,7 @@ public class ProductDetailResponse {
                 .name(product.getName())
                 .brand(product.getBrand())
                 .category(product.getCategory())
+                .hsn(product.getHsn())
                 .description(product.getDescription())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())

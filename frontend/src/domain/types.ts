@@ -65,6 +65,7 @@ export interface Product {
   name: string;
   brand: string;
   category: string;
+  hsn: string;
   description?: string;
   variantCount?: number;
   createdAt: string;
@@ -77,6 +78,7 @@ export interface Variant {
   productName: string;
   productBrand: string;
   productCategory: string;
+  productHsn?: string;
   sku: string;
   barcode: string;
   size: string;
@@ -108,6 +110,7 @@ export interface CreateProductRequest {
   name: string;
   brand: string;
   category: string;
+  hsn: string;
   description?: string;
 }
 
@@ -115,6 +118,7 @@ export interface UpdateProductRequest {
   name: string;
   brand: string;
   category: string;
+  hsn: string;
   description?: string;
 }
 

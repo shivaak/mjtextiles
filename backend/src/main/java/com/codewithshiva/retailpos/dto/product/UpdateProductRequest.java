@@ -26,6 +26,10 @@ public class UpdateProductRequest {
     @Size(max = 100, message = "Category must not exceed 100 characters")
     private String category;
 
+    @NotBlank(message = "HSN is required")
+    @Size(max = 20, message = "HSN must not exceed 20 characters")
+    private String hsn;
+
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
 }

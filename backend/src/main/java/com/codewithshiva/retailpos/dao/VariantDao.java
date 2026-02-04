@@ -23,7 +23,7 @@ public interface VariantDao {
 
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
-               product_brand as productBrand, product_category as productCategory,
+               product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
                sku, barcode, size, color, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt
@@ -35,7 +35,7 @@ public interface VariantDao {
 
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
-               product_brand as productBrand, product_category as productCategory,
+               product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
                sku, barcode, size, color, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt
@@ -47,7 +47,7 @@ public interface VariantDao {
 
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
-               product_brand as productBrand, product_category as productCategory,
+               product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
                sku, barcode, size, color, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt
@@ -60,6 +60,7 @@ public interface VariantDao {
                LOWER(sku) LIKE LOWER('%' || :search || '%')
                OR LOWER(barcode) LIKE LOWER('%' || :search || '%')
                OR LOWER(product_name) LIKE LOWER('%' || :search || '%')
+               OR LOWER(product_hsn) LIKE LOWER('%' || :search || '%')
           ))
         ORDER BY updated_at DESC
         """)
@@ -76,7 +77,7 @@ public interface VariantDao {
 
     @SqlQuery("""
         SELECT v.id, v.product_id as productId, p.name as productName, 
-               p.brand as productBrand, p.category as productCategory,
+               p.brand as productBrand, p.category as productCategory, p.hsn as productHsn,
                v.sku, v.barcode, v.size, v.color, v.selling_price as sellingPrice, 
                v.avg_cost as avgCost, v.stock_qty as stockQty, v.status, 
                v.created_at as createdAt, v.updated_at as updatedAt
@@ -90,6 +91,7 @@ public interface VariantDao {
                LOWER(v.sku) LIKE LOWER('%' || :search || '%')
                OR LOWER(v.barcode) LIKE LOWER('%' || :search || '%')
                OR LOWER(p.name) LIKE LOWER('%' || :search || '%')
+               OR LOWER(p.hsn) LIKE LOWER('%' || :search || '%')
           ))
         ORDER BY v.stock_qty ASC
         """)
@@ -102,7 +104,7 @@ public interface VariantDao {
 
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
-               product_brand as productBrand, product_category as productCategory,
+               product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
                sku, barcode, size, color, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt
@@ -116,6 +118,7 @@ public interface VariantDao {
                LOWER(sku) LIKE LOWER('%' || :search || '%')
                OR LOWER(barcode) LIKE LOWER('%' || :search || '%')
                OR LOWER(product_name) LIKE LOWER('%' || :search || '%')
+               OR LOWER(product_hsn) LIKE LOWER('%' || :search || '%')
           ))
         ORDER BY updated_at DESC
         """)
@@ -132,7 +135,7 @@ public interface VariantDao {
 
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
-               product_brand as productBrand, product_category as productCategory,
+               product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
                sku, barcode, size, color, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt
@@ -142,6 +145,7 @@ public interface VariantDao {
                LOWER(sku) LIKE LOWER('%' || :query || '%')
                OR LOWER(barcode) LIKE LOWER('%' || :query || '%')
                OR LOWER(product_name) LIKE LOWER('%' || :query || '%')
+               OR LOWER(product_hsn) LIKE LOWER('%' || :query || '%')
           )
         ORDER BY 
             CASE WHEN LOWER(barcode) = LOWER(:query) THEN 0

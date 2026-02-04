@@ -58,6 +58,7 @@ const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   brand: z.string().min(1, 'Brand is required'),
   category: z.string().min(1, 'Category is required'),
+  hsn: z.string().min(1, 'HSN is required'),
   description: z.string().optional(),
 });
 
@@ -109,7 +110,7 @@ export default function ProductsPage() {
   // Forms
   const productForm = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: '', brand: '', category: '', description: '' },
+    defaultValues: { name: '', brand: '', category: '', hsn: '', description: '' },
   });
 
   const variantForm = useForm<VariantFormData>({
@@ -194,11 +195,12 @@ export default function ProductsPage() {
         name: product.name,
         brand: product.brand,
         category: product.category,
+        hsn: product.hsn,
         description: product.description || '',
       });
     } else {
       setEditingProduct(null);
-      productForm.reset({ name: '', brand: '', category: '', description: '' });
+      productForm.reset({ name: '', brand: '', category: '', hsn: '', description: '' });
     }
     setProductDialogOpen(true);
   };
@@ -303,6 +305,11 @@ export default function ProductsPage() {
           </Typography>
         </Box>
       ),
+    },
+    {
+      field: 'productHsn',
+      headerName: 'HSN',
+      width: 110,
     },
     {
       field: 'size',
@@ -449,7 +456,7 @@ export default function ProductsPage() {
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
-                placeholder="Search by name, SKU, barcode..."
+                placeholder="Search by name, SKU, barcode, HSN..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -600,6 +607,21 @@ export default function ProductsPage() {
                           helperText={fieldState.error?.message}
                         />
                       )}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="hsn"
+                  control={productForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="HSN"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
                     />
                   )}
                 />

@@ -24,6 +24,7 @@ public class VariantListResponse {
     private String productName;
     private String productBrand;
     private String productCategory;
+    private String productHsn;
     private String sku;
     private String barcode;
     private String size;
@@ -44,6 +45,7 @@ public class VariantListResponse {
                 .productName(variant.getProductName())
                 .productBrand(variant.getProductBrand())
                 .productCategory(variant.getProductCategory())
+                .productHsn(variant.getProductHsn())
                 .sku(variant.getSku())
                 .barcode(variant.getBarcode())
                 .size(variant.getSize())

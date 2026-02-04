@@ -97,6 +97,7 @@ public class ProductService {
                 request.getName(),
                 request.getBrand(),
                 request.getCategory(),
+                request.getHsn(),
                 request.getDescription(),
                 createdBy
         );
@@ -150,6 +151,7 @@ public class ProductService {
                 request.getName(),
                 request.getBrand(),
                 request.getCategory(),
+                request.getHsn(),
                 request.getDescription()
         );
 

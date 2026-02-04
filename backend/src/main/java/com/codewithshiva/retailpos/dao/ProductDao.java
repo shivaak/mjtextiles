@@ -21,7 +21,7 @@ public interface ProductDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT id, name, brand, category, description, is_active as isActive,
+        SELECT id, name, brand, category, hsn, description, is_active as isActive,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
         WHERE id = :id
@@ -30,7 +30,7 @@ public interface ProductDao {
     Optional<Product> findById(@Bind("id") Long id);
 
     @SqlQuery("""
-        SELECT id, name, brand, category, description, is_active as isActive,
+        SELECT id, name, brand, category, hsn, description, is_active as isActive,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
         WHERE is_active = true
@@ -40,17 +40,18 @@ public interface ProductDao {
     List<Product> findAllActive();
 
     @SqlQuery("""
-        SELECT id, name, brand, category, description, is_active as isActive,
+        SELECT id, name, brand, category, hsn, description, is_active as isActive,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
         WHERE is_active = true
           AND (:category IS NULL OR category = :category)
           AND (:brand IS NULL OR brand = :brand)
           AND (:search IS NULL OR (
-               to_tsvector('english', name || ' ' || brand || ' ' || category) @@ plainto_tsquery('english', :search)
+               to_tsvector('english', name || ' ' || brand || ' ' || category || ' ' || hsn) @@ plainto_tsquery('english', :search)
                OR LOWER(name) LIKE LOWER('%' || :search || '%')
                OR LOWER(brand) LIKE LOWER('%' || :search || '%')
                OR LOWER(category) LIKE LOWER('%' || :search || '%')
+               OR LOWER(hsn) LIKE LOWER('%' || :search || '%')
           ))
         ORDER BY updated_at DESC
         """)
@@ -60,7 +61,7 @@ public interface ProductDao {
                                   @Bind("search") String search);
 
     @SqlQuery("""
-        SELECT p.id, p.name, p.brand, p.category, p.description, p.is_active as isActive,
+        SELECT p.id, p.name, p.brand, p.category, p.hsn, p.description, p.is_active as isActive,
                p.created_at as createdAt, p.updated_at as updatedAt, p.created_by as createdBy
         FROM products p
         WHERE p.name = :name AND p.brand = :brand
@@ -82,13 +83,14 @@ public interface ProductDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO products (name, brand, category, description, created_by)
-        VALUES (:name, :brand, :category, :description, :createdBy)
+        INSERT INTO products (name, brand, category, hsn, description, created_by)
+        VALUES (:name, :brand, :category, :hsn, :description, :createdBy)
         """)
     @GetGeneratedKeys("id")
     Long create(@Bind("name") String name,
                 @Bind("brand") String brand,
                 @Bind("category") String category,
+                @Bind("hsn") String hsn,
                 @Bind("description") String description,
                 @Bind("createdBy") Long createdBy);
 
@@ -97,6 +99,7 @@ public interface ProductDao {
         SET name = :name,
             brand = :brand,
             category = :category,
+            hsn = :hsn,
             description = :description
         WHERE id = :id
         """)
@@ -104,6 +107,7 @@ public interface ProductDao {
                 @Bind("name") String name,
                 @Bind("brand") String brand,
                 @Bind("category") String category,
+                @Bind("hsn") String hsn,
                 @Bind("description") String description);
 
     @SqlUpdate("""

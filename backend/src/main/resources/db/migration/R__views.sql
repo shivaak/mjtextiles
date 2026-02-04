@@ -34,6 +34,7 @@ SELECT
             ROUND(((v.selling_price - v.avg_cost) / v.avg_cost * 100)::numeric, 2)
         ELSE 0 
     END AS markup_percent
+    ,p.hsn AS product_hsn
 FROM variants v
 JOIN products p ON v.product_id = p.id;
 
@@ -75,7 +76,8 @@ SELECT
     p.name AS product_name,
     p.brand AS product_brand,
     p.category AS product_category,
-    s.low_stock_threshold
+    s.low_stock_threshold,
+    p.hsn AS product_hsn
 FROM variants v
 JOIN products p ON v.product_id = p.id
 CROSS JOIN settings s
