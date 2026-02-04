@@ -17,6 +17,11 @@ export const saleService = {
     return unwrapApiResponse(response);
   },
 
+  async getSaleInvoice(id: number): Promise<Blob> {
+    const response = await api.get(`/sales/${id}/invoice`, { responseType: 'blob' });
+    return response.data as Blob;
+  },
+
   async getSales(params?: {
     startDate?: string;
     endDate?: string;

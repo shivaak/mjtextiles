@@ -306,9 +306,19 @@ export default function BillingPage() {
     showError,
   ]);
 
-  const handlePrint = useCallback(() => {
-    window.print();
-  }, []);
+  const handlePrint = useCallback(async () => {
+    if (!completedSale) {
+      return;
+    }
+    try {
+      const pdfBlob = await saleService.getSaleInvoice(completedSale.id);
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (error) {
+      showError(formatApiError(error, 'Failed to generate invoice'));
+    }
+  }, [completedSale, showError]);
 
   return (
     <Box>

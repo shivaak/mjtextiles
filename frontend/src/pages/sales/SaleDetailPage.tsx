@@ -106,8 +106,16 @@ export default function SaleDetailPage() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!sale) return;
+    try {
+      const pdfBlob = await saleService.getSaleInvoice(sale.id);
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (error) {
+      showError(formatApiError(error, 'Failed to generate invoice'));
+    }
   };
 
   if (loading) {

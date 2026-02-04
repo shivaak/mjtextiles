@@ -4,6 +4,7 @@ import com.codewithshiva.retailpos.dto.ApiResponse;
 import com.codewithshiva.retailpos.dto.PagedResponse;
 import com.codewithshiva.retailpos.dto.sale.*;
 import com.codewithshiva.retailpos.security.CustomUserDetails;
+import com.codewithshiva.retailpos.service.InvoiceService;
 import com.codewithshiva.retailpos.service.SaleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -11,7 +12,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +33,7 @@ import java.util.List;
 public class SaleController {
 
     private final SaleService saleService;
+    private final InvoiceService invoiceService;
 
     @GetMapping
     @Operation(summary = "List Sales", description = "Get all sales with optional filters and pagination")
@@ -82,5 +87,17 @@ public class SaleController {
         log.info("Void sale request for ID: {} with reason: {}", id, request.getReason());
         SaleDetailResponse sale = saleService.voidSale(id, request, userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(sale, "Sale voided successfully. Stock restored."));
+    }
+
+    @GetMapping("/{id}/invoice")
+    @Operation(summary = "Get Sale Invoice PDF", description = "Generate and download the sale invoice PDF")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<byte[]> getInvoice(@PathVariable Long id) {
+        log.debug("Generate invoice PDF for sale ID: {}", id);
+        byte[] pdfBytes = invoiceService.generateSaleInvoice(id);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.inline().filename("invoice-" + id + ".pdf").build());
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
 }
