@@ -13,6 +13,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
   Chip,
   IconButton,
   Tooltip,
@@ -28,6 +30,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -80,10 +83,14 @@ export default function ProductsPage() {
   const { isAdmin } = useAuth();
 
   // State
+  const [activeTab, setActiveTab] = useState<'products' | 'variants'>('products');
   const [variants, setVariants] = useState<Variant[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [productRows, setProductRows] = useState<Product[]>([]);
+  const [productTotalElements, setProductTotalElements] = useState(0);
+  const [productLoading, setProductLoading] = useState(false);
   
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,6 +98,10 @@ export default function ProductsPage() {
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<VariantStatus | ''>('');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 25,
+  });
+  const [productPaginationModel, setProductPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
   });
@@ -106,6 +117,10 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingVariant, setEditingVariant] = useState<Variant | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ variant: Variant; newStatus: VariantStatus } | null>(null);
+  const [productActionConfirm, setProductActionConfirm] = useState<{
+    product: Product;
+    action: 'delete' | 'deactivate' | 'activate';
+  } | null>(null);
 
   // Forms
   const productForm = useForm<ProductFormData>({
@@ -148,6 +163,27 @@ export default function ProductsPage() {
     }
   }, [categoryFilter, brandFilter, statusFilter, searchQuery, paginationModel, showError]);
 
+  const fetchProducts = useCallback(async () => {
+    setProductLoading(true);
+    try {
+      const data = await productService.getProducts({
+        category: categoryFilter || undefined,
+        brand: brandFilter || undefined,
+        search: searchQuery || undefined,
+        includeInactive: true,
+        page: productPaginationModel.page,
+        size: productPaginationModel.pageSize,
+      });
+      setProductRows(data.content);
+      setProductTotalElements(data.totalElements);
+    } catch (error: unknown) {
+      showError(formatApiError(error, 'Failed to fetch products'));
+      console.error(error);
+    } finally {
+      setProductLoading(false);
+    }
+  }, [categoryFilter, brandFilter, searchQuery, productPaginationModel, showError]);
+
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
@@ -179,8 +215,16 @@ export default function ProductsPage() {
 
   // Initial load
   useEffect(() => {
-    fetchVariants();
-  }, [fetchVariants]);
+    if (activeTab === 'variants') {
+      fetchVariants();
+    }
+  }, [activeTab, fetchVariants]);
+
+  useEffect(() => {
+    if (activeTab === 'products') {
+      fetchProducts();
+    }
+  }, [activeTab, fetchProducts]);
 
   useEffect(() => {
     fetchFilterOptions();
@@ -244,6 +288,7 @@ export default function ProductsPage() {
       setProductDialogOpen(false);
       fetchFilterOptions(); // Refresh products for dropdown
       fetchVariants(); // Refresh variants list
+      fetchProducts(); // Refresh products list
     } catch (error: unknown) {
       showError(formatApiError(error, 'Failed to save product'));
     }
@@ -261,6 +306,7 @@ export default function ProductsPage() {
       }
       setVariantDialogOpen(false);
       fetchVariants();
+      fetchProducts();
     } catch (error: unknown) {
       showError(formatApiError(error, 'Failed to save variant'));
     }
@@ -278,8 +324,123 @@ export default function ProductsPage() {
     }
   };
 
+  const handleProductAction = async () => {
+    if (!productActionConfirm) return;
+    try {
+      if (productActionConfirm.action === 'activate') {
+        await productService.updateProductStatus(productActionConfirm.product.id, 'ACTIVE');
+        showSuccess('Product activated and variants enabled');
+      } else if (productActionConfirm.action === 'deactivate') {
+        await productService.updateProductStatus(productActionConfirm.product.id, 'INACTIVE');
+        showSuccess('Product deactivated and variants disabled');
+      } else {
+        await productService.deleteOrDeactivateProduct(productActionConfirm.product.id);
+        showSuccess('Product deleted successfully');
+      }
+      setProductActionConfirm(null);
+      fetchProducts();
+      fetchVariants();
+      fetchFilterOptions();
+    } catch (error: unknown) {
+      showError(formatApiError(error, 'Failed to update product'));
+    }
+  };
+
   // Columns
-  const columns: GridColDef[] = [
+  const productColumns: GridColDef[] = [
+    {
+      field: 'name',
+      headerName: 'Product',
+      flex: 1,
+      minWidth: 220,
+      renderCell: (params: GridRenderCellParams<Product>) => (
+        <Box>
+          <Typography variant="body2" fontWeight={500}>
+            {params.row.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {params.row.brand}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'category',
+      headerName: 'Category',
+      width: 140,
+    },
+    {
+      field: 'hsn',
+      headerName: 'HSN',
+      width: 120,
+    },
+    {
+      field: 'description',
+      headerName: 'Description',
+      flex: 1,
+      minWidth: 200,
+      valueGetter: (_value: unknown, row: Product) => row.description || '-',
+    },
+    {
+      field: 'variantCount',
+      headerName: 'Variants',
+      width: 110,
+      align: 'center',
+      renderCell: (params: GridRenderCellParams<Product>) => (
+        <Chip label={params.row.variantCount ?? 0} size="small" />
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 110,
+      renderCell: (params: GridRenderCellParams<Product>) => (
+        <Chip
+          label={params.row.isActive ? 'ACTIVE' : 'INACTIVE'}
+          size="small"
+          color={params.row.isActive ? 'success' : 'default'}
+        />
+      ),
+    },
+    ...(isAdmin ? [{
+      field: 'actions',
+      headerName: 'Actions',
+      width: 140,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<Product>) => {
+        const variantCount = params.row.variantCount ?? 0;
+        const isActive = params.row.isActive !== false;
+        const action: 'delete' | 'deactivate' | 'activate' = isActive
+          ? (variantCount === 0 ? 'delete' : 'deactivate')
+          : 'activate';
+        return (
+          <Box>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => openProductDialog(params.row)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={action === 'delete' ? 'Delete' : action === 'deactivate' ? 'Deactivate' : 'Activate'}>
+              <IconButton
+                size="small"
+                onClick={() => setProductActionConfirm({ product: params.row, action })}
+              >
+                {action === 'activate' ? (
+                  <CheckCircleIcon fontSize="small" color="success" />
+                ) : action === 'delete' ? (
+                  <DeleteIcon fontSize="small" color="error" />
+                ) : (
+                  <BlockIcon fontSize="small" color="error" />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
+    }] : []),
+  ];
+
+  const variantColumns: GridColDef[] = [
     {
       field: 'barcode',
       headerName: 'Barcode',
@@ -449,6 +610,18 @@ export default function ProductsPage() {
         }
       />
 
+      <Box sx={{ mb: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_event, value) => setActiveTab(value)}
+          textColor="primary"
+          indicatorColor="primary"
+        >
+          <Tab label="Products" value="products" />
+          <Tab label="Variants" value="variants" />
+        </Tabs>
+      </Box>
+
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -456,7 +629,11 @@ export default function ProductsPage() {
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
-                placeholder="Search by name, SKU, barcode, HSN..."
+                placeholder={
+                  activeTab === 'products'
+                    ? 'Search by name, brand, category, HSN...'
+                    : 'Search by name, SKU, barcode, HSN...'
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -499,43 +676,66 @@ export default function ProductsPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value as VariantStatus | '')}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            {activeTab === 'variants' && (
+              <Grid size={{ xs: 6, md: 2 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Status"
+                    onChange={(e) => setStatusFilter(e.target.value as VariantStatus | '')}
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="ACTIVE">Active</MenuItem>
+                    <MenuItem value="INACTIVE">Inactive</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
           </Grid>
         </CardContent>
       </Card>
 
       {/* Data Grid */}
-      <Card>
-        <Box sx={{ width: '100%', overflow: 'auto' }}>
-          <DataGrid
-            rows={variants}
-            columns={columns}
-            rowCount={totalElements}
-            loading={loading}
-            pageSizeOptions={[10, 25, 50]}
-            paginationModel={paginationModel}
-            paginationMode="server"
-            onPaginationModelChange={setPaginationModel}
-            disableRowSelectionOnClick
-            sx={{ border: 0, minHeight: 500, minWidth: 800 }}
-            getRowHeight={() => 60}
-            autoHeight
-          />
-        </Box>
-      </Card>
+      {activeTab === 'products' ? (
+        <Card>
+          <Box sx={{ width: '100%', overflow: 'auto' }}>
+            <DataGrid
+              rows={productRows}
+              columns={productColumns}
+              rowCount={productTotalElements}
+              loading={productLoading}
+              pageSizeOptions={[10, 25, 50]}
+              paginationModel={productPaginationModel}
+              paginationMode="server"
+              onPaginationModelChange={setProductPaginationModel}
+              disableRowSelectionOnClick
+              sx={{ border: 0, minHeight: 500, minWidth: 800 }}
+              getRowHeight={() => 60}
+              autoHeight
+            />
+          </Box>
+        </Card>
+      ) : (
+        <Card>
+          <Box sx={{ width: '100%', overflow: 'auto' }}>
+            <DataGrid
+              rows={variants}
+              columns={variantColumns}
+              rowCount={totalElements}
+              loading={loading}
+              pageSizeOptions={[10, 25, 50]}
+              paginationModel={paginationModel}
+              paginationMode="server"
+              onPaginationModelChange={setPaginationModel}
+              disableRowSelectionOnClick
+              sx={{ border: 0, minHeight: 500, minWidth: 800 }}
+              getRowHeight={() => 60}
+              autoHeight
+            />
+          </Box>
+        </Card>
+      )}
 
       {/* Product Dialog */}
       <Dialog
@@ -816,6 +1016,35 @@ export default function ProductsPage() {
         confirmColor={statusConfirm?.newStatus === 'ACTIVE' ? 'success' : 'error'}
         onConfirm={handleStatusChange}
         onCancel={() => setStatusConfirm(null)}
+      />
+
+      {/* Product Action Confirmation */}
+      <ConfirmDialog
+        open={!!productActionConfirm}
+        title={
+          productActionConfirm?.action === 'delete'
+            ? 'Delete Product'
+            : productActionConfirm?.action === 'activate'
+              ? 'Activate Product'
+              : 'Deactivate Product'
+        }
+        message={
+          productActionConfirm?.action === 'delete'
+            ? 'This product has no variants and will be permanently deleted.'
+            : productActionConfirm?.action === 'activate'
+              ? 'This product and all its variants will be activated.'
+              : 'This product has variants and will be deactivated. All its variants will be disabled.'
+        }
+        confirmText={
+          productActionConfirm?.action === 'delete'
+            ? 'Delete'
+            : productActionConfirm?.action === 'activate'
+              ? 'Activate'
+              : 'Deactivate'
+        }
+        confirmColor={productActionConfirm?.action === 'activate' ? 'success' : 'error'}
+        onConfirm={handleProductAction}
+        onCancel={() => setProductActionConfirm(null)}
       />
     </Box>
   );

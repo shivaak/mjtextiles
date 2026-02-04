@@ -25,6 +25,7 @@ public class ProductResponse {
     private String hsn;
     private String description;
     private Integer variantCount;
+    private Boolean isActive;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
@@ -39,6 +40,7 @@ public class ProductResponse {
                 .category(product.getCategory())
                 .hsn(product.getHsn())
                 .description(product.getDescription())
+                .isActive(product.isActive())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
@@ -56,6 +58,7 @@ public class ProductResponse {
                 .hsn(product.getHsn())
                 .description(product.getDescription())
                 .variantCount(variantCount)
+                .isActive(product.isActive())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();

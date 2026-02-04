@@ -4,12 +4,12 @@ import com.codewithshiva.retailpos.audit.Auditable;
 import com.codewithshiva.retailpos.audit.AuditAction;
 import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.ProductDao;
+import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.product.*;
 import com.codewithshiva.retailpos.exception.ConflictException;
 import com.codewithshiva.retailpos.exception.ResourceNotFoundException;
 import com.codewithshiva.retailpos.model.Product;
 import com.codewithshiva.retailpos.model.Variant;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -27,10 +27,12 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     private final ProductDao productDao;
+    private final VariantDao variantDao;
     private final LookupService lookupService;
 
-    public ProductService(ProductDao productDao, @Lazy LookupService lookupService) {
+    public ProductService(ProductDao productDao, VariantDao variantDao, @Lazy LookupService lookupService) {
         this.productDao = productDao;
+        this.variantDao = variantDao;
         this.lookupService = lookupService;
     }
 
@@ -38,19 +40,20 @@ public class ProductService {
      * List products with optional filters.
      */
     @Transactional(readOnly = true)
-    public List<ProductResponse> listProducts(String category, String brand, String search) {
-        log.debug("Listing products with filters - category: {}, brand: {}, search: {}", category, brand, search);
+    public List<ProductResponse> listProducts(String category, String brand, String search, boolean includeInactive) {
+        log.debug("Listing products with filters - category: {}, brand: {}, search: {}, includeInactive: {}",
+                category, brand, search, includeInactive);
 
         List<Product> products;
         if (category == null && brand == null && search == null) {
-            products = productDao.findAllActive();
+            products = productDao.findAll(includeInactive);
         } else {
-            products = productDao.findWithFilters(category, brand, search);
+            products = productDao.findWithFilters(category, brand, search, includeInactive);
         }
 
         return products.stream()
                 .map(product -> {
-                    int variantCount = productDao.countVariantsByProductId(product.getId());
+                    int variantCount = productDao.countAllVariantsByProductId(product.getId());
                     return ProductResponse.fromProduct(product, variantCount);
                 })
                 .collect(Collectors.toList());
@@ -167,7 +170,7 @@ public class ProductService {
                         "Failed to retrieve updated product"
                 ));
 
-        int variantCount = productDao.countVariantsByProductId(id);
+        int variantCount = productDao.countAllVariantsByProductId(id);
         return ProductResponse.fromProduct(updatedProduct, variantCount);
     }
 
@@ -187,5 +190,59 @@ public class ProductService {
     public List<String> getAllBrands() {
         log.debug("Getting all product brands");
         return productDao.findAllBrands();
+    }
+
+    /**
+     * Delete a product if it has no variants, otherwise deactivate it and its variants.
+     *
+     * @return true if deleted, false if deactivated
+     */
+    @Transactional
+    @Auditable(entity = EntityType.PRODUCT, action = AuditAction.DELETE)
+    public boolean deleteOrDeactivateProduct(Long id) {
+        log.info("Delete/deactivate product request for ID: {}", id);
+
+        // Verify product exists
+        productDao.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PRODUCT_NOT_FOUND",
+                        "Product not found with ID: " + id
+                ));
+
+        int totalVariants = productDao.countAllVariantsByProductId(id);
+        if (totalVariants == 0) {
+            productDao.deleteById(id);
+            lookupService.evictLookupCache();
+            log.info("Product deleted successfully: {}", id);
+            return true;
+        }
+
+        productDao.updateStatus(id, false);
+        variantDao.updateStatusByProductId(id, "INACTIVE");
+        lookupService.evictLookupCache();
+        log.info("Product deactivated and variants disabled: {}", id);
+        return false;
+    }
+
+    /**
+     * Update product status and cascade to variants.
+     */
+    @Transactional
+    @Auditable(entity = EntityType.PRODUCT, action = AuditAction.STATUS_CHANGE)
+    public void updateProductStatus(Long id, String status) {
+        log.info("Updating product status for ID: {} to: {}", id, status);
+
+        productDao.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PRODUCT_NOT_FOUND",
+                        "Product not found with ID: " + id
+                ));
+
+        boolean isActive = "ACTIVE".equals(status);
+        productDao.updateStatus(id, isActive);
+        variantDao.updateStatusByProductId(id, status);
+        lookupService.evictLookupCache();
+
+        log.info("Product status updated successfully: {} -> {}", id, status);
     }
 }

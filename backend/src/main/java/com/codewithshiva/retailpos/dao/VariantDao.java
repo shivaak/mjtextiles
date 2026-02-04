@@ -244,6 +244,13 @@ public interface VariantDao {
         """)
     void updateStatus(@Bind("id") Long id, @Bind("status") String status);
 
+    @SqlUpdate("""
+        UPDATE variants
+        SET status = :status
+        WHERE product_id = :productId
+        """)
+    void updateStatusByProductId(@Bind("productId") Long productId, @Bind("status") String status);
+
     // ==========================================
     // Basic Variant Query (for existence check)
     // ==========================================

@@ -33,17 +33,17 @@ public interface ProductDao {
         SELECT id, name, brand, category, hsn, description, is_active as isActive,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
-        WHERE is_active = true
+        WHERE (:includeInactive = true OR is_active = true)
         ORDER BY updated_at DESC
         """)
     @RegisterConstructorMapper(Product.class)
-    List<Product> findAllActive();
+    List<Product> findAll(@Bind("includeInactive") boolean includeInactive);
 
     @SqlQuery("""
         SELECT id, name, brand, category, hsn, description, is_active as isActive,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
-        WHERE is_active = true
+        WHERE (:includeInactive = true OR is_active = true)
           AND (:category IS NULL OR category = :category)
           AND (:brand IS NULL OR brand = :brand)
           AND (:search IS NULL OR (
@@ -58,7 +58,8 @@ public interface ProductDao {
     @RegisterConstructorMapper(Product.class)
     List<Product> findWithFilters(@Bind("category") String category,
                                   @Bind("brand") String brand,
-                                  @Bind("search") String search);
+                                  @Bind("search") String search,
+                                  @Bind("includeInactive") boolean includeInactive);
 
     @SqlQuery("""
         SELECT p.id, p.name, p.brand, p.category, p.hsn, p.description, p.is_active as isActive,
@@ -77,6 +78,11 @@ public interface ProductDao {
         SELECT COUNT(*) FROM variants WHERE product_id = :productId AND status = 'ACTIVE'
         """)
     int countVariantsByProductId(@Bind("productId") Long productId);
+
+    @SqlQuery("""
+        SELECT COUNT(*) FROM variants WHERE product_id = :productId
+        """)
+    int countAllVariantsByProductId(@Bind("productId") Long productId);
 
     // ==========================================
     // Product Mutations
@@ -116,6 +122,12 @@ public interface ProductDao {
         WHERE id = :id
         """)
     void updateStatus(@Bind("id") Long id, @Bind("isActive") boolean isActive);
+
+    @SqlUpdate("""
+        DELETE FROM products
+        WHERE id = :id
+        """)
+    void deleteById(@Bind("id") Long id);
 
     // ==========================================
     // Category & Brand Queries

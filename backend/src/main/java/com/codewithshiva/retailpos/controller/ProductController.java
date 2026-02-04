@@ -38,11 +38,12 @@ public class ProductController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String brand,
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "false") boolean includeInactive,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        log.debug("List products request - category: {}, brand: {}, search: {}, page: {}, size: {}", 
-                category, brand, search, page, size);
-        List<ProductResponse> products = productService.listProducts(category, brand, search);
+        log.debug("List products request - category: {}, brand: {}, search: {}, includeInactive: {}, page: {}, size: {}",
+                category, brand, search, includeInactive, page, size);
+        List<ProductResponse> products = productService.listProducts(category, brand, search, includeInactive);
         PagedResponse<ProductResponse> pagedResponse = PagedResponse.of(products, page, size);
         return ResponseEntity.ok(ApiResponse.success(pagedResponse));
     }
@@ -78,6 +79,34 @@ public class ProductController {
         log.info("Update product request for ID: {}", id);
         ProductResponse product = productService.updateProduct(id, request);
         return ResponseEntity.ok(ApiResponse.success(product, "Product updated successfully"));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete or Deactivate Product", description = "Delete product if no variants exist, otherwise deactivate product and its variants")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteOrDeactivateProduct(@PathVariable Long id) {
+        log.info("Delete/deactivate product request for ID: {}", id);
+        boolean deleted = productService.deleteOrDeactivateProduct(id);
+        String message = deleted
+                ? "Product deleted successfully"
+                : "Product deactivated and its variants disabled";
+        return ResponseEntity.ok(ApiResponse.success(message));
+    }
+
+    @PutMapping("/{id}/status")
+    @Operation(summary = "Update Product Status", description = "Activate or deactivate a product and its variants")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> updateProductStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateProductStatusRequest request) {
+        log.info("Update product status request for ID: {} to: {}", id, request.getStatus());
+        productService.updateProductStatus(id, request.getStatus());
+        String message = "ACTIVE".equals(request.getStatus())
+                ? "Product activated successfully"
+                : "Product deactivated successfully";
+        return ResponseEntity.ok(ApiResponse.success(message));
     }
 
     @GetMapping("/categories")

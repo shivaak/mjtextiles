@@ -19,6 +19,7 @@ export const productService = {
     category?: string;
     brand?: string;
     search?: string;
+    includeInactive?: boolean;
     page?: number;
     size?: number;
   }): Promise<PagedResponse<Product>> {
@@ -39,6 +40,16 @@ export const productService = {
   async updateProduct(id: number, data: UpdateProductRequest): Promise<Product> {
     const response = await api.put<ApiResponse<Product>>(`/products/${id}`, data);
     return unwrapApiResponse(response);
+  },
+
+  async deleteOrDeactivateProduct(id: number): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>(`/products/${id}`);
+    unwrapApiResponse(response, { allowEmptyData: true });
+  },
+
+  async updateProductStatus(id: number, status: 'ACTIVE' | 'INACTIVE'): Promise<void> {
+    const response = await api.put<ApiResponse<void>>(`/products/${id}/status`, { status });
+    unwrapApiResponse(response, { allowEmptyData: true });
   },
 
   async getCategories(): Promise<string[]> {

@@ -68,6 +68,7 @@ export interface Product {
   hsn: string;
   description?: string;
   variantCount?: number;
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
