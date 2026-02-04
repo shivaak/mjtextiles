@@ -29,6 +29,8 @@ public class UpdateSettingsRequest {
 
     private String gstNumber;
 
+    private String currency;
+
     @DecimalMin(value = "0", message = "Tax percent must be at least 0")
     @DecimalMax(value = "100", message = "Tax percent must be at most 100")
     private BigDecimal taxPercent;

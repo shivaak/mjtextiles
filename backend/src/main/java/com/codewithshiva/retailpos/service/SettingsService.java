@@ -58,6 +58,7 @@ public class SettingsService {
                 request.getPhone(),
                 request.getEmail(),
                 request.getGstNumber(),
+                request.getCurrency(),
                 request.getTaxPercent(),
                 request.getInvoicePrefix(),
                 request.getLowStockThreshold()

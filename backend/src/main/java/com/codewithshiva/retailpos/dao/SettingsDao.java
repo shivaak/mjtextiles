@@ -33,6 +33,7 @@ public interface SettingsDao {
             phone = :phone,
             email = :email,
             gst_number = :gstNumber,
+            currency = :currency,
             tax_percent = :taxPercent,
             invoice_prefix = :invoicePrefix,
             low_stock_threshold = :lowStockThreshold
@@ -43,6 +44,7 @@ public interface SettingsDao {
                 @Bind("phone") String phone,
                 @Bind("email") String email,
                 @Bind("gstNumber") String gstNumber,
+                @Bind("currency") String currency,
                 @Bind("taxPercent") BigDecimal taxPercent,
                 @Bind("invoicePrefix") String invoicePrefix,
                 @Bind("lowStockThreshold") Integer lowStockThreshold);

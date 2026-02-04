@@ -23,6 +23,23 @@ export interface User {
   createdAt: string;
 }
 
+export interface CreateUserRequest {
+  username: string;
+  password: string;
+  fullName: string;
+  role: UserRole;
+}
+
+export interface UpdateUserRequest {
+  fullName: string;
+  role: UserRole;
+  isActive: boolean;
+}
+
+export interface ResetPasswordRequest {
+  newPassword: string;
+}
+
 export interface LoginRequest {
   username: string;
   password: string;
