@@ -354,7 +354,12 @@ export default function BillingPage() {
                     : `${option.productName} - ${option.sku} - ${option.size} ${option.color} (${option.barcode})`
                 }
                 inputValue={searchQuery}
-                onInputChange={(_, value) => handleSearch(value)}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') {
+                    return;
+                  }
+                  handleSearch(value);
+                }}
                 onChange={(_, value) => {
                   if (value && typeof value !== 'string') {
                     addToCart(value);
