@@ -1,5 +1,5 @@
-# Use Eclipse Temurin JRE 17 for cross-platform compatibility
-FROM eclipse-temurin:17-jre
+# Use Eclipse Temurin JRE 17 for linux/amd64 platform
+FROM --platform=linux/amd64 eclipse-temurin:17-jre
 
 # Set working directory
 WORKDIR /app
