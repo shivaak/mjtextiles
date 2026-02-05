@@ -1,5 +1,5 @@
-# Use Eclipse Temurin JRE 17 Alpine for minimal image size
-FROM eclipse-temurin:17-jre-alpine
+# Use Eclipse Temurin JRE 17 for cross-platform compatibility
+FROM eclipse-temurin:17-jre
 
 # Set working directory
 WORKDIR /app
