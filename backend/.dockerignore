@@ -1,0 +1,11 @@
+# Ignore unnecessary files to make the Docker build faster
+target/
+!target/backend-0.0.1-SNAPSHOT.jar
+.mvn/
+*.md
+.git/
+.gitignore
+mvnw
+mvnw.cmd
+src/
+pom.xml
