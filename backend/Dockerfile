@@ -1,5 +1,5 @@
-# Use Eclipse Temurin JRE 17 for linux/amd64 platform
-FROM --platform=linux/amd64 eclipse-temurin:17-jre
+# Use Eclipse Temurin JDK 21 for linux/amd64 platform
+FROM --platform=linux/amd64 eclipse-temurin:21-jdk
 
 # Set working directory
 WORKDIR /app
