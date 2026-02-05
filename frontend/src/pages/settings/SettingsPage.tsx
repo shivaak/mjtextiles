@@ -20,7 +20,7 @@ import PageHeader from '../../components/common/PageHeader';
 import { useNotification } from '../../app/context/NotificationContext';
 import { settingsService } from '../../services/settingsService';
 import { formatApiError } from '../../services/api';
-import type { Settings, UpdateSettingsRequest } from '../../domain/types';
+import type { UpdateSettingsRequest } from '../../domain/types';
 
 const settingsSchema = z.object({
   shopName: z.string().min(1, 'Shop name is required'),
@@ -39,7 +39,6 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 export default function SettingsPage() {
   const { success: showSuccess, error: showError } = useNotification();
   const [loading, setLoading] = useState(true);
-  const [currentSettings, setCurrentSettings] = useState<Settings | null>(null);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -61,7 +60,6 @@ export default function SettingsPage() {
       setLoading(true);
       try {
         const data = await settingsService.getSettings();
-        setCurrentSettings(data);
         form.reset({
           shopName: data.shopName,
           address: data.address || '',

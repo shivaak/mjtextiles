@@ -37,7 +37,6 @@ import dayjs from 'dayjs';
 
 import PageHeader from '../../components/common/PageHeader';
 import { useNotification } from '../../app/context/NotificationContext';
-import { useAuth } from '../../app/context/AuthContext';
 import { userService } from '../../services/userService';
 import { formatApiError } from '../../services/api';
 import type { CreateUserRequest, UpdateUserRequest, User } from '../../domain/types';
@@ -56,7 +55,6 @@ const userSchema = z.object({
 type UserFormData = z.infer<typeof userSchema>;
 
 export default function UsersPage() {
-  const { user } = useAuth();
   const { success: showSuccess, error: showError } = useNotification();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -135,11 +133,19 @@ export default function UsersPage() {
   const handleSaveUser = async (data: UserFormData) => {
     try {
       if (editingUser) {
-        const payload: UpdateUserRequest = {
-          fullName: data.fullName,
-          role: data.role,
-          isActive: data.isActive,
-        };
+        // For admin user (username: 'admin'), only allow editing fullName
+        const isAdminUser = editingUser.username === 'admin';
+        const payload: UpdateUserRequest = isAdminUser
+          ? {
+              fullName: data.fullName,
+              role: editingUser.role,
+              isActive: editingUser.isActive,
+            }
+          : {
+              fullName: data.fullName,
+              role: data.role,
+              isActive: data.isActive,
+            };
         await userService.updateUser(editingUser.id, payload);
         showSuccess('User updated successfully');
       } else {
@@ -231,11 +237,10 @@ export default function UsersPage() {
       sortable: false,
       renderCell: (params: GridRenderCellParams<User>) => (
         <Box>
-          <Tooltip title="Edit">
+          <Tooltip title={params.row.username === 'admin' ? 'Edit (Full Name only)' : 'Edit'}>
             <IconButton
               size="small"
               onClick={() => openDialog(params.row)}
-              disabled={params.row.id === user?.id && params.row.role === 'ADMIN'}
             >
               <EditIcon fontSize="small" />
             </IconButton>
@@ -248,7 +253,7 @@ export default function UsersPage() {
         </Box>
       ),
     },
-  ], [user, openDialog]);
+  ], [openDialog]);
 
   return (
     <Box>
@@ -358,6 +363,11 @@ export default function UsersPage() {
         <form onSubmit={form.handleSubmit(handleSaveUser)}>
           <DialogTitle>{editingUser ? 'Edit User' : 'Add User'}</DialogTitle>
           <DialogContent>
+            {editingUser?.username === 'admin' && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Admin user role and status cannot be modified. Only full name can be updated.
+              </Alert>
+            )}
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid size={{ xs: 12 }}>
                 <Controller
@@ -395,7 +405,7 @@ export default function UsersPage() {
                   name="role"
                   control={form.control}
                   render={({ field }) => (
-                    <FormControl fullWidth>
+                    <FormControl fullWidth disabled={editingUser?.username === 'admin'}>
                       <InputLabel>Role</InputLabel>
                       <Select {...field} label="Role">
                         <MenuItem value="ADMIN">Admin</MenuItem>
@@ -446,6 +456,7 @@ export default function UsersPage() {
                           <Switch
                             checked={field.value}
                             onChange={(e) => field.onChange(e.target.checked)}
+                            disabled={editingUser?.username === 'admin'}
                           />
                         }
                         label="Active"
