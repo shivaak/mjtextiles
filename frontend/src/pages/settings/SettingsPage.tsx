@@ -20,7 +20,7 @@ import PageHeader from '../../components/common/PageHeader';
 import { useNotification } from '../../app/context/NotificationContext';
 import { settingsService } from '../../services/settingsService';
 import { formatApiError } from '../../services/api';
-import type { Settings } from '../../domain/types';
+import type { Settings, UpdateSettingsRequest } from '../../domain/types';
 
 const settingsSchema = z.object({
   shopName: z.string().min(1, 'Shop name is required'),
@@ -85,7 +85,8 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async (data: SettingsFormData) => {
     try {
-      const payload: Settings = {
+      // Note: lastBillNumber is excluded from the payload as it's system-managed
+      const payload: UpdateSettingsRequest = {
         shopName: data.shopName,
         address: data.address,
         phone: data.phone,
@@ -94,7 +95,6 @@ export default function SettingsPage() {
         currency: data.currency,
         taxPercent: data.taxPercent,
         invoicePrefix: data.invoicePrefix,
-        lastBillNumber: currentSettings?.lastBillNumber || 0,
         lowStockThreshold: data.lowStockThreshold,
       };
       await settingsService.updateSettings(payload);

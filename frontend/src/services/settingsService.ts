@@ -1,5 +1,5 @@
 import api, { unwrapApiResponse } from './api';
-import type { Settings, ApiResponse } from '../domain/types';
+import type { Settings, UpdateSettingsRequest, ApiResponse } from '../domain/types';
 
 export const settingsService = {
   async getSettings(): Promise<Settings> {
@@ -7,7 +7,7 @@ export const settingsService = {
     return unwrapApiResponse(response);
   },
 
-  async updateSettings(data: Partial<Settings>): Promise<Settings> {
+  async updateSettings(data: UpdateSettingsRequest): Promise<Settings> {
     const response = await api.put<ApiResponse<Settings>>('/settings', data);
     return unwrapApiResponse(response);
   },

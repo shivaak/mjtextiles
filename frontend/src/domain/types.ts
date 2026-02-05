@@ -449,6 +449,18 @@ export interface Settings {
   updatedAt?: string;
 }
 
+export interface UpdateSettingsRequest {
+  shopName: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  gstNumber?: string;
+  currency: string;
+  taxPercent: number;
+  invoicePrefix: string;
+  lowStockThreshold: number;
+}
+
 // Reports
 export interface SalesSummaryReport {
   summary: {
