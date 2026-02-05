@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useMemo, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import type { PaletteMode } from '@mui/material';
 

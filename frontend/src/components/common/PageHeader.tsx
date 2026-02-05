@@ -1,7 +1,7 @@
 import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 interface BreadcrumbItem {
   label: string;

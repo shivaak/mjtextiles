@@ -39,6 +39,7 @@ type SettingsFormData = z.infer<typeof settingsSchema>;
 export default function SettingsPage() {
   const { success: showSuccess, error: showError } = useNotification();
   const [loading, setLoading] = useState(true);
+  const [currentSettings, setCurrentSettings] = useState<Settings | null>(null);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -60,6 +61,7 @@ export default function SettingsPage() {
       setLoading(true);
       try {
         const data = await settingsService.getSettings();
+        setCurrentSettings(data);
         form.reset({
           shopName: data.shopName,
           address: data.address || '',
@@ -92,6 +94,7 @@ export default function SettingsPage() {
         currency: data.currency,
         taxPercent: data.taxPercent,
         invoicePrefix: data.invoicePrefix,
+        lastBillNumber: currentSettings?.lastBillNumber || 0,
         lowStockThreshold: data.lowStockThreshold,
       };
       await settingsService.updateSettings(payload);

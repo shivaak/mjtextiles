@@ -387,13 +387,13 @@ const TopBar = memo(function TopBar({
             inputValue={searchQuery}
             onInputChange={(_, value) => setSearchQuery(value)}
             onChange={(_, option) => {
-              if (!option) return;
+              if (!option || typeof option === 'string') return;
               navigate(`/inventory?q=${encodeURIComponent(option.query)}`);
               setSearchQuery('');
               setSearchOptions([]);
             }}
-            groupBy={(option) => (option.type === 'product' ? 'Products' : 'Variants')}
-            getOptionLabel={(option) => option.label}
+            groupBy={(option) => (typeof option === 'string' ? '' : option.type === 'product' ? 'Products' : 'Variants')}
+            getOptionLabel={(option) => (typeof option === 'string' ? option : option.label)}
             filterOptions={(options) => options}
             noOptionsText={searchQuery.trim().length < 2 ? 'Type at least 2 characters' : 'No results'}
             renderInput={(params) => (

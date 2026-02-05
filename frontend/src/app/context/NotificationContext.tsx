@@ -1,4 +1,5 @@
-import { ReactNode, useMemo } from 'react';
+import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { SnackbarProvider, useSnackbar } from 'notistack';
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
