@@ -32,13 +32,14 @@ CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
 -- ===========================================
--- Products table
+-- Products table (includes HSN from V3)
 -- ===========================================
 CREATE TABLE products (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name            VARCHAR(200) NOT NULL,
     brand           VARCHAR(100) NOT NULL,
     category        VARCHAR(100) NOT NULL,
+    hsn             VARCHAR(20) NOT NULL,
     description     TEXT,
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -52,7 +53,7 @@ CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_products_brand ON products(brand);
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_products_is_active ON products(is_active);
-CREATE INDEX idx_products_search ON products USING gin(to_tsvector('english', name || ' ' || brand || ' ' || category));
+CREATE INDEX idx_products_search ON products USING gin(to_tsvector('english', name || ' ' || brand || ' ' || category || ' ' || hsn));
 
 -- ===========================================
 -- Variants table
@@ -109,7 +110,7 @@ CREATE INDEX idx_suppliers_name ON suppliers(name);
 CREATE INDEX idx_suppliers_is_active ON suppliers(is_active);
 
 -- ===========================================
--- Purchases table
+-- Purchases table (includes void fields from V4)
 -- ===========================================
 CREATE TABLE purchases (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -118,11 +119,16 @@ CREATE TABLE purchases (
     purchased_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     total_cost      DECIMAL(12, 2) NOT NULL DEFAULT 0,
     notes           TEXT,
+    status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    voided_at       TIMESTAMP WITH TIME ZONE,
+    voided_by       BIGINT REFERENCES users(id),
+    void_reason     TEXT,
     created_by      BIGINT NOT NULL REFERENCES users(id),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
-    CONSTRAINT purchases_total_cost_positive CHECK (total_cost >= 0)
+    CONSTRAINT purchases_total_cost_positive CHECK (total_cost >= 0),
+    CONSTRAINT purchases_status_check CHECK (status IN ('ACTIVE', 'VOIDED'))
 );
 
 CREATE INDEX idx_purchases_supplier_id ON purchases(supplier_id);
@@ -130,6 +136,8 @@ CREATE INDEX idx_purchases_purchased_at ON purchases(purchased_at);
 CREATE INDEX idx_purchases_invoice_no ON purchases(invoice_no);
 CREATE INDEX idx_purchases_created_by ON purchases(created_by);
 CREATE INDEX idx_purchases_created_at ON purchases(created_at);
+CREATE INDEX idx_purchases_status ON purchases(status);
+CREATE INDEX idx_purchases_voided_at ON purchases(voided_at);
 
 -- ===========================================
 -- Purchase Items table
@@ -257,3 +265,25 @@ CREATE TABLE settings (
     CONSTRAINT settings_last_bill_number_positive CHECK (last_bill_number >= 0),
     CONSTRAINT settings_low_stock_threshold_positive CHECK (low_stock_threshold >= 0)
 );
+
+-- ===========================================
+-- Audit Logs table (from V2)
+-- ===========================================
+CREATE TABLE audit_logs (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    entity_type     VARCHAR(50) NOT NULL,
+    entity_id       BIGINT,
+    action          VARCHAR(50) NOT NULL,
+    user_id         BIGINT,
+    username        VARCHAR(50),
+    description     TEXT,
+    ip_address      VARCHAR(45),
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_entity_created ON audit_logs(entity_type, created_at DESC);
+CREATE INDEX idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC);
