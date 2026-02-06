@@ -200,11 +200,11 @@ const SidebarContent = memo(function SidebarContent({
             fontSize: '1.2rem',
           }}
         >
-          MJ
+          {import.meta.env.VITE_COMPANY_SHORT_NAME || 'POS'}
         </Box>
         <Box>
           <Typography variant="h6" fontWeight={700} lineHeight={1.2}>
-            MJ Textiles
+            {import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Stock & Billing

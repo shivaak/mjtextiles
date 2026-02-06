@@ -153,7 +153,7 @@ export default function LoginPage() {
                     WebkitTextFillColor: 'transparent',
                   }}
                 >
-                  MJ Textiles
+                  {import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}
                 </Typography>
                 <Typography
                   variant="body2"
@@ -274,7 +274,7 @@ export default function LoginPage() {
                   : 'text.secondary',
             }}
           >
-            © 2026 MJ Textiles. All rights reserved.
+            {`© ${new Date().getFullYear()} ${import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}. All rights reserved.`}
           </Typography>
         </Box>
       </Container>
