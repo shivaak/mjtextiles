@@ -69,6 +69,15 @@ public class SecurityConfig {
                 // Actuator health endpoint
                 .requestMatchers("/actuator/health").permitAll()
                 
+                // Static resources (frontend SPA)
+                .requestMatchers(
+                    "/",
+                    "/index.html",
+                    "/assets/**",
+                    "/favicon.ico",
+                    "/vite.svg"
+                ).permitAll()
+                
                 // All other requests require authentication
                 .anyRequest().authenticated()
             )

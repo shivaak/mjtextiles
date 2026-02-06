@@ -7,4 +7,8 @@ export default defineConfig({
   server: {
     port: 8081,
   },
+  build: {
+    outDir: '../backend/src/main/resources/static',
+    emptyOutDir: true,
+  },
 })
