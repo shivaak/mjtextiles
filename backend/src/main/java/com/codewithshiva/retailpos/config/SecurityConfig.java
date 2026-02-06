@@ -52,11 +52,14 @@ public class SecurityConfig {
             
             // Authorization rules
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
+                // Public API endpoints
                 .requestMatchers(
                     "/api/v1/auth/login",
                     "/api/v1/auth/refresh"
                 ).permitAll()
+                
+                // All other API endpoints require authentication
+                .requestMatchers("/api/**").authenticated()
                 
                 // Swagger UI and OpenAPI docs
                 .requestMatchers(
@@ -69,17 +72,8 @@ public class SecurityConfig {
                 // Actuator health endpoint
                 .requestMatchers("/actuator/health").permitAll()
                 
-                // Static resources (frontend SPA)
-                .requestMatchers(
-                    "/",
-                    "/index.html",
-                    "/assets/**",
-                    "/favicon.ico",
-                    "/vite.svg"
-                ).permitAll()
-                
-                // All other requests require authentication
-                .anyRequest().authenticated()
+                // Everything else (static resources, SPA routes) is public
+                .anyRequest().permitAll()
             )
             
             // Add JWT filter before UsernamePasswordAuthenticationFilter
