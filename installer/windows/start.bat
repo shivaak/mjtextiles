@@ -32,7 +32,7 @@ echo Starting application...
 for /f %%i in ('powershell -nologo -noprofile -command "Start-Process java -ArgumentList '-jar','retailpos.jar' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id"') do set APP_PID=%%i
 
 echo !APP_PID! > ".app.pid"
-timeout /t 4 /nobreak >nul
+timeout /t 15 /nobreak >nul
 start http://localhost:8080
 
 echo.

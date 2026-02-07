@@ -7,7 +7,7 @@ echo ============================================
 echo.
 
 REM Read .env file
-if not exist .env (
+if not exist ".env" (
     echo ERROR: .env file not found in current directory.
     pause
     exit /b 1
@@ -30,7 +30,7 @@ REM Set defaults
 if not defined BACKUP_DIR set "BACKUP_DIR=backups"
 
 REM Parse JDBC URL
-set "JDBC_URL=%DB_URL%"
+set "JDBC_URL=!DB_URL!"
 set "JDBC_URL=!JDBC_URL:jdbc:postgresql://=!"
 for /f "tokens=1,2 delims=/" %%a in ("!JDBC_URL!") do (
     set "HOST_PORT=%%a"
@@ -47,14 +47,14 @@ if "%~1"=="" (
     echo Available backups:
     echo.
     set "count=0"
-    for %%f in ("%BACKUP_DIR%\retailpos_*.sql.gz" "%BACKUP_DIR%\retailpos_*.sql.zip" "%BACKUP_DIR%\retailpos_*.sql") do (
+    for %%f in ("!BACKUP_DIR!\retailpos_*.sql.gz" "!BACKUP_DIR!\retailpos_*.sql") do (
         set /a count+=1
         echo   !count!. %%~nxf
         set "backup_!count!=%%f"
     )
 
     if !count! equ 0 (
-        echo   No backups found in %BACKUP_DIR%
+        echo   No backups found in !BACKUP_DIR!
         echo.
         pause
         exit /b 1
@@ -73,52 +73,42 @@ if "%~1"=="" (
     set "BACKUP_FILE=%~1"
 )
 
-if not exist "%BACKUP_FILE%" (
-    echo ERROR: Backup file not found: %BACKUP_FILE%
+if not exist "!BACKUP_FILE!" (
+    echo ERROR: Backup file not found: !BACKUP_FILE!
     pause
     exit /b 1
 )
 
 echo.
-echo WARNING: This will overwrite the current database '%DB_NAME%'.
-echo Restoring from: %BACKUP_FILE%
+echo WARNING: This will overwrite the current database '!DB_NAME!'.
+echo Restoring from: !BACKUP_FILE!
 echo.
 set /p "confirm=Are you sure? (Y/N): "
-if /i not "%confirm%"=="Y" (
+if /i not "!confirm!"=="Y" (
     echo Restore cancelled.
     pause
     exit /b 0
 )
 
-set "PGPASSWORD=%DB_PASSWORD%"
+set "PGPASSWORD=!DB_PASSWORD!"
+set "TEMP_SQL=!BACKUP_DIR!\restore_temp.sql"
 
 REM Check file extension and decompress if needed
-echo !BACKUP_FILE! | findstr /i ".zip" >nul
-if !errorlevel! equ 0 (
-    echo Decompressing backup...
-    set "TEMP_SQL=%BACKUP_DIR%\restore_temp.sql"
-    powershell -nologo -noprofile -command "Expand-Archive -Path '!BACKUP_FILE!' -DestinationPath '%BACKUP_DIR%\restore_temp' -Force; Get-ChildItem '%BACKUP_DIR%\restore_temp\*' | Move-Item -Destination '!TEMP_SQL!' -Force; Remove-Item '%BACKUP_DIR%\restore_temp' -Recurse -Force"
-    echo Restoring database...
-    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USERNAME% -d %DB_NAME% -f "!TEMP_SQL!"
-    del "!TEMP_SQL!" 2>nul
-    goto :restore_done
-)
-
 echo !BACKUP_FILE! | findstr /i ".gz" >nul
 if !errorlevel! equ 0 (
     echo Decompressing and restoring database...
-    powershell -nologo -noprofile -command "$input = [System.IO.File]::OpenRead('!BACKUP_FILE!'); $gzip = New-Object System.IO.Compression.GZipStream($input, [System.IO.Compression.CompressionMode]::Decompress); $output = [System.IO.File]::Create('%BACKUP_DIR%\restore_temp.sql'); $gzip.CopyTo($output); $output.Close(); $gzip.Close(); $input.Close()"
-    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USERNAME% -d %DB_NAME% -f "%BACKUP_DIR%\restore_temp.sql"
-    del "%BACKUP_DIR%\restore_temp.sql" 2>nul
+    powershell -nologo -noprofile -command "$in=[System.IO.File]::OpenRead('!BACKUP_FILE!'); $gz=New-Object System.IO.Compression.GZipStream($in,[System.IO.Compression.CompressionMode]::Decompress); $out=[System.IO.File]::Create('!TEMP_SQL!'); $gz.CopyTo($out); $out.Close(); $gz.Close(); $in.Close()"
+    psql -h !DB_HOST! -p !DB_PORT! -U !DB_USERNAME! -d !DB_NAME! -f "!TEMP_SQL!"
+    del "!TEMP_SQL!" 2>nul
     goto :restore_done
 )
 
 REM Plain SQL file
 echo Restoring database...
-psql -h %DB_HOST% -p %DB_PORT% -U %DB_USERNAME% -d %DB_NAME% -f "%BACKUP_FILE%"
+psql -h !DB_HOST! -p !DB_PORT! -U !DB_USERNAME! -d !DB_NAME! -f "!BACKUP_FILE!"
 
 :restore_done
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo.
     echo ERROR: Restore failed.
     pause
