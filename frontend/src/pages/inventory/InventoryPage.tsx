@@ -38,6 +38,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import HistoryIcon from '@mui/icons-material/History';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -61,7 +62,7 @@ import type {
   InventorySummary,
   Settings,
 } from '../../domain/types';
-import { calculateStockValue, calculateMarginPercent } from '../../utils/calculations';
+import { calculateStockValue, calculateMarkupPercent } from '../../utils/calculations';
 
 const adjustmentSchema = z.object({
   deltaQty: z.number().refine((val) => val !== 0, 'Quantity cannot be zero'),
@@ -357,16 +358,48 @@ export default function InventoryPage() {
       ),
     },
     {
-      field: 'margin',
-      headerName: 'Margin',
-      width: 90,
+      field: 'markup',
+      headerName: 'Markup',
+      width: 100,
       align: 'right' as const,
-      valueGetter: (_value: unknown, row: Variant) => calculateMarginPercent(row.sellingPrice, row.avgCost),
-      renderCell: (params: GridRenderCellParams<Variant>) => (
-        <Typography variant="body2" color={(params.value as number) >= 30 ? 'success.main' : 'warning.main'}>
-          {(params.value as number).toFixed(1)}%
-        </Typography>
+      renderHeader: () => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography variant="body2" fontWeight={500}>Markup</Typography>
+          <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+        </Box>
       ),
+      valueGetter: (_value: unknown, row: Variant) => calculateMarkupPercent(row.sellingPrice, row.avgCost),
+      renderCell: (params: GridRenderCellParams<Variant>) => {
+        const markup = params.value as number;
+        return (
+          <Tooltip
+            title={
+              <Box sx={{ p: 0.5 }}>
+                <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
+                  How is Markup calculated?
+                </Typography>
+                <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                  Markup % = ((Price − Cost) / Cost) × 100
+                </Typography>
+                <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
+                  Example:
+                </Typography>
+                <Typography variant="caption" display="block">Selling Price: ₹150</Typography>
+                <Typography variant="caption" display="block">Cost: ₹100</Typography>
+                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                  Markup = (150 − 100) / 100 × 100 = 50%
+                </Typography>
+              </Box>
+            }
+            arrow
+            placement="left"
+          >
+            <Typography variant="body2" color={markup >= 30 ? 'success.main' : 'warning.main'} sx={{ cursor: 'help' }}>
+              {markup.toFixed(1)}%
+            </Typography>
+          </Tooltip>
+        );
+      },
     }] : []),
     ...(isAdmin ? [{
       field: 'actions',

@@ -126,9 +126,9 @@ public class ReportService {
 
         List<ProductPerformanceReport.TopSeller> topSellers = topSellersData.stream()
                 .map(ps -> {
-                    BigDecimal margin = ps.getRevenue().compareTo(BigDecimal.ZERO) > 0
+                    BigDecimal markup = ps.getCost().compareTo(BigDecimal.ZERO) > 0
                             ? ps.getProfit().multiply(BigDecimal.valueOf(100))
-                                .divide(ps.getRevenue(), 1, RoundingMode.HALF_UP)
+                                .divide(ps.getCost(), 1, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO;
                     return ProductPerformanceReport.TopSeller.builder()
                             .variantId(ps.getVariantId())
@@ -140,7 +140,7 @@ public class ReportService {
                             .revenue(ps.getRevenue())
                             .cost(ps.getCost())
                             .profit(ps.getProfit())
-                            .marginPercent(margin)
+                            .markupPercent(markup)
                             .build();
                 })
                 .collect(Collectors.toList());

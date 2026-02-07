@@ -1,10 +1,10 @@
 /**
- * Calculate margin percentage (Profit / Selling Price)
- * Example: Cost=100, Price=150 → Margin = 50/150 = 33.3%
+ * Calculate markup percentage (Profit / Cost)
+ * Example: Cost=100, Price=150 → Markup = 50/100 = 50%
  */
-export function calculateMarginPercent(sellingPrice: number, cost: number): number {
-  if (sellingPrice === 0) return 0;
-  return Math.round(((sellingPrice - cost) / sellingPrice) * 100 * 100) / 100;
+export function calculateMarkupPercent(sellingPrice: number, cost: number): number {
+  if (cost === 0) return 0;
+  return Math.round(((sellingPrice - cost) / cost) * 100 * 100) / 100;
 }
 
 /**

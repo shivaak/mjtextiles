@@ -494,7 +494,7 @@ export interface ProductPerformanceReport {
     revenue: number;
     cost: number;
     profit: number;
-    marginPercent: number;
+    markupPercent: number;
   }>;
   slowMovers: Array<{
     variantId: number;

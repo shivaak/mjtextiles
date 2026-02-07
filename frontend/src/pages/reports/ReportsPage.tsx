@@ -15,8 +15,10 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Tooltip as MuiTooltip,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import {
   LineChart,
   Line,
@@ -384,30 +386,62 @@ export default function ReportsPage() {
                     <TableCell align="right">Qty Sold</TableCell>
                     <TableCell align="right">Revenue</TableCell>
                     <TableCell align="right">Profit</TableCell>
-                    <TableCell align="right">Margin</TableCell>
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                        Markup
+                        <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                      </Box>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {topSellers.slice(0, 20).map((row) => (
-                    <TableRow key={row.variantId}>
-                      <TableCell>{row.productName}</TableCell>
-                      <TableCell>{row.category || '-'}</TableCell>
-                      <TableCell align="right">{row.qtySold}</TableCell>
-                      <TableCell align="right"><Money value={row.revenue} symbol={currencySymbol} /></TableCell>
-                      <TableCell align="right">
-                        <Typography color="success.main">
-                          <Money value={row.profit} symbol={currencySymbol} />
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Chip
-                          label={`${row.marginPercent.toFixed(1)}%`}
-                          size="small"
-                          color={row.marginPercent >= 25 ? 'success' : row.marginPercent >= 15 ? 'warning' : 'error'}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {topSellers.slice(0, 20).map((row) => {
+                    const markup = row.markupPercent ?? (row.cost > 0 ? (row.profit / row.cost) * 100 : 0);
+                    return (
+                      <TableRow key={row.variantId}>
+                        <TableCell>{row.productName}</TableCell>
+                        <TableCell>{row.category || '-'}</TableCell>
+                        <TableCell align="right">{row.qtySold}</TableCell>
+                        <TableCell align="right"><Money value={row.revenue} symbol={currencySymbol} /></TableCell>
+                        <TableCell align="right">
+                          <Typography color="success.main">
+                            <Money value={row.profit} symbol={currencySymbol} />
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <MuiTooltip
+                            title={
+                              <Box sx={{ p: 0.5 }}>
+                                <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
+                                  How is Markup calculated?
+                                </Typography>
+                                <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                                  Markup % = ((Price − Cost) / Cost) × 100
+                                </Typography>
+                                <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
+                                  Example:
+                                </Typography>
+                                <Typography variant="caption" display="block">Selling Price: ₹150</Typography>
+                                <Typography variant="caption" display="block">Cost: ₹100</Typography>
+                                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                  Markup = (150 − 100) / 100 × 100 = 50%
+                                </Typography>
+                              </Box>
+                            }
+                            arrow
+                            placement="left"
+                          >
+                            <Chip
+                              label={`${markup.toFixed(1)}%`}
+                              size="small"
+                              color={markup >= 25 ? 'success' : markup >= 15 ? 'warning' : 'error'}
+                              sx={{ cursor: 'help' }}
+                            />
+                          </MuiTooltip>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {!loading && topSellers.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 4 }}>

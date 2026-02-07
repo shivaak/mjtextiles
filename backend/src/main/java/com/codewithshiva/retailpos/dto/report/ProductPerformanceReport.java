@@ -36,7 +36,7 @@ public class ProductPerformanceReport {
         private BigDecimal revenue;
         private BigDecimal cost;
         private BigDecimal profit;
-        private BigDecimal marginPercent;
+        private BigDecimal markupPercent;
     }
 
     @Data
