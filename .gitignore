@@ -32,5 +32,11 @@ logs/
 *.bak
 *.tmp
 
+# Installer build artifacts
+installer/retailpos.jar
+
+# Database backups
+backups/
+
 # claude
 .claude/
