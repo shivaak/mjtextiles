@@ -26,7 +26,7 @@ nohup java -jar retailpos.jar > /dev/null 2>&1 &
 APP_PID=$!
 echo $APP_PID > .app.pid
 
-sleep 4
+sleep 15
 
 # Try to open browser
 if command -v open &> /dev/null; then
