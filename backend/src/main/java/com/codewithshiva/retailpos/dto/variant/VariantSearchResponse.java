@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 public class VariantSearchResponse {
     private Long id;
     private String productName;
+    private String productBrand;
     private String sku;
     private String barcode;
     private String size;
@@ -36,6 +37,7 @@ public class VariantSearchResponse {
         return VariantSearchResponse.builder()
                 .id(variant.getId())
                 .productName(variant.getProductName())
+                .productBrand(variant.getProductBrand())
                 .sku(variant.getSku())
                 .barcode(variant.getBarcode())
                 .size(variant.getSize())

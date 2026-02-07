@@ -96,6 +96,7 @@ export type VariantStatus = 'ACTIVE' | 'INACTIVE';
 export interface VariantSearchResponse {
   id: number;
   productName: string;
+  productBrand?: string;
   sku: string;
   barcode: string;
   size: string;

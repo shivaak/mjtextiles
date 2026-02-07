@@ -181,6 +181,7 @@ export default function PurchasesPage() {
   const mapVariantToSearch = (variant: Variant): VariantSearchResponse => ({
     id: variant.id,
     productName: variant.productName,
+    productBrand: variant.productBrand,
     sku: variant.sku,
     barcode: variant.barcode,
     size: variant.size,
@@ -768,7 +769,7 @@ export default function PurchasesPage() {
                                       <Box>
                                         <Typography variant="body2">{option.productName}</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                          {option.size} | {option.color} | {option.barcode}
+                                          {option.productBrand ? `${option.productBrand} | ` : ''}{option.size} | {option.color} | {option.sku}
                                         </Typography>
                                       </Box>
                                     </Box>
@@ -948,7 +949,7 @@ export default function PurchasesPage() {
                                       <Box>
                                         <Typography variant="body2">{option.productName}</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                          {option.size} | {option.color} | {option.barcode}
+                                          {option.productBrand ? `${option.productBrand} | ` : ''}{option.size} | {option.color} | {option.sku}
                                         </Typography>
                                       </Box>
                                     </Box>
