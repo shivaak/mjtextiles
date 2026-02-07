@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Card,
@@ -112,6 +112,10 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
 
+  // Product search for variant dialog
+  const [productSearchOptions, setProductSearchOptions] = useState<Product[]>([]);
+  const productSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Dialog states
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
@@ -213,6 +217,24 @@ export default function ProductsPage() {
       setSettings({ lowStockThreshold: 10 } as Settings);
     }
   }, [showError]);
+
+  const handleProductSearch = useCallback((query: string) => {
+    if (productSearchTimer.current) {
+      clearTimeout(productSearchTimer.current);
+    }
+    if (!query || query.length < 2) {
+      setProductSearchOptions(products);
+      return;
+    }
+    productSearchTimer.current = setTimeout(async () => {
+      try {
+        const data = await productService.getProducts({ search: query, size: 20 });
+        setProductSearchOptions(data.content);
+      } catch (error) {
+        console.error('Failed to search products', error);
+      }
+    }, 300);
+  }, [products]);
 
   // Initial load
   useEffect(() => {
@@ -900,16 +922,46 @@ export default function ProductsPage() {
                   name="productId"
                   control={variantForm.control}
                   render={({ field, fieldState }) => (
-                    <FormControl fullWidth error={!!fieldState.error}>
-                      <InputLabel>Product</InputLabel>
-                      <Select {...field} label="Product">
-                        {products.map(product => (
-                          <MenuItem key={product.id} value={product.id}>
-                            {product.name} ({product.brand})
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <Autocomplete
+                      options={productSearchOptions.length > 0 ? productSearchOptions : products}
+                      getOptionLabel={(option) => `${option.name} (${option.brand})`}
+                      value={
+                        [...products, ...productSearchOptions].find((p) => p.id === field.value) || null
+                      }
+                      onChange={(_, value) => {
+                        field.onChange(value ? value.id : 0);
+                      }}
+                      onInputChange={(_, value, reason) => {
+                        if (reason === 'input') {
+                          handleProductSearch(value);
+                        }
+                        if (reason === 'clear') {
+                          field.onChange(0);
+                          setProductSearchOptions(products);
+                        }
+                      }}
+                      onFocus={() => setProductSearchOptions(products)}
+                      isOptionEqualToValue={(option, val) => option.id === val.id}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Product"
+                          placeholder="Search product..."
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} key={option.id}>
+                          <Box>
+                            <Typography variant="body2">{option.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {option.brand} | {option.category}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                    />
                   )}
                 />
               </Grid>
