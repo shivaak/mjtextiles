@@ -179,7 +179,7 @@ BEGIN
         COALESCE(SUM(v.stock_qty), 0)::BIGINT AS total_items,
         COALESCE(SUM(v.stock_qty * v.avg_cost), 0)::DECIMAL(14, 2) AS total_cost_value,
         COALESCE(SUM(v.stock_qty * v.selling_price), 0)::DECIMAL(14, 2) AS total_retail_value,
-        COUNT(CASE WHEN v.stock_qty > 0 AND v.stock_qty <= s.low_stock_threshold THEN 1 END)::BIGINT AS low_stock_count,
+        COUNT(CASE WHEN v.stock_qty <= s.low_stock_threshold THEN 1 END)::BIGINT AS low_stock_count,
         COUNT(CASE WHEN v.stock_qty = 0 THEN 1 END)::BIGINT AS out_of_stock_count
     FROM variants v
     CROSS JOIN settings s

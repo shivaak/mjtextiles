@@ -62,13 +62,12 @@ public interface DashboardDao {
                                 @Bind("endDate") OffsetDateTime endDate);
 
     /**
-     * Get count of low stock variants (stock_qty > 0 AND stock_qty <= threshold).
-     * Uses v_low_stock_variants view but excludes out of stock.
+     * Get count of low stock variants (stock_qty <= threshold, including out of stock).
+     * Uses v_low_stock_variants view.
      */
     @SqlQuery("""
         SELECT COUNT(*) 
-        FROM v_low_stock_variants 
-        WHERE stock_qty > 0
+        FROM v_low_stock_variants
         """)
     Integer getLowStockCount();
 

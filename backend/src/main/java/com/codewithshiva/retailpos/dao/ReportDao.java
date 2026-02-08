@@ -413,8 +413,7 @@ public interface ReportDao {
     @SqlQuery("""
         SELECT COUNT(*) 
         FROM v_low_stock_variants 
-        WHERE stock_qty > 0
-          AND (:category IS NULL OR product_category = :category)
+        WHERE (:category IS NULL OR product_category = :category)
           AND (:brand IS NULL OR product_brand = :brand)
         """)
     Integer getLowStockCount(@Bind("category") String category,
