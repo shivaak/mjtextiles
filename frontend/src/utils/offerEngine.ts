@@ -130,7 +130,7 @@ function evaluateQuantityPrice(cart: CartItem[], offer: Offer): OfferApplication
       variantId: item.variantId,
       offerId: offer.id,
       offerName: offer.name,
-      discountPercent: Math.round(blendedDiscPct * 100) / 100,
+      discountPercent: blendedDiscPct,
     });
   }
   return results;
@@ -167,7 +167,7 @@ function evaluateQuantityDiscount(cart: CartItem[], offer: Offer): OfferApplicat
       variantId: item.variantId,
       offerId: offer.id,
       offerName: offer.name,
-      discountPercent: Math.round(blendedDiscPct * 100) / 100,
+      discountPercent: blendedDiscPct,
     });
   }
   return results;
@@ -220,7 +220,7 @@ function evaluateCombo(cart: CartItem[], offer: Offer): OfferApplication[] {
       variantId: cartItem.variantId,
       offerId: offer.id,
       offerName: offer.name,
-      discountPercent: Math.round(blendedDiscPct * 100) / 100,
+      discountPercent: blendedDiscPct,
     });
   }
 
@@ -256,7 +256,7 @@ function evaluateBogo(cart: CartItem[], offer: Offer): OfferApplication[] {
       variantId: item.variantId,
       offerId: offer.id,
       offerName: offer.name,
-      discountPercent: Math.round(effectiveDiscPct * 100) / 100,
+      discountPercent: effectiveDiscPct,
     });
   }
   return results;

@@ -484,7 +484,7 @@ export default function BillingPage() {
           variantId: item.variantId,
           qty: item.qty,
           unitPrice: item.unitPrice,
-          itemDiscountPercent: item.itemDiscountPercent,
+          itemDiscountPercent: Math.round(item.itemDiscountPercent * 100) / 100,
           appliedOfferId: item.appliedOfferId,
         })),
       });
@@ -762,7 +762,7 @@ export default function BillingPage() {
                             {item.appliedOfferId ? (
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                                 <Chip
-                                  label={`${itemDiscPct}%`}
+                                  label={`${Math.round(itemDiscPct * 100) / 100}%`}
                                   size="small"
                                   color="success"
                                   title={item.appliedOfferName}
