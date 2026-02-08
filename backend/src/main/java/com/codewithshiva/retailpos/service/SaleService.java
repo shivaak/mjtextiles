@@ -172,18 +172,17 @@ public class SaleService {
             BigDecimal effectiveUnitPrice = item.getUnitPrice().multiply(itemDiscountFactor).setScale(2, RoundingMode.HALF_UP);
             BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(item.getQty()));
             BigDecimal revenue = lineAmount.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+
+            // Apply global discount to revenue (not profit) — discount reduces what we earned, not what we paid
+            BigDecimal globalDiscountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+            revenue = revenue.multiply(globalDiscountFactor).setScale(2, RoundingMode.HALF_UP);
+
             BigDecimal cost = avgCost.multiply(BigDecimal.valueOf(item.getQty()));
             BigDecimal itemProfit = revenue.subtract(cost);
             totalProfit = totalProfit.add(itemProfit);
 
             log.debug("Stock decreased for variant {}: qty={}, avgCost={}, itemProfit={}", 
                     item.getVariantId(), item.getQty(), avgCost, itemProfit);
-        }
-
-        // Adjust profit for global discount (proportionally reduce profit)
-        if (discountPercent.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal globalDiscountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
-            totalProfit = totalProfit.multiply(globalDiscountFactor).setScale(2, RoundingMode.HALF_UP);
         }
 
         // 9. Create sale record
