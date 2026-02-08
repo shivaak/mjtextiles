@@ -44,9 +44,11 @@ CREATE TABLE products (
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    default_discount_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
     created_by      BIGINT REFERENCES users(id),
     
-    CONSTRAINT products_name_brand_unique UNIQUE (name, brand)
+    CONSTRAINT products_name_brand_unique UNIQUE (name, brand),
+    CONSTRAINT products_default_discount_range CHECK (default_discount_percent >= 0 AND default_discount_percent <= 100)
 );
 
 CREATE INDEX idx_products_category ON products(category);
@@ -71,6 +73,7 @@ CREATE TABLE variants (
     status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    default_discount_percent DECIMAL(5, 2),
     created_by      BIGINT REFERENCES users(id),
     
     CONSTRAINT variants_sku_unique UNIQUE (sku),
@@ -78,7 +81,8 @@ CREATE TABLE variants (
     CONSTRAINT variants_status_check CHECK (status IN ('ACTIVE', 'INACTIVE')),
     CONSTRAINT variants_selling_price_positive CHECK (selling_price >= 0),
     CONSTRAINT variants_avg_cost_positive CHECK (avg_cost >= 0),
-    CONSTRAINT variants_stock_qty_non_negative CHECK (stock_qty >= 0)
+    CONSTRAINT variants_stock_qty_non_negative CHECK (stock_qty >= 0),
+    CONSTRAINT variants_default_discount_range CHECK (default_discount_percent IS NULL OR (default_discount_percent >= 0 AND default_discount_percent <= 100))
 );
 
 CREATE INDEX idx_variants_product_id ON variants(product_id);
@@ -212,11 +216,13 @@ CREATE TABLE sale_items (
     qty                 INTEGER NOT NULL,
     unit_price          DECIMAL(12, 2) NOT NULL,
     unit_cost_at_sale   DECIMAL(12, 2) NOT NULL,
+    item_discount_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     CONSTRAINT sale_items_qty_positive CHECK (qty > 0),
     CONSTRAINT sale_items_unit_price_positive CHECK (unit_price >= 0),
-    CONSTRAINT sale_items_unit_cost_positive CHECK (unit_cost_at_sale >= 0)
+    CONSTRAINT sale_items_unit_cost_positive CHECK (unit_cost_at_sale >= 0),
+    CONSTRAINT sale_items_discount_range CHECK (item_discount_percent >= 0 AND item_discount_percent <= 100)
 );
 
 CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
