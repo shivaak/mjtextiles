@@ -43,6 +43,8 @@ public class SaleItemResponse {
     @JsonView(Views.Admin.class) // Only visible to ADMIN
     private BigDecimal unitCostAtSale;
     @JsonView(Views.Employee.class)
+    private BigDecimal itemDiscountPercent;
+    @JsonView(Views.Employee.class)
     private BigDecimal totalPrice;
     @JsonView(Views.Admin.class) // Only visible to ADMIN
     private BigDecimal profit;
@@ -51,7 +53,10 @@ public class SaleItemResponse {
      * Create SaleItemResponse from SaleItemWithVariant model.
      */
     public static SaleItemResponse fromSaleItemWithVariant(SaleItemWithVariant item) {
-        BigDecimal totalPrice = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQty()));
+        BigDecimal discountPct = item.getItemDiscountPercent() != null ? item.getItemDiscountPercent() : BigDecimal.ZERO;
+        BigDecimal discountFactor = BigDecimal.ONE.subtract(discountPct.divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP));
+        BigDecimal effectiveUnitPrice = item.getUnitPrice().multiply(discountFactor).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalPrice = effectiveUnitPrice.multiply(BigDecimal.valueOf(item.getQty()));
         BigDecimal totalCost = item.getUnitCostAtSale().multiply(BigDecimal.valueOf(item.getQty()));
         BigDecimal profit = totalPrice.subtract(totalCost);
         
@@ -67,6 +72,7 @@ public class SaleItemResponse {
                 .qty(item.getQty())
                 .unitPrice(item.getUnitPrice())
                 .unitCostAtSale(item.getUnitCostAtSale())
+                .itemDiscountPercent(discountPct)
                 .totalPrice(totalPrice)
                 .profit(profit)
                 .build();

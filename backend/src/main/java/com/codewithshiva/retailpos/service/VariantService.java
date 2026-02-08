@@ -157,6 +157,7 @@ public class VariantService {
                 request.getColor(),
                 request.getSellingPrice(),
                 avgCost,
+                request.getDefaultDiscountPercent(),
                 createdBy
         );
 
@@ -216,7 +217,8 @@ public class VariantService {
                 request.getSize(),
                 request.getColor(),
                 request.getSellingPrice(),
-                avgCost
+                avgCost,
+                request.getDefaultDiscountPercent()
         );
 
         log.info("Variant updated successfully: {}", id);

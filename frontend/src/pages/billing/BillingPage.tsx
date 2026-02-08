@@ -90,7 +90,7 @@ export default function BillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
-  const [discountType, setDiscountType] = useState<'percent' | 'amount'>('percent');
+  const [discountType, setDiscountType] = useState<'percent' | 'amount'>('amount');
   const [discountValue, setDiscountValue] = useState(0);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('CASH');
 
@@ -138,22 +138,29 @@ export default function BillingPage() {
   const currencySymbol = getCurrencySymbol(settings?.currency);
   const taxPercent = Number(settings?.taxPercent || 0);
   const lowStockThreshold = Number(settings?.lowStockThreshold || 10);
-  const taxMultiplier = 1 + taxPercent / 100;
-  const getBaseUnitPrice = useCallback(
-    (price: number) => (taxPercent > 0 ? price / taxMultiplier : price),
-    [taxPercent, taxMultiplier]
-  );
+  const taxDivisor = 1 + taxPercent / 100;
 
-  const subtotal = cart.reduce((sum, item) => sum + (getBaseUnitPrice(item.unitPrice) * item.qty), 0);
+  const getItemDiscountPercent = (item: CartItem) => item.variant.effectiveDiscountPercent || 0;
+  const getEffectiveUnitPrice = (item: CartItem) => {
+    const discPct = getItemDiscountPercent(item);
+    return item.unitPrice * (1 - discPct / 100);
+  };
+
+  // Subtotal = sum of line amounts (tax-inclusive, after item discounts)
+  const subtotal = cart.reduce((sum, item) => sum + (getEffectiveUnitPrice(item) * item.qty), 0);
+  // Extract taxable value and GST from subtotal
+  const totalTaxableValue = taxPercent > 0 ? subtotal / taxDivisor : subtotal;
+  const totalGst = subtotal - totalTaxableValue;
+  // Additional discount on subtotal (tax-inclusive)
   const discountAmount = discountType === 'percent'
     ? calculateDiscountAmount(subtotal, discountValue)
     : Math.min(discountValue, subtotal);
   const discountPercent = discountType === 'percent'
     ? Math.min(discountValue, 100)
     : subtotal > 0 ? Math.min((discountValue / subtotal) * 100, 100) : 0;
-  const afterDiscount = subtotal - discountAmount;
-  const taxAmount = taxPercent > 0 ? (afterDiscount * taxPercent) / 100 : 0;
-  const grandTotal = afterDiscount + taxAmount;
+  const finalAmount = subtotal - discountAmount;
+  const roundedTotal = Math.round(finalAmount);
+  const roundOff = roundedTotal - finalAmount;
 
   const addToCart = useCallback((variant: VariantSearchResponse) => {
     setCart((prev) => {
@@ -277,6 +284,7 @@ export default function BillingPage() {
           variantId: item.variantId,
           qty: item.qty,
           unitPrice: item.unitPrice,
+          itemDiscountPercent: item.variant.effectiveDiscountPercent || 0,
         })),
       });
 
@@ -443,16 +451,24 @@ export default function BillingPage() {
                       <TableRow>
                         <TableCell>Product</TableCell>
                         <TableCell align="center">Qty</TableCell>
-                      <TableCell align="right">Price (excl tax)</TableCell>
-                      <TableCell align="right">Tax ({taxPercent}%)</TableCell>
-                        <TableCell align="right">Total</TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={600}>Rate</Typography>
+                          <Typography variant="caption" color="text.secondary">(Incl GST)</Typography>
+                        </TableCell>
+                        <TableCell align="right">Discount</TableCell>
+                        <TableCell align="right">Taxable Value</TableCell>
+                        <TableCell align="right">GST ({taxPercent}%)</TableCell>
+                        <TableCell align="right">Amount</TableCell>
                         <TableCell align="center" width={50}></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                     {cart.map((item) => {
-                      const baseUnitPrice = getBaseUnitPrice(item.unitPrice);
-                      const lineTax = (item.unitPrice - baseUnitPrice) * item.qty;
+                      const itemDiscPct = getItemDiscountPercent(item);
+                      const effectivePrice = getEffectiveUnitPrice(item);
+                      const lineAmount = effectivePrice * item.qty;
+                      const lineTaxableValue = taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
+                      const lineGst = lineAmount - lineTaxableValue;
 
                       return (
                         <TableRow key={item.variantId}>
@@ -462,9 +478,6 @@ export default function BillingPage() {
                             </Typography>
                             <Typography variant="caption" color="text.secondary" component="div">
                               {item.variant.size} | {item.variant.color} | {item.variant.sku}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" component="div">
-                              MRP: {formatCurrency(item.unitPrice, currencySymbol)}
                             </Typography>
                             {item.qty >= item.variant.stockQty && (
                               <Chip label="Max stock" size="small" color="warning" sx={{ ml: 1 }} />
@@ -492,14 +505,28 @@ export default function BillingPage() {
                             </Box>
                           </TableCell>
                           <TableCell align="right">
-                            <Money value={baseUnitPrice} symbol={currencySymbol} />
+                            <Money value={item.unitPrice} symbol={currencySymbol} />
                           </TableCell>
                           <TableCell align="right">
-                            <Money value={lineTax} symbol={currencySymbol} />
+                            {itemDiscPct > 0 ? (
+                              <Typography variant="body2" color="error.main" fontWeight={500}>
+                                {itemDiscPct}%
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">-</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Money value={lineTaxableValue} symbol={currencySymbol} />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              <Money value={lineGst} symbol={currencySymbol} />
+                            </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography fontWeight={500}>
-                              <Money value={item.qty * item.unitPrice} symbol={currencySymbol} />
+                              <Money value={lineAmount} symbol={currencySymbol} />
                             </Typography>
                           </TableCell>
                           <TableCell align="center">
@@ -547,7 +574,7 @@ export default function BillingPage() {
 
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Discount
+                  Additional Discount
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <ToggleButtonGroup
@@ -593,28 +620,41 @@ export default function BillingPage() {
 
               <Box sx={{ mb: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Subtotal</Typography>
-                  <Typography><Money value={subtotal} symbol={currencySymbol} /></Typography>
+                  <Typography color="text.secondary">Total Taxable Value</Typography>
+                  <Typography><Money value={totalTaxableValue} symbol={currencySymbol} /></Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="text.secondary">Total GST ({taxPercent}%)</Typography>
+                  <Typography><Money value={totalGst} symbol={currencySymbol} /></Typography>
+                </Box>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography fontWeight={500}>Subtotal</Typography>
+                  <Typography fontWeight={500}><Money value={subtotal} symbol={currencySymbol} /></Typography>
                 </Box>
                 {discountAmount > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography color="text.secondary">
-                      Discount {discountType === 'percent' && `(${discountValue}%)`}
+                      Addl. Discount {discountType === 'percent' && `(${discountValue}%)`}
                     </Typography>
                     <Typography color="error.main">
                       -<Money value={discountAmount} symbol={currencySymbol} />
                     </Typography>
                   </Box>
                 )}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Tax ({taxPercent}%)</Typography>
-                  <Typography><Money value={taxAmount} symbol={currencySymbol} /></Typography>
-                </Box>
+                {roundOff !== 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography color="text.secondary">Round off</Typography>
+                    <Typography color={roundOff > 0 ? 'text.secondary' : 'error.main'}>
+                      {roundOff > 0 ? '+' : ''}<Money value={roundOff} symbol={currencySymbol} />
+                    </Typography>
+                  </Box>
+                )}
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="h6" fontWeight={600}>Grand Total</Typography>
+                  <Typography variant="h6" fontWeight={600}>Final Amount Payable</Typography>
                   <Typography variant="h6" fontWeight={600} color="primary">
-                    <Money value={grandTotal} symbol={currencySymbol} />
+                    <Money value={roundedTotal} symbol={currencySymbol} />
                   </Typography>
                 </Box>
               </Box>
@@ -630,7 +670,7 @@ export default function BillingPage() {
                 {isCompleting ? (
                   <CircularProgress size={20} color="inherit" />
                 ) : (
-                  `Complete Sale (${formatCurrency(grandTotal, currencySymbol)})`
+                  `Complete Sale (${formatCurrency(roundedTotal, currencySymbol)})`
                 )}
               </Button>
 

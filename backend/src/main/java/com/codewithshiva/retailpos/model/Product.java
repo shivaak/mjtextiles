@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.beans.ConstructorProperties;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 /**
@@ -21,14 +22,16 @@ public class Product {
     private String hsn;
     private String description;
     private boolean isActive;
+    private BigDecimal defaultDiscountPercent;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private Long createdBy;
 
     @ConstructorProperties({"id", "name", "brand", "category", "hsn", "description", "isActive",
-                           "createdAt", "updatedAt", "createdBy"})
+                           "defaultDiscountPercent", "createdAt", "updatedAt", "createdBy"})
     public Product(Long id, String name, String brand, String category, String hsn, String description,
-                   boolean isActive, OffsetDateTime createdAt, OffsetDateTime updatedAt, Long createdBy) {
+                   boolean isActive, BigDecimal defaultDiscountPercent, OffsetDateTime createdAt,
+                   OffsetDateTime updatedAt, Long createdBy) {
         this.id = id;
         this.name = name;
         this.brand = brand;
@@ -36,6 +39,7 @@ public class Product {
         this.hsn = hsn;
         this.description = description;
         this.isActive = isActive;
+        this.defaultDiscountPercent = defaultDiscountPercent;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.createdBy = createdBy;

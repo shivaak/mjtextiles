@@ -32,15 +32,16 @@ public class VariantWithProduct {
     private String status;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private BigDecimal effectiveDiscountPercent;
 
     @ConstructorProperties({"id", "productId", "productName", "productBrand", "productCategory", "productHsn",
                            "sku", "barcode", "size", "color", "sellingPrice", "avgCost", 
-                           "stockQty", "status", "createdAt", "updatedAt"})
+                           "stockQty", "status", "createdAt", "updatedAt", "effectiveDiscountPercent"})
     public VariantWithProduct(Long id, Long productId, String productName, String productBrand, 
                               String productCategory, String productHsn, String sku, String barcode, String size, 
                               String color, BigDecimal sellingPrice, BigDecimal avgCost, 
                               Integer stockQty, String status, OffsetDateTime createdAt, 
-                              OffsetDateTime updatedAt) {
+                              OffsetDateTime updatedAt, BigDecimal effectiveDiscountPercent) {
         this.id = id;
         this.productId = productId;
         this.productName = productName;
@@ -57,5 +58,6 @@ public class VariantWithProduct {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.effectiveDiscountPercent = effectiveDiscountPercent;
     }
 }

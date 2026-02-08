@@ -292,16 +292,28 @@ export default function SaleDetailPage() {
                     <TableRow>
                       <TableCell>Product</TableCell>
                       <TableCell align="center">Qty</TableCell>
-                      <TableCell align="right">Price</TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={600}>Rate</Typography>
+                        <Typography variant="caption" color="text.secondary">(Incl GST)</Typography>
+                      </TableCell>
+                      <TableCell align="right">Discount</TableCell>
+                      <TableCell align="right">Taxable Value</TableCell>
+                      <TableCell align="right">GST ({sale.taxPercent}%)</TableCell>
+                      <TableCell align="right">Amount</TableCell>
                       {isAdmin && <TableCell align="right">Cost</TableCell>}
-                      <TableCell align="right">Total</TableCell>
                       {isAdmin && <TableCell align="right">Profit</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {sale.items.map((item) => {
-                      const itemTotal = item.qty * item.unitPrice;
-                      const itemProfit = (item.unitPrice - (item.unitCostAtSale || 0)) * item.qty;
+                      const itemDiscPct = item.itemDiscountPercent || 0;
+                      const effectiveUnitPrice = item.unitPrice * (1 - itemDiscPct / 100);
+                      const taxDivisor = 1 + sale.taxPercent / 100;
+                      const lineAmount = item.qty * effectiveUnitPrice;
+                      const lineTaxableValue = sale.taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
+                      const lineGst = lineAmount - lineTaxableValue;
+                      const lineRevenue = lineAmount / taxDivisor;
+                      const itemProfit = (lineRevenue - (item.unitCostAtSale || 0) * item.qty);
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
@@ -314,6 +326,24 @@ export default function SaleDetailPage() {
                           </TableCell>
                           <TableCell align="center">{item.qty}</TableCell>
                           <TableCell align="right"><Money value={item.unitPrice} /></TableCell>
+                          <TableCell align="right">
+                            {itemDiscPct > 0 ? (
+                              <Typography variant="body2" color="error.main" fontWeight={500}>
+                                {itemDiscPct}%
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">-</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right"><Money value={lineTaxableValue} /></TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              <Money value={lineGst} />
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography fontWeight={500}><Money value={lineAmount} /></Typography>
+                          </TableCell>
                           {isAdmin && (
                             <TableCell align="right">
                               <Typography variant="body2" color="text.secondary">
@@ -321,9 +351,6 @@ export default function SaleDetailPage() {
                               </Typography>
                             </TableCell>
                           )}
-                          <TableCell align="right">
-                            <Typography fontWeight={500}><Money value={itemTotal} /></Typography>
-                          </TableCell>
                           {isAdmin && (
                             <TableCell align="right">
                               <Typography color="success.main" fontWeight={500}>
@@ -340,24 +367,29 @@ export default function SaleDetailPage() {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Subtotal</Typography>
-                  <Typography><Money value={sale.subtotal} /></Typography>
+                  <Typography color="text.secondary">Total Taxable Value</Typography>
+                  <Typography><Money value={sale.subtotal - sale.taxAmount} /></Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="text.secondary">Total GST ({sale.taxPercent}%)</Typography>
+                  <Typography><Money value={sale.taxAmount} /></Typography>
+                </Box>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography fontWeight={500}>Subtotal</Typography>
+                  <Typography fontWeight={500}><Money value={sale.subtotal} /></Typography>
                 </Box>
                 {sale.discountAmount > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography color="text.secondary">
-                      Discount ({sale.discountPercent.toFixed(1)}%)
+                      Addl. Discount ({sale.discountPercent.toFixed(1)}%)
                     </Typography>
                     <Typography color="error.main">-<Money value={sale.discountAmount} /></Typography>
                   </Box>
                 )}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Tax ({sale.taxPercent}%)</Typography>
-                  <Typography><Money value={sale.taxAmount} /></Typography>
-                </Box>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="h6" fontWeight={600}>Grand Total</Typography>
+                  <Typography variant="h6" fontWeight={600}>Final Amount</Typography>
                   <Typography
                     variant="h6"
                     fontWeight={600}

@@ -8,6 +8,7 @@ import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,7 @@ public interface ProductDao {
 
     @SqlQuery("""
         SELECT id, name, brand, category, hsn, description, is_active as isActive,
+               default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
         WHERE id = :id
@@ -31,6 +33,7 @@ public interface ProductDao {
 
     @SqlQuery("""
         SELECT id, name, brand, category, hsn, description, is_active as isActive,
+               default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
         WHERE (:includeInactive = true OR is_active = true)
@@ -41,6 +44,7 @@ public interface ProductDao {
 
     @SqlQuery("""
         SELECT id, name, brand, category, hsn, description, is_active as isActive,
+               default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM products
         WHERE (:includeInactive = true OR is_active = true)
@@ -63,6 +67,7 @@ public interface ProductDao {
 
     @SqlQuery("""
         SELECT p.id, p.name, p.brand, p.category, p.hsn, p.description, p.is_active as isActive,
+               p.default_discount_percent as defaultDiscountPercent,
                p.created_at as createdAt, p.updated_at as updatedAt, p.created_by as createdBy
         FROM products p
         WHERE p.name = :name AND p.brand = :brand
@@ -89,8 +94,8 @@ public interface ProductDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO products (name, brand, category, hsn, description, created_by)
-        VALUES (:name, :brand, :category, :hsn, :description, :createdBy)
+        INSERT INTO products (name, brand, category, hsn, description, default_discount_percent, created_by)
+        VALUES (:name, :brand, :category, :hsn, :description, :defaultDiscountPercent, :createdBy)
         """)
     @GetGeneratedKeys("id")
     Long create(@Bind("name") String name,
@@ -98,6 +103,7 @@ public interface ProductDao {
                 @Bind("category") String category,
                 @Bind("hsn") String hsn,
                 @Bind("description") String description,
+                @Bind("defaultDiscountPercent") BigDecimal defaultDiscountPercent,
                 @Bind("createdBy") Long createdBy);
 
     @SqlUpdate("""
@@ -106,7 +112,8 @@ public interface ProductDao {
             brand = :brand,
             category = :category,
             hsn = :hsn,
-            description = :description
+            description = :description,
+            default_discount_percent = :defaultDiscountPercent
         WHERE id = :id
         """)
     void update(@Bind("id") Long id,
@@ -114,7 +121,8 @@ public interface ProductDao {
                 @Bind("brand") String brand,
                 @Bind("category") String category,
                 @Bind("hsn") String hsn,
-                @Bind("description") String description);
+                @Bind("description") String description,
+                @Bind("defaultDiscountPercent") BigDecimal defaultDiscountPercent);
 
     @SqlUpdate("""
         UPDATE products
@@ -154,7 +162,8 @@ public interface ProductDao {
     @SqlQuery("""
         SELECT id, product_id as productId, sku, barcode, size, color,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
-               status, created_at as createdAt, updated_at as updatedAt, created_by as createdBy
+               status, default_discount_percent as defaultDiscountPercent,
+               created_at as createdAt, updated_at as updatedAt, created_by as createdBy
         FROM variants
         WHERE product_id = :productId
         ORDER BY created_at ASC

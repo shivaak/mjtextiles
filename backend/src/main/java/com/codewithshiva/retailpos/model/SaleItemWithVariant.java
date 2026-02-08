@@ -25,12 +25,14 @@ public class SaleItemWithVariant {
     private Integer qty;
     private BigDecimal unitPrice;
     private BigDecimal unitCostAtSale;
+    private BigDecimal itemDiscountPercent;
 
     @ConstructorProperties({"id", "variantId", "variantSku", "variantBarcode", "productName", 
-                           "productHsn", "size", "color", "qty", "unitPrice", "unitCostAtSale"})
+                           "productHsn", "size", "color", "qty", "unitPrice", "unitCostAtSale",
+                           "itemDiscountPercent"})
     public SaleItemWithVariant(Long id, Long variantId, String variantSku, String variantBarcode,
                                String productName, String productHsn, String size, String color, Integer qty,
-                               BigDecimal unitPrice, BigDecimal unitCostAtSale) {
+                               BigDecimal unitPrice, BigDecimal unitCostAtSale, BigDecimal itemDiscountPercent) {
         this.id = id;
         this.variantId = variantId;
         this.variantSku = variantSku;
@@ -42,5 +44,6 @@ public class SaleItemWithVariant {
         this.qty = qty;
         this.unitPrice = unitPrice;
         this.unitCostAtSale = unitCostAtSale;
+        this.itemDiscountPercent = itemDiscountPercent;
     }
 }

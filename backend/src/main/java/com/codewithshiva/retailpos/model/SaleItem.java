@@ -21,17 +21,20 @@ public class SaleItem {
     private Integer qty;
     private BigDecimal unitPrice;
     private BigDecimal unitCostAtSale;
+    private BigDecimal itemDiscountPercent;
     private OffsetDateTime createdAt;
 
-    @ConstructorProperties({"id", "saleId", "variantId", "qty", "unitPrice", "unitCostAtSale", "createdAt"})
+    @ConstructorProperties({"id", "saleId", "variantId", "qty", "unitPrice", "unitCostAtSale",
+                           "itemDiscountPercent", "createdAt"})
     public SaleItem(Long id, Long saleId, Long variantId, Integer qty, BigDecimal unitPrice,
-                    BigDecimal unitCostAtSale, OffsetDateTime createdAt) {
+                    BigDecimal unitCostAtSale, BigDecimal itemDiscountPercent, OffsetDateTime createdAt) {
         this.id = id;
         this.saleId = saleId;
         this.variantId = variantId;
         this.qty = qty;
         this.unitPrice = unitPrice;
         this.unitCostAtSale = unitCostAtSale;
+        this.itemDiscountPercent = itemDiscountPercent;
         this.createdAt = createdAt;
     }
 }

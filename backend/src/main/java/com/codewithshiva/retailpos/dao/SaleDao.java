@@ -91,7 +91,8 @@ public interface SaleDao {
                v.barcode as variantBarcode, p.name as productName,
                p.hsn as productHsn,
                v.size, v.color, si.qty, si.unit_price as unitPrice, 
-               si.unit_cost_at_sale as unitCostAtSale
+               si.unit_cost_at_sale as unitCostAtSale,
+               si.item_discount_percent as itemDiscountPercent
         FROM sale_items si
         JOIN variants v ON si.variant_id = v.id
         JOIN products p ON v.product_id = p.id
@@ -162,15 +163,16 @@ public interface SaleDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO sale_items (sale_id, variant_id, qty, unit_price, unit_cost_at_sale)
-        VALUES (:saleId, :variantId, :qty, :unitPrice, :unitCostAtSale)
+        INSERT INTO sale_items (sale_id, variant_id, qty, unit_price, unit_cost_at_sale, item_discount_percent)
+        VALUES (:saleId, :variantId, :qty, :unitPrice, :unitCostAtSale, :itemDiscountPercent)
         """)
     @GetGeneratedKeys("id")
     Long createItem(@Bind("saleId") Long saleId,
                     @Bind("variantId") Long variantId,
                     @Bind("qty") Integer qty,
                     @Bind("unitPrice") BigDecimal unitPrice,
-                    @Bind("unitCostAtSale") BigDecimal unitCostAtSale);
+                    @Bind("unitCostAtSale") BigDecimal unitCostAtSale,
+                    @Bind("itemDiscountPercent") BigDecimal itemDiscountPercent);
 
     // ==========================================
     // Void Sale

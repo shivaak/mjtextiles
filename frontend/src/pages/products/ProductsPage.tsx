@@ -64,6 +64,7 @@ const productSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   hsn: z.string().min(1, 'HSN is required'),
   description: z.string().optional(),
+  defaultDiscountPercent: z.number().min(0).max(100).optional(),
 });
 
 const variantSchema = z.object({
@@ -74,6 +75,7 @@ const variantSchema = z.object({
   color: z.string().min(1, 'Color is required'),
   sellingPrice: z.number().min(0.01, 'Selling price must be greater than 0'),
   avgCost: z.number().min(0, 'Cost must be positive'),
+  defaultDiscountPercent: z.number().min(0).max(100).nullable().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -130,7 +132,7 @@ export default function ProductsPage() {
   // Forms
   const productForm = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: '', brand: '', category: '', hsn: '', description: '' },
+    defaultValues: { name: '', brand: '', category: '', hsn: '', description: '', defaultDiscountPercent: 0 },
   });
 
   const variantForm = useForm<VariantFormData>({
@@ -143,6 +145,7 @@ export default function ProductsPage() {
       color: '',
       sellingPrice: 0,
       avgCost: 0,
+      defaultDiscountPercent: null,
     },
   });
 
@@ -264,10 +267,11 @@ export default function ProductsPage() {
         category: product.category,
         hsn: product.hsn,
         description: product.description || '',
+        defaultDiscountPercent: product.defaultDiscountPercent || 0,
       });
     } else {
       setEditingProduct(null);
-      productForm.reset({ name: '', brand: '', category: '', hsn: '', description: '' });
+      productForm.reset({ name: '', brand: '', category: '', hsn: '', description: '', defaultDiscountPercent: 0 });
     }
     setProductDialogOpen(true);
   };
@@ -283,6 +287,7 @@ export default function ProductsPage() {
         color: variant.color,
         sellingPrice: variant.sellingPrice,
         avgCost: variant.avgCost,
+        defaultDiscountPercent: variant.effectiveDiscountPercent ?? null,
       });
     } else {
       setEditingVariant(null);
@@ -294,6 +299,7 @@ export default function ProductsPage() {
         color: '',
         sellingPrice: 0,
         avgCost: 0,
+        defaultDiscountPercent: null,
       });
     }
     setVariantDialogOpen(true);
@@ -585,6 +591,21 @@ export default function ProductsPage() {
                 {markup.toFixed(1)}%
               </Typography>
             </Tooltip>
+          );
+        },
+      },
+      {
+        field: 'effectiveDiscountPercent',
+        headerName: 'Discount',
+        width: 90,
+        align: 'right' as const,
+        valueGetter: (_value: unknown, row: Variant) => row.effectiveDiscountPercent ?? 0,
+        renderCell: (params: GridRenderCellParams) => {
+          const discount = params.value as number;
+          return (
+            <Typography variant="body2" color={discount > 0 ? 'info.main' : 'text.secondary'}>
+              {discount}%
+            </Typography>
           );
         },
       }
@@ -893,6 +914,24 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Controller
+                  name="defaultDiscountPercent"
+                  control={productForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                      fullWidth
+                      label="Default Discount % (applies to all variants)"
+                      type="number"
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
             </Grid>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -1067,6 +1106,25 @@ export default function ProductsPage() {
                   />
                 </Grid>
               )}
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="defaultDiscountPercent"
+                  control={variantForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                      fullWidth
+                      label="Default Discount % (Optional)"
+                      type="number"
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message || 'Leave empty to use product discount'}
+                    />
+                  )}
+                />
+              </Grid>
               {!editingVariant && (
                 <Grid size={{ xs: 12 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>

@@ -134,23 +134,27 @@ public class SaleService {
             taxPercent = BigDecimal.ZERO;
         }
 
-        // 4. Calculate subtotal
+        // 4. Calculate subtotal (sum of line amounts, tax-inclusive, after item discounts)
+        BigDecimal taxDivisor = BigDecimal.ONE.add(taxPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
         BigDecimal subtotal = BigDecimal.ZERO;
         for (CreateSaleItemRequest item : request.getItems()) {
-            BigDecimal itemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQty()));
-            subtotal = subtotal.add(itemTotal);
+            BigDecimal itemDiscountPct = item.getItemDiscountPercent() != null ? item.getItemDiscountPercent() : BigDecimal.ZERO;
+            BigDecimal itemDiscountFactor = BigDecimal.ONE.subtract(itemDiscountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+            BigDecimal effectiveUnitPrice = item.getUnitPrice().multiply(itemDiscountFactor).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(item.getQty()));
+            subtotal = subtotal.add(lineAmount);
         }
 
-        // 5. Calculate discount
+        // 5. Extract GST from subtotal (since MRP is tax-inclusive)
+        BigDecimal taxableValue = subtotal.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+        BigDecimal taxAmount = subtotal.subtract(taxableValue);
+
+        // 6. Calculate global (additional) discount on subtotal
         BigDecimal discountPercent = request.getDiscountPercent() != null ? request.getDiscountPercent() : BigDecimal.ZERO;
         BigDecimal discountAmount = subtotal.multiply(discountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        // 6. Calculate tax on amount after discount
-        BigDecimal amountAfterDiscount = subtotal.subtract(discountAmount);
-        BigDecimal taxAmount = amountAfterDiscount.multiply(taxPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-
-        // 7. Calculate total
-        BigDecimal total = amountAfterDiscount.add(taxAmount);
+        // 7. Calculate total (final amount payable)
+        BigDecimal total = subtotal.subtract(discountAmount);
 
         // 8. Decrease stock for each item and calculate profit
         // Store avg_cost for each item to use when creating sale items
@@ -162,8 +166,12 @@ public class SaleService {
             BigDecimal avgCost = saleDao.decreaseVariantStockOnSale(item.getVariantId(), item.getQty());
             itemCosts.put(item, avgCost);
 
-            // Calculate profit for this item
-            BigDecimal revenue = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQty()));
+            // Calculate profit for this item (revenue = tax-exclusive base price after item discount)
+            BigDecimal itemDiscountPct = item.getItemDiscountPercent() != null ? item.getItemDiscountPercent() : BigDecimal.ZERO;
+            BigDecimal itemDiscountFactor = BigDecimal.ONE.subtract(itemDiscountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+            BigDecimal effectiveUnitPrice = item.getUnitPrice().multiply(itemDiscountFactor).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(item.getQty()));
+            BigDecimal revenue = lineAmount.divide(taxDivisor, 2, RoundingMode.HALF_UP);
             BigDecimal cost = avgCost.multiply(BigDecimal.valueOf(item.getQty()));
             BigDecimal itemProfit = revenue.subtract(cost);
             totalProfit = totalProfit.add(itemProfit);
@@ -172,10 +180,10 @@ public class SaleService {
                     item.getVariantId(), item.getQty(), avgCost, itemProfit);
         }
 
-        // Adjust profit for discount (proportionally reduce profit)
+        // Adjust profit for global discount (proportionally reduce profit)
         if (discountPercent.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal discountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
-            totalProfit = totalProfit.multiply(discountFactor).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal globalDiscountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+            totalProfit = totalProfit.multiply(globalDiscountFactor).setScale(2, RoundingMode.HALF_UP);
         }
 
         // 9. Create sale record
@@ -201,12 +209,14 @@ public class SaleService {
         // 10. Create sale items
         for (CreateSaleItemRequest item : request.getItems()) {
             BigDecimal unitCostAtSale = itemCosts.get(item);
+            BigDecimal itemDiscountPct = item.getItemDiscountPercent() != null ? item.getItemDiscountPercent() : BigDecimal.ZERO;
             saleDao.createItem(
                     saleId,
                     item.getVariantId(),
                     item.getQty(),
                     item.getUnitPrice(),
-                    unitCostAtSale
+                    unitCostAtSale,
+                    itemDiscountPct
             );
         }
 

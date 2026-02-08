@@ -164,7 +164,7 @@ export default function SalesPage() {
     },
     {
       field: 'discountAmount',
-      headerName: 'Discount',
+      headerName: 'Addl. Disc',
       flex: 0.7,
       minWidth: 90,
       align: 'right',

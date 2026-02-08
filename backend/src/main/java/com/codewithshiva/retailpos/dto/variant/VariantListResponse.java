@@ -33,6 +33,7 @@ public class VariantListResponse {
     private BigDecimal avgCost;
     private Integer stockQty;
     private String status;
+    private BigDecimal effectiveDiscountPercent;
     private OffsetDateTime createdAt;
 
     /**
@@ -54,6 +55,7 @@ public class VariantListResponse {
                 .avgCost(variant.getAvgCost())
                 .stockQty(variant.getStockQty())
                 .status(variant.getStatus())
+                .effectiveDiscountPercent(variant.getEffectiveDiscountPercent())
                 .createdAt(variant.getCreatedAt())
                 .build();
     }

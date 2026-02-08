@@ -1,5 +1,6 @@
 package com.codewithshiva.retailpos.dto.variant;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -37,4 +38,8 @@ public class UpdateVariantRequest {
 
     @DecimalMin(value = "0.00", message = "Average cost must be non-negative")
     private BigDecimal avgCost;
+
+    @DecimalMin(value = "0.00", message = "Discount must be at least 0%")
+    @DecimalMax(value = "100.00", message = "Discount must not exceed 100%")
+    private BigDecimal defaultDiscountPercent;
 }

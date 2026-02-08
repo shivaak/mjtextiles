@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 /**
@@ -26,6 +27,7 @@ public class ProductResponse {
     private String description;
     private Integer variantCount;
     private Boolean isActive;
+    private BigDecimal defaultDiscountPercent;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
@@ -41,6 +43,7 @@ public class ProductResponse {
                 .hsn(product.getHsn())
                 .description(product.getDescription())
                 .isActive(product.isActive())
+                .defaultDiscountPercent(product.getDefaultDiscountPercent())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
@@ -59,6 +62,7 @@ public class ProductResponse {
                 .description(product.getDescription())
                 .variantCount(variantCount)
                 .isActive(product.isActive())
+                .defaultDiscountPercent(product.getDefaultDiscountPercent())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();

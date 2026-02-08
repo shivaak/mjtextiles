@@ -102,6 +102,7 @@ public class ProductService {
                 request.getCategory(),
                 request.getHsn(),
                 request.getDescription(),
+                request.getDefaultDiscountPercent() != null ? request.getDefaultDiscountPercent() : java.math.BigDecimal.ZERO,
                 createdBy
         );
 
@@ -155,7 +156,8 @@ public class ProductService {
                 request.getBrand(),
                 request.getCategory(),
                 request.getHsn(),
-                request.getDescription()
+                request.getDescription(),
+                request.getDefaultDiscountPercent() != null ? request.getDefaultDiscountPercent() : java.math.BigDecimal.ZERO
         );
 
         log.info("Product updated successfully: {}", id);

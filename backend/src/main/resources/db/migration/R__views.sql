@@ -33,8 +33,9 @@ SELECT
         WHEN v.avg_cost > 0 THEN 
             ROUND(((v.selling_price - v.avg_cost) / v.avg_cost * 100)::numeric, 2)
         ELSE 0 
-    END AS markup_percent
-    ,p.hsn AS product_hsn
+    END AS markup_percent,
+    p.hsn AS product_hsn,
+    COALESCE(v.default_discount_percent, p.default_discount_percent) AS effective_discount_percent
 FROM variants v
 JOIN products p ON v.product_id = p.id;
 
@@ -85,7 +86,8 @@ LEFT JOIN users vu ON p.voided_by = vu.id;
 -- v_low_stock_variants
 -- Variants below low stock threshold
 -- ===========================================
-CREATE OR REPLACE VIEW v_low_stock_variants AS
+DROP VIEW IF EXISTS v_low_stock_variants;
+CREATE VIEW v_low_stock_variants AS
 SELECT 
     v.*,
     p.name AS product_name,

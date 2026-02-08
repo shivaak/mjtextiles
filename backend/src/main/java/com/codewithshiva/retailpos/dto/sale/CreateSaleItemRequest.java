@@ -1,5 +1,6 @@
 package com.codewithshiva.retailpos.dto.sale;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -27,4 +28,8 @@ public class CreateSaleItemRequest {
     @NotNull(message = "Unit price is required")
     @DecimalMin(value = "0.00", message = "Unit price must be non-negative")
     private BigDecimal unitPrice;
+
+    @DecimalMin(value = "0.00", message = "Item discount must be at least 0%")
+    @DecimalMax(value = "100.00", message = "Item discount must not exceed 100%")
+    private BigDecimal itemDiscountPercent;
 }

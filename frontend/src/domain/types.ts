@@ -67,6 +67,7 @@ export interface Product {
   category: string;
   hsn: string;
   description?: string;
+  defaultDiscountPercent?: number;
   variantCount?: number;
   isActive?: boolean;
   createdAt: string;
@@ -88,6 +89,7 @@ export interface Variant {
   avgCost: number;
   stockQty: number;
   status: 'ACTIVE' | 'INACTIVE';
+  effectiveDiscountPercent?: number;
   createdAt: string;
 }
 
@@ -105,6 +107,7 @@ export interface VariantSearchResponse {
   avgCost: number;
   stockQty: number;
   status: VariantStatus;
+  effectiveDiscountPercent?: number;
 }
 
 // Product Request/Response types
@@ -114,6 +117,7 @@ export interface CreateProductRequest {
   category: string;
   hsn: string;
   description?: string;
+  defaultDiscountPercent?: number;
 }
 
 export interface UpdateProductRequest {
@@ -122,6 +126,7 @@ export interface UpdateProductRequest {
   category: string;
   hsn: string;
   description?: string;
+  defaultDiscountPercent?: number;
 }
 
 // Variant Request/Response types
@@ -133,6 +138,7 @@ export interface CreateVariantRequest {
   color?: string;
   sellingPrice: number;
   avgCost?: number;
+  defaultDiscountPercent?: number;
 }
 
 export interface UpdateVariantRequest {
@@ -142,6 +148,7 @@ export interface UpdateVariantRequest {
   color?: string;
   sellingPrice: number;
   avgCost?: number;
+  defaultDiscountPercent?: number;
 }
 
 export interface UpdateVariantStatusRequest {
@@ -267,6 +274,7 @@ export interface SaleItem {
   qty: number;
   unitPrice: number;
   unitCostAtSale?: number;
+  itemDiscountPercent?: number;
   totalPrice?: number;
 }
 
@@ -424,6 +432,7 @@ export interface CreateSaleItemRequest {
   variantId: number;
   qty: number;
   unitPrice: number;
+  itemDiscountPercent?: number;
 }
 
 export interface CreateSaleRequest {

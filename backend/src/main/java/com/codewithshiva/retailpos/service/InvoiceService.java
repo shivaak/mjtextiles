@@ -164,42 +164,68 @@ public class InvoiceService {
     }
 
     private void addItemsTable(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
-        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
         Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
 
-        PdfPTable table = new PdfPTable(7);
-        table.setWidthPercentage(100);
-        table.setWidths(new float[]{0.5f, 2.8f, 0.9f, 0.7f, 1.0f, 1.0f, 1.2f});
+        BigDecimal taxPercent = defaultZero(sale.getTaxPercent());
+        BigDecimal taxDivisor = BigDecimal.ONE.add(taxPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+
+        // Check if any item has a discount
+        boolean hasAnyDiscount = sale.getItems().stream()
+                .anyMatch(item -> defaultZero(item.getItemDiscountPercent()).compareTo(BigDecimal.ZERO) > 0);
+
+        PdfPTable table;
+        if (hasAnyDiscount) {
+            table = new PdfPTable(9);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{0.4f, 2.3f, 0.7f, 0.5f, 0.8f, 0.6f, 1.0f, 0.8f, 1.0f});
+        } else {
+            table = new PdfPTable(8);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{0.4f, 2.5f, 0.8f, 0.5f, 0.8f, 1.0f, 0.8f, 1.0f});
+        }
 
         addHeaderCell(table, "#", headerFont);
         addHeaderCell(table, "Item Description", headerFont);
         addHeaderCell(table, "HSN", headerFont);
         addHeaderCell(table, "Qty", headerFont);
-        addHeaderCell(table, "Unit Price", headerFont);
-        addHeaderCell(table, "Tax", headerFont);
-        addHeaderCell(table, "Total", headerFont);
-
-        BigDecimal taxPercent = defaultZero(sale.getTaxPercent());
-        BigDecimal discountPercent = defaultZero(sale.getDiscountPercent());
+        addHeaderCell(table, "Rate (Incl GST)", headerFont);
+        if (hasAnyDiscount) {
+            addHeaderCell(table, "Disc", headerFont);
+        }
+        addHeaderCell(table, "Taxable Value", headerFont);
+        String gstHeader = "GST (" + defaultZero(sale.getTaxPercent()).stripTrailingZeros().toPlainString() + "%)";
+        addHeaderCell(table, gstHeader, headerFont);
+        addHeaderCell(table, "Amount", headerFont);
 
         int index = 1;
         for (SaleItemResponse item : sale.getItems()) {
-            BigDecimal lineTotal = defaultZero(item.getUnitPrice())
-                    .multiply(BigDecimal.valueOf(item.getQty() == null ? 0 : item.getQty()));
-            BigDecimal lineDiscount = lineTotal.multiply(discountPercent)
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal taxable = lineTotal.subtract(lineDiscount);
-            BigDecimal lineTax = taxable.multiply(taxPercent)
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal lineGrand = taxable.add(lineTax);
+            // Apply item-level discount to unit price (MRP, tax-inclusive)
+            BigDecimal itemDiscountPct = defaultZero(item.getItemDiscountPercent());
+            BigDecimal itemDiscountFactor = BigDecimal.ONE.subtract(itemDiscountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+            BigDecimal effectiveUnitPrice = defaultZero(item.getUnitPrice()).multiply(itemDiscountFactor).setScale(2, RoundingMode.HALF_UP);
+            int qty = item.getQty() == null ? 0 : item.getQty();
+            BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(qty));
+            // Extract taxable value and GST from line amount
+            BigDecimal lineTaxableValue = lineAmount.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+            BigDecimal lineGst = lineAmount.subtract(lineTaxableValue);
+
+            String itemName = formatItemName(item);
 
             addBodyCell(table, String.valueOf(index++), bodyFont, Element.ALIGN_CENTER);
-            addBodyCell(table, formatItemName(item), bodyFont, Element.ALIGN_LEFT);
+            addBodyCell(table, itemName, bodyFont, Element.ALIGN_LEFT);
             addBodyCell(table, safe(item.getProductHsn()), bodyFont, Element.ALIGN_CENTER);
-            addBodyCell(table, String.valueOf(item.getQty()), bodyFont, Element.ALIGN_CENTER);
-            addBodyCell(table, formatMoney(item.getUnitPrice(), settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
-            addBodyCell(table, formatMoney(lineTax, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
-            addBodyCell(table, formatMoney(lineGrand, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
+            addBodyCell(table, String.valueOf(qty), bodyFont, Element.ALIGN_CENTER);
+            addBodyCell(table, formatMoney(defaultZero(item.getUnitPrice()), settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
+            if (hasAnyDiscount) {
+                String discountDisplay = itemDiscountPct.compareTo(BigDecimal.ZERO) > 0
+                        ? itemDiscountPct.stripTrailingZeros().toPlainString() + "%"
+                        : "-";
+                addBodyCell(table, discountDisplay, bodyFont, Element.ALIGN_CENTER);
+            }
+            addBodyCell(table, formatMoney(lineTaxableValue, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
+            addBodyCell(table, formatMoney(lineGst, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
+            addBodyCell(table, formatMoney(lineAmount, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
         }
 
         document.add(table);
@@ -216,20 +242,23 @@ public class InvoiceService {
         table.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.setWidths(new float[]{1.5f, 1f});
 
+        // Taxable value = subtotal - tax amount (since subtotal is tax-inclusive)
+        BigDecimal taxableValue = defaultZero(sale.getSubtotal()).subtract(defaultZero(sale.getTaxAmount()));
+        addSummaryRow(table, "Total Taxable Value", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
+        addSummaryRow(table, "Total GST (" + defaultZero(sale.getTaxPercent()).stripTrailingZeros().toPlainString() + "%)", 
+                     formatMoney(sale.getTaxAmount(), settings.getCurrency()), labelFont, valueFont);
         addSummaryRow(table, "Subtotal", formatMoney(sale.getSubtotal(), settings.getCurrency()), labelFont, valueFont);
         if (defaultZero(sale.getDiscountAmount()).compareTo(BigDecimal.ZERO) > 0) {
             addSummaryRow(
                     table,
-                    "Discount (" + defaultZero(sale.getDiscountPercent()).setScale(2, RoundingMode.HALF_UP) + "%)",
+                    "Addl. Discount (" + defaultZero(sale.getDiscountPercent()).setScale(2, RoundingMode.HALF_UP) + "%)",
                     "-" + formatMoney(sale.getDiscountAmount(), settings.getCurrency()),
                     labelFont,
                     valueFont
             );
         }
-        addSummaryRow(table, "Tax (" + defaultZero(sale.getTaxPercent()).setScale(2, RoundingMode.HALF_UP) + "%)", 
-                     formatMoney(sale.getTaxAmount(), settings.getCurrency()), labelFont, valueFont);
 
-        PdfPCell spacerLeft = new PdfPCell(new Phrase("Grand Total", grandTotalFont));
+        PdfPCell spacerLeft = new PdfPCell(new Phrase("Final Amount", grandTotalFont));
         spacerLeft.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
         spacerLeft.setBorderWidth(1.5f);
         spacerLeft.setBorderColor(new Color(100, 100, 100));

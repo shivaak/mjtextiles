@@ -1,10 +1,14 @@
 package com.codewithshiva.retailpos.dto.product;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 
 /**
  * Request DTO for updating an existing product.
@@ -32,4 +36,8 @@ public class UpdateProductRequest {
 
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
+
+    @DecimalMin(value = "0.00", message = "Discount must be at least 0%")
+    @DecimalMax(value = "100.00", message = "Discount must not exceed 100%")
+    private BigDecimal defaultDiscountPercent;
 }
