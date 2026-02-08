@@ -14,8 +14,12 @@ import org.openpdf.text.PageSize;
 import org.openpdf.text.Paragraph;
 import org.openpdf.text.Phrase;
 import org.openpdf.text.Rectangle;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfGState;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfPageEventHelper;
 import org.openpdf.text.pdf.PdfWriter;
 import org.openpdf.text.pdf.draw.LineSeparator;
 import org.springframework.stereotype.Service;
@@ -44,18 +48,57 @@ public class InvoiceService {
         SettingsResponse settings = settingsService.getSettings();
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4, 30, 30, 30, 30);
-            PdfWriter.getInstance(document, outputStream);
+            Document document = new Document(PageSize.A4, 36, 36, 36, 36);
+            PdfWriter writer = PdfWriter.getInstance(document, outputStream);
+
+            boolean isVoided = "VOIDED".equalsIgnoreCase(sale.getStatus());
+
+            // Add full-page border box (and VOIDED watermark if applicable) via page event
+            writer.setPageEvent(new PdfPageEventHelper() {
+                @Override
+                public void onEndPage(PdfWriter w, Document doc) {
+                    PdfContentByte cb = w.getDirectContent();
+
+                    // Page border
+                    cb.setLineWidth(1.5f);
+                    cb.setColorStroke(new Color(80, 80, 80));
+                    cb.rectangle(
+                            doc.left() - 15, doc.bottom() - 15,
+                            doc.getPageSize().getWidth() - doc.leftMargin() - doc.rightMargin() + 30,
+                            doc.getPageSize().getHeight() - doc.topMargin() - doc.bottomMargin() + 30
+                    );
+                    cb.stroke();
+
+                    // VOIDED watermark
+                    if (isVoided) {
+                        try {
+                            cb.saveState();
+                            PdfGState gs = new PdfGState();
+                            gs.setFillOpacity(0.12f);
+                            cb.setGState(gs);
+                            cb.setColorFill(new Color(255, 0, 0));
+                            cb.beginText();
+                            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);
+                            cb.setFontAndSize(bf, 90);
+                            cb.showTextAligned(Element.ALIGN_CENTER, "VOIDED",
+                                    doc.getPageSize().getWidth() / 2,
+                                    doc.getPageSize().getHeight() / 2, 45);
+                            cb.endText();
+                            cb.restoreState();
+                        } catch (Exception ignored) {
+                            // Font creation won't fail for built-in fonts
+                        }
+                    }
+                }
+            });
+
             document.open();
 
-            // Add decorative border
-            addDocumentBorder(document);
-            
             addHeader(document, settings);
             addInvoiceMeta(document, sale, settings);
             addItemsTable(document, sale, settings);
             addSummary(document, sale, settings);
-            addFooter(document);
+            addFooter(document, settings);
 
             document.close();
             return outputStream.toByteArray();
@@ -65,15 +108,6 @@ public class InvoiceService {
         }
     }
     
-    private void addDocumentBorder(Document document) throws DocumentException {
-        // Simplified border - just a thin line at the top
-        LineSeparator topLine = new LineSeparator();
-        topLine.setLineColor(new Color(100, 100, 100));
-        topLine.setLineWidth(0.5f);
-        document.add(topLine);
-        document.add(new Paragraph(" "));
-    }
-
     private void addHeader(Document document, SettingsResponse settings) throws DocumentException {
         Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, new Color(25, 25, 112)); // Midnight blue
         Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(60, 60, 60));
@@ -164,8 +198,8 @@ public class InvoiceService {
     }
 
     private void addItemsTable(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
-        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-        Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
+        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
 
         BigDecimal taxPercent = defaultZero(sale.getTaxPercent());
         BigDecimal taxDivisor = BigDecimal.ONE.add(taxPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
@@ -258,6 +292,17 @@ public class InvoiceService {
             );
         }
 
+        // Round-off calculation (same as frontend: Math.round)
+        BigDecimal total = defaultZero(sale.getTotal());
+        BigDecimal roundedTotal = total.setScale(0, RoundingMode.HALF_UP);
+        BigDecimal roundOff = roundedTotal.subtract(total);
+
+        if (roundOff.compareTo(BigDecimal.ZERO) != 0) {
+            String roundOffDisplay = (roundOff.compareTo(BigDecimal.ZERO) > 0 ? "+" : "")
+                    + formatMoney(roundOff, settings.getCurrency());
+            addSummaryRow(table, "Round Off", roundOffDisplay, labelFont, valueFont);
+        }
+
         PdfPCell spacerLeft = new PdfPCell(new Phrase("Final Amount", grandTotalFont));
         spacerLeft.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
         spacerLeft.setBorderWidth(1.5f);
@@ -266,7 +311,7 @@ public class InvoiceService {
         spacerLeft.setPaddingBottom(8);
         spacerLeft.setPaddingLeft(5);
         
-        PdfPCell spacerRight = new PdfPCell(new Phrase(formatMoney(sale.getTotal(), settings.getCurrency()), grandTotalFont));
+        PdfPCell spacerRight = new PdfPCell(new Phrase(formatMoney(roundedTotal, settings.getCurrency()), grandTotalFont));
         spacerRight.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
         spacerRight.setBorderWidth(1.5f);
         spacerRight.setBorderColor(new Color(100, 100, 100));
@@ -279,26 +324,61 @@ public class InvoiceService {
         table.addCell(spacerRight);
 
         document.add(table);
+
+        // Amount in words (using rounded total)
+        document.add(new Paragraph(" "));
+        Font amountWordsFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Paragraph amountInWords = new Paragraph(
+                "Amount in Words: " + convertAmountToWords(roundedTotal),
+                amountWordsFont
+        );
+        amountInWords.setAlignment(Element.ALIGN_LEFT);
+        document.add(amountInWords);
         document.add(new Paragraph(" "));
     }
 
-    private void addFooter(Document document) throws DocumentException {
+    private void addFooter(Document document, SettingsResponse settings) throws DocumentException {
         document.add(new Paragraph(" "));
-        
+
+        // Authorized Signatory - right aligned
+        Font signatoryFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+        Font signatoryLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
+
+        PdfPTable sigTable = new PdfPTable(1);
+        sigTable.setWidthPercentage(35);
+        sigTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
+
+        PdfPCell forCell = new PdfPCell(new Phrase("For " + safe(settings.getShopName()), signatoryFont));
+        forCell.setBorder(Rectangle.NO_BORDER);
+        forCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        forCell.setPaddingBottom(30); // Space for signature
+        sigTable.addCell(forCell);
+
+        PdfPCell authCell = new PdfPCell(new Phrase("Authorized Signatory", signatoryLabelFont));
+        authCell.setBorder(Rectangle.NO_BORDER);
+        authCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        authCell.setPaddingTop(5);
+        sigTable.addCell(authCell);
+
+        document.add(sigTable);
+
+        document.add(new Paragraph(" "));
+        document.add(new Paragraph(" "));
+
         LineSeparator separator = new LineSeparator();
         separator.setLineColor(new Color(150, 150, 150));
         separator.setLineWidth(0.5f);
         document.add(separator);
-        
+
         document.add(new Paragraph(" "));
-        
+
         Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
         Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(100, 100, 100));
-        
+
         Paragraph thankYou = new Paragraph("Thank you for your business!", footerFont);
         thankYou.setAlignment(Element.ALIGN_CENTER);
         document.add(thankYou);
-        
+
         Paragraph note = new Paragraph("This is a computer generated invoice", noteFont);
         note.setAlignment(Element.ALIGN_CENTER);
         document.add(note);
@@ -308,7 +388,7 @@ public class InvoiceService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setPadding(6);
+        cell.setPadding(8);
         cell.setBorderWidth(1);
         cell.setBorderColor(new Color(100, 100, 100));
         table.addCell(cell);
@@ -318,7 +398,7 @@ public class InvoiceService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setHorizontalAlignment(align);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setPadding(5);
+        cell.setPadding(8);
         cell.setBorderColor(new Color(180, 180, 180));
         cell.setBorderWidth(0.5f);
         table.addCell(cell);
@@ -383,5 +463,69 @@ public class InvoiceService {
 
     private BigDecimal defaultZero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    // ── Amount-to-words conversion (Indian numbering system) ──
+
+    private String convertAmountToWords(BigDecimal amount) {
+        long rupees = amount.setScale(2, RoundingMode.HALF_UP).longValue();
+        int paise = amount.remainder(BigDecimal.ONE)
+                .movePointRight(2)
+                .setScale(0, RoundingMode.HALF_UP)
+                .intValue();
+
+        StringBuilder sb = new StringBuilder("Rupees ");
+        sb.append(convertNumberToWords(rupees));
+        if (paise > 0) {
+            sb.append(" and ");
+            sb.append(convertNumberToWords(paise));
+            sb.append(" Paise");
+        }
+        sb.append(" Only");
+        return sb.toString();
+    }
+
+    private String convertNumberToWords(long number) {
+        if (number == 0) return "Zero";
+
+        String[] ones = {
+                "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+                "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+                "Seventeen", "Eighteen", "Nineteen"
+        };
+        String[] tens = {
+                "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+        };
+
+        StringBuilder result = new StringBuilder();
+
+        if (number >= 10_000_000) {
+            result.append(convertNumberToWords(number / 10_000_000)).append(" Crore ");
+            number %= 10_000_000;
+        }
+        if (number >= 100_000) {
+            result.append(convertNumberToWords(number / 100_000)).append(" Lakh ");
+            number %= 100_000;
+        }
+        if (number >= 1_000) {
+            result.append(convertNumberToWords(number / 1_000)).append(" Thousand ");
+            number %= 1_000;
+        }
+        if (number >= 100) {
+            result.append(ones[(int) (number / 100)]).append(" Hundred ");
+            number %= 100;
+        }
+        if (number > 0) {
+            if (number < 20) {
+                result.append(ones[(int) number]);
+            } else {
+                result.append(tens[(int) (number / 10)]);
+                if (number % 10 > 0) {
+                    result.append(" ").append(ones[(int) (number % 10)]);
+                }
+            }
+        }
+
+        return result.toString().trim();
     }
 }
