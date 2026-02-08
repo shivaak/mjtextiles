@@ -140,7 +140,7 @@ export default function BillingPage() {
   const lowStockThreshold = Number(settings?.lowStockThreshold || 10);
   const taxDivisor = 1 + taxPercent / 100;
 
-  const getItemDiscountPercent = (item: CartItem) => item.variant.effectiveDiscountPercent || 0;
+  const getItemDiscountPercent = (item: CartItem) => item.itemDiscountPercent;
   const getEffectiveUnitPrice = (item: CartItem) => {
     const discPct = getItemDiscountPercent(item);
     return item.unitPrice * (1 - discPct / 100);
@@ -189,6 +189,7 @@ export default function BillingPage() {
           variant,
           qty: 1,
           unitPrice: variant.sellingPrice,
+          itemDiscountPercent: variant.effectiveDiscountPercent || 0,
         },
       ];
     });
@@ -258,6 +259,15 @@ export default function BillingPage() {
     setCart((prev) => prev.filter((item) => item.variantId !== variantId));
   }, []);
 
+  const updateItemDiscount = useCallback((variantId: number, discount: number) => {
+    const clamped = Math.min(100, Math.max(0, discount));
+    setCart((prev) =>
+      prev.map((item) =>
+        item.variantId === variantId ? { ...item, itemDiscountPercent: clamped } : item
+      )
+    );
+  }, []);
+
   const clearCart = useCallback(() => {
     setCart([]);
     setCustomerName('');
@@ -284,7 +294,7 @@ export default function BillingPage() {
           variantId: item.variantId,
           qty: item.qty,
           unitPrice: item.unitPrice,
-          itemDiscountPercent: item.variant.effectiveDiscountPercent || 0,
+          itemDiscountPercent: item.itemDiscountPercent,
         })),
       });
 
@@ -446,20 +456,20 @@ export default function BillingPage() {
                 </Box>
               ) : (
                 <TableContainer>
-                  <Table size="small">
+                  <Table size="small" sx={{ tableLayout: 'auto' }}>
                     <TableHead>
                       <TableRow>
                         <TableCell>Product</TableCell>
-                        <TableCell align="center">Qty</TableCell>
-                        <TableCell align="right">
+                        <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>Qty</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                           <Typography variant="body2" fontWeight={600}>Rate</Typography>
                           <Typography variant="caption" color="text.secondary">(Incl GST)</Typography>
                         </TableCell>
-                        <TableCell align="right">Discount</TableCell>
-                        <TableCell align="right">Taxable Value</TableCell>
-                        <TableCell align="right">GST ({taxPercent}%)</TableCell>
-                        <TableCell align="right">Amount</TableCell>
-                        <TableCell align="center" width={50}></TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Disc %</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Taxable</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>GST ({taxPercent}%)</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Amount</TableCell>
+                        <TableCell align="center" width={40}></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -504,27 +514,31 @@ export default function BillingPage() {
                               </IconButton>
                             </Box>
                           </TableCell>
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                             <Money value={item.unitPrice} symbol={currencySymbol} />
                           </TableCell>
                           <TableCell align="right">
-                            {itemDiscPct > 0 ? (
-                              <Typography variant="body2" color="error.main" fontWeight={500}>
-                                {itemDiscPct}%
-                              </Typography>
-                            ) : (
-                              <Typography variant="body2" color="text.secondary">-</Typography>
-                            )}
+                            <TextField
+                              type="number"
+                              value={itemDiscPct}
+                              onChange={(event) => {
+                                const val = parseFloat(event.target.value) || 0;
+                                updateItemDiscount(item.variantId, val);
+                              }}
+                              size="small"
+                              sx={{ width: 70 }}
+                              inputProps={{ min: 0, max: 100, step: 1, style: { textAlign: 'right' } }}
+                            />
                           </TableCell>
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                             <Money value={lineTaxableValue} symbol={currencySymbol} />
                           </TableCell>
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                             <Typography variant="body2" color="text.secondary">
                               <Money value={lineGst} symbol={currencySymbol} />
                             </Typography>
                           </TableCell>
-                          <TableCell align="right">
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                             <Typography fontWeight={500}>
                               <Money value={lineAmount} symbol={currencySymbol} />
                             </Typography>

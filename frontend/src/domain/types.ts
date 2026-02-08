@@ -261,6 +261,7 @@ export interface CartItem {
   variant: VariantSearchResponse;
   qty: number;
   unitPrice: number;
+  itemDiscountPercent: number;
 }
 
 export interface SaleItem {
