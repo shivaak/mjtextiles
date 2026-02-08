@@ -163,8 +163,8 @@ public interface SaleDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO sale_items (sale_id, variant_id, qty, unit_price, unit_cost_at_sale, item_discount_percent)
-        VALUES (:saleId, :variantId, :qty, :unitPrice, :unitCostAtSale, :itemDiscountPercent)
+        INSERT INTO sale_items (sale_id, variant_id, qty, unit_price, unit_cost_at_sale, item_discount_percent, applied_offer_id)
+        VALUES (:saleId, :variantId, :qty, :unitPrice, :unitCostAtSale, :itemDiscountPercent, :appliedOfferId)
         """)
     @GetGeneratedKeys("id")
     Long createItem(@Bind("saleId") Long saleId,
@@ -172,7 +172,8 @@ public interface SaleDao {
                     @Bind("qty") Integer qty,
                     @Bind("unitPrice") BigDecimal unitPrice,
                     @Bind("unitCostAtSale") BigDecimal unitCostAtSale,
-                    @Bind("itemDiscountPercent") BigDecimal itemDiscountPercent);
+                    @Bind("itemDiscountPercent") BigDecimal itemDiscountPercent,
+                    @Bind("appliedOfferId") Long appliedOfferId);
 
     // ==========================================
     // Void Sale

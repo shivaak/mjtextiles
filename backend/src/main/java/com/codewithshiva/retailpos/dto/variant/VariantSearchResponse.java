@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class VariantSearchResponse {
     private Long id;
+    private Long productId;
     private String productName;
     private String productBrand;
     private String sku;
@@ -37,6 +38,7 @@ public class VariantSearchResponse {
     public static VariantSearchResponse fromVariantWithProduct(VariantWithProduct variant) {
         return VariantSearchResponse.builder()
                 .id(variant.getId())
+                .productId(variant.getProductId())
                 .productName(variant.getProductName())
                 .productBrand(variant.getProductBrand())
                 .sku(variant.getSku())

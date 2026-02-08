@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -36,6 +36,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+
 import PageHeader from '../../components/common/PageHeader';
 import Money from '../../components/common/Money';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -43,11 +45,14 @@ import { useNotification } from '../../app/context/NotificationContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { productService } from '../../services/productService';
 import { settingsService } from '../../services/settingsService';
+import { offerService } from '../../services/offerService';
 import { formatApiError } from '../../services/api';
 import { lookupService } from '../../services/lookupService';
+import { formatCurrency } from '../../utils/calculations';
 import type {
   Product,
   Variant,
+  Offer,
   VariantStatus,
   CreateProductRequest,
   UpdateProductRequest,
@@ -100,6 +105,7 @@ export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<VariantStatus | ''>('');
+  const [offerFilter, setOfferFilter] = useState<'' | 'with' | 'without'>('');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
@@ -113,6 +119,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
 
   // Product search for variant dialog
   const [productSearchOptions, setProductSearchOptions] = useState<Product[]>([]);
@@ -252,10 +259,20 @@ export default function ProductsPage() {
     }
   }, [activeTab, fetchProducts]);
 
+  const fetchActiveOffers = useCallback(async () => {
+    try {
+      const data = await offerService.getActiveOffers();
+      setActiveOffers(data);
+    } catch {
+      // Silently fail — offers are supplementary info
+    }
+  }, []);
+
   useEffect(() => {
     fetchFilterOptions();
     fetchSettings();
-  }, [fetchFilterOptions, fetchSettings]);
+    fetchActiveOffers();
+  }, [fetchFilterOptions, fetchSettings, fetchActiveOffers]);
 
   // Handlers
   const openProductDialog = (product?: Product) => {
@@ -375,6 +392,110 @@ export default function ProductsPage() {
     }
   };
 
+  // Helper: find active offers for a product or variant
+  const getOffersForProduct = useCallback((productId: number): Offer[] => {
+    return activeOffers.filter((offer) =>
+      offer.items.some((oi) => oi.productId != null && Number(oi.productId) === productId)
+    );
+  }, [activeOffers]);
+
+  const getOffersForVariant = useCallback((variantId: number, productId: number): Offer[] => {
+    return activeOffers.filter((offer) =>
+      offer.items.some(
+        (oi) =>
+          (oi.variantId != null && Number(oi.variantId) === variantId) ||
+          (oi.productId != null && Number(oi.productId) === productId)
+      )
+    );
+  }, [activeOffers]);
+
+  const describeOffer = useCallback((offer: Offer): string => {
+    const rule = offer.items[0];
+    switch (offer.offerType) {
+      case 'QUANTITY_PRICE':
+        return `Buy ${rule?.minQty}+ @ ${formatCurrency(rule?.offerPrice ?? 0)} each`;
+      case 'QUANTITY_DISCOUNT':
+        return `Buy ${rule?.minQty}+, get ${rule?.discountPercent}% off`;
+      case 'COMBO':
+        return `Combo: ${offer.items.map(i => i.productName || 'item').join(' + ')} for ${formatCurrency(offer.comboPrice ?? 0)}`;
+      case 'BOGO':
+        return `Buy ${rule?.minQty}, get ${rule?.freeQty} free`;
+      default:
+        return offer.name;
+    }
+  }, []);
+
+  const renderOfferIcon = useCallback((offers: Offer[], discountPercent?: number) => {
+    const hasDiscount = discountPercent != null && discountPercent > 0;
+    if (offers.length === 0 && !hasDiscount) return null;
+    return (
+      <Tooltip
+        arrow
+        placement="right"
+        title={
+          <Box sx={{ p: 0.5 }}>
+            {hasDiscount && (
+              <Box sx={{ mb: offers.length > 0 ? 1 : 0 }}>
+                <Typography variant="caption" fontWeight={700} display="block" gutterBottom>
+                  Default Discount
+                </Typography>
+                <Typography variant="caption" display="block" color="grey.300">
+                  {discountPercent}% off on every sale
+                </Typography>
+              </Box>
+            )}
+            {offers.length > 0 && (
+              <>
+                <Typography variant="caption" fontWeight={700} display="block" gutterBottom>
+                  Active Offers ({offers.length})
+                </Typography>
+                {offers.map((offer) => (
+                  <Box key={offer.id} sx={{ mb: 0.5 }}>
+                    <Typography variant="caption" fontWeight={600} display="block">
+                      {offer.name}
+                    </Typography>
+                    <Typography variant="caption" display="block" color="grey.300">
+                      {describeOffer(offer)}
+                    </Typography>
+                  </Box>
+                ))}
+              </>
+            )}
+          </Box>
+        }
+      >
+        <LocalOfferIcon
+          sx={{
+            fontSize: 16,
+            color: offers.length > 0 ? 'success.main' : 'info.main',
+            ml: 0.5,
+            verticalAlign: 'middle',
+            cursor: 'pointer',
+          }}
+        />
+      </Tooltip>
+    );
+  }, [describeOffer]);
+
+  // Offer/discount filtered rows
+  const filteredProductRows = useMemo(() => {
+    if (offerFilter === '') return productRows;
+    return productRows.filter((p) => {
+      const hasDiscount = (p.defaultDiscountPercent ?? 0) > 0;
+      const hasOffer = getOffersForProduct(p.id).length > 0;
+      return offerFilter === 'with' ? (hasDiscount || hasOffer) : (!hasDiscount && !hasOffer);
+    });
+  }, [productRows, offerFilter, getOffersForProduct]);
+
+  const filteredVariants = useMemo(() => {
+    if (offerFilter === '') return variants;
+    return variants.filter((v) => {
+      const hasDiscount = (v.effectiveDiscountPercent ?? 0) > 0;
+      const hasOffer = getOffersForVariant(v.id, v.productId).length > 0;
+      return offerFilter === 'with' ? (hasDiscount || hasOffer) : (!hasDiscount && !hasOffer);
+    });
+  }, [variants, offerFilter, getOffersForVariant]);
+
   // Columns
   const productColumns: GridColDef[] = [
     {
@@ -382,16 +503,22 @@ export default function ProductsPage() {
       headerName: 'Product',
       flex: 1,
       minWidth: 220,
-      renderCell: (params: GridRenderCellParams<Product>) => (
-        <Box>
-          <Typography variant="body2" fontWeight={500}>
-            {params.row.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {params.row.brand}
-          </Typography>
-        </Box>
-      ),
+      renderCell: (params: GridRenderCellParams<Product>) => {
+        const productOffers = getOffersForProduct(params.row.id);
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body2" fontWeight={500}>
+                {params.row.name}
+              </Typography>
+              {renderOfferIcon(productOffers, params.row.defaultDiscountPercent)}
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              {params.row.brand}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       field: 'category',
@@ -485,16 +612,22 @@ export default function ProductsPage() {
       headerName: 'Product',
       flex: 1,
       minWidth: 200,
-      renderCell: (params: GridRenderCellParams<Variant>) => (
-        <Box>
-          <Typography variant="body2" fontWeight={500}>
-            {params.row.productName}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {params.row.productBrand}
-          </Typography>
-        </Box>
-      ),
+      renderCell: (params: GridRenderCellParams<Variant>) => {
+        const variantOffers = getOffersForVariant(params.row.id, params.row.productId);
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body2" fontWeight={500}>
+                {params.row.productName}
+              </Typography>
+              {renderOfferIcon(variantOffers, params.row.effectiveDiscountPercent)}
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              {params.row.productBrand}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       field: 'productHsn',
@@ -765,6 +898,20 @@ export default function ProductsPage() {
                 </FormControl>
               </Grid>
             )}
+            <Grid size={{ xs: 6, md: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Offers</InputLabel>
+                <Select
+                  value={offerFilter}
+                  label="Offers"
+                  onChange={(e) => setOfferFilter(e.target.value as '' | 'with' | 'without')}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="with">With Offer/Discount</MenuItem>
+                  <MenuItem value="without">Without Offer/Discount</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -774,13 +921,13 @@ export default function ProductsPage() {
         <Card>
           <Box sx={{ width: '100%', overflow: 'auto' }}>
             <DataGrid
-              rows={productRows}
+              rows={filteredProductRows}
               columns={productColumns}
-              rowCount={productTotalElements}
+              rowCount={offerFilter ? filteredProductRows.length : productTotalElements}
               loading={productLoading}
               pageSizeOptions={[10, 25, 50]}
               paginationModel={productPaginationModel}
-              paginationMode="server"
+              paginationMode={offerFilter ? 'client' : 'server'}
               onPaginationModelChange={setProductPaginationModel}
               disableRowSelectionOnClick
               sx={{ border: 0, minHeight: 500, minWidth: 800 }}
@@ -793,13 +940,13 @@ export default function ProductsPage() {
         <Card>
           <Box sx={{ width: '100%', overflow: 'auto' }}>
             <DataGrid
-              rows={variants}
+              rows={filteredVariants}
               columns={variantColumns}
-              rowCount={totalElements}
+              rowCount={offerFilter ? filteredVariants.length : totalElements}
               loading={loading}
               pageSizeOptions={[10, 25, 50]}
               paginationModel={paginationModel}
-              paginationMode="server"
+              paginationMode={offerFilter ? 'client' : 'server'}
               onPaginationModelChange={setPaginationModel}
               disableRowSelectionOnClick
               sx={{ border: 0, minHeight: 500, minWidth: 800 }}

@@ -180,6 +180,7 @@ export default function PurchasesPage() {
 
   const mapVariantToSearch = (variant: Variant): VariantSearchResponse => ({
     id: variant.id,
+    productId: variant.productId,
     productName: variant.productName,
     productBrand: variant.productBrand,
     sku: variant.sku,
@@ -389,6 +390,7 @@ export default function PurchasesPage() {
           if (!next[item.variantId]) {
             next[item.variantId] = {
               id: item.variantId,
+              productId: 0,
               productName: item.productName || '',
               sku: item.variantSku || '',
               barcode: item.variantBarcode || '',

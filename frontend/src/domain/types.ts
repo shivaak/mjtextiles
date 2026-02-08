@@ -97,6 +97,7 @@ export type VariantStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface VariantSearchResponse {
   id: number;
+  productId: number;
   productName: string;
   productBrand?: string;
   sku: string;
@@ -255,6 +256,47 @@ export interface DateRange {
   endDate: string;
 }
 
+// Offers
+export type OfferType = 'QUANTITY_PRICE' | 'QUANTITY_DISCOUNT' | 'COMBO' | 'BOGO';
+
+export interface OfferItem {
+  id?: number;
+  productId?: number;
+  variantId?: number;
+  minQty: number;
+  offerPrice?: number;
+  discountPercent?: number;
+  freeQty?: number;
+  productName?: string;
+  variantSku?: string;
+}
+
+export interface Offer {
+  id: number;
+  name: string;
+  offerType: OfferType;
+  isActive: boolean;
+  startDate?: string;
+  endDate?: string;
+  comboPrice?: number;
+  priority: number;
+  createdAt?: string;
+  items: OfferItem[];
+}
+
+export interface CreateOfferRequest {
+  name: string;
+  offerType: OfferType;
+  isActive?: boolean;
+  startDate?: string;
+  endDate?: string;
+  comboPrice?: number;
+  priority?: number;
+  items: OfferItem[];
+}
+
+export interface UpdateOfferRequest extends CreateOfferRequest {}
+
 // Sales / Billing
 export interface CartItem {
   variantId: number;
@@ -262,6 +304,8 @@ export interface CartItem {
   qty: number;
   unitPrice: number;
   itemDiscountPercent: number;
+  appliedOfferId?: number;
+  appliedOfferName?: string;
 }
 
 export interface SaleItem {
@@ -434,6 +478,7 @@ export interface CreateSaleItemRequest {
   qty: number;
   unitPrice: number;
   itemDiscountPercent?: number;
+  appliedOfferId?: number;
 }
 
 export interface CreateSaleRequest {

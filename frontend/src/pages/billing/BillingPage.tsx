@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -40,6 +40,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PercentIcon from '@mui/icons-material/Percent';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 
 import PageHeader from '../../components/common/PageHeader';
 import Money from '../../components/common/Money';
@@ -48,10 +49,13 @@ import { useNotification } from '../../app/context/NotificationContext';
 import { productService } from '../../services/productService';
 import { saleService } from '../../services/saleService';
 import { settingsService } from '../../services/settingsService';
+import { offerService } from '../../services/offerService';
 import { formatApiError } from '../../services/api';
 import { lookupService } from '../../services/lookupService';
+import { evaluateOffers } from '../../utils/offerEngine';
 import type {
   CartItem,
+  Offer,
   VariantSearchResponse,
   PaymentMode,
   SaleDetail,
@@ -99,6 +103,7 @@ export default function BillingPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [paymentModes, setPaymentModes] = useState<string[]>([]);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,12 +115,14 @@ export default function BillingPage() {
     const fetchSettings = async () => {
       setIsSettingsLoading(true);
       try {
-        const [settingsData, lookups] = await Promise.all([
+        const [settingsData, lookups, offers] = await Promise.all([
           settingsService.getSettings(),
           lookupService.getLookups(),
+          offerService.getActiveOffers().catch(() => [] as Offer[]),
         ]);
         setSettings(settingsData);
         setPaymentModes(lookups.paymentModes || []);
+        setActiveOffers(offers);
       } catch (error) {
         showError(formatApiError(error, 'Failed to load settings'));
         setSettings({
@@ -263,10 +270,193 @@ export default function BillingPage() {
     const clamped = Math.min(100, Math.max(0, discount));
     setCart((prev) =>
       prev.map((item) =>
-        item.variantId === variantId ? { ...item, itemDiscountPercent: clamped } : item
+        item.variantId === variantId
+          ? { ...item, itemDiscountPercent: clamped, appliedOfferId: undefined, appliedOfferName: undefined }
+          : item
       )
     );
   }, []);
+
+  const removeOfferFromItem = useCallback((variantId: number) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.variantId === variantId
+          ? {
+              ...item,
+              itemDiscountPercent: item.variant.effectiveDiscountPercent || 0,
+              appliedOfferId: undefined,
+              appliedOfferName: undefined,
+            }
+          : item
+      )
+    );
+  }, []);
+
+  // Auto-evaluate and apply offers when cart changes
+  const offerApplications = useMemo(
+    () => {
+      const apps = evaluateOffers(cart, activeOffers);
+      if (apps.length > 0) {
+        console.debug('[Offers] Applied:', apps.map(a => `${a.offerName} -> variant ${a.variantId} (${a.discountPercent}%)`));
+      }
+      if (activeOffers.length > 0 && cart.length > 0) {
+        console.debug('[Offers] Active offers:', activeOffers.map(o => ({
+          name: o.name, type: o.offerType,
+          items: o.items.map(i => ({ productId: i.productId, variantId: i.variantId, minQty: i.minQty }))
+        })));
+        console.debug('[Offers] Cart items:', cart.map(c => ({
+          variantId: c.variantId, productId: c.variant.productId, qty: c.qty, product: c.variant.productName
+        })));
+      }
+      return apps;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cart.map((i) => `${i.variantId}:${i.qty}`).join(','), activeOffers]
+  );
+
+  useEffect(() => {
+    if (offerApplications.length === 0 && !cart.some((i) => i.appliedOfferId)) return;
+
+    setCart((prev) => {
+      let changed = false;
+      const updated = prev.map((item) => {
+        const app = offerApplications.find((a) => a.variantId === item.variantId);
+        if (app) {
+          // Apply offer if different from current
+          if (item.appliedOfferId !== app.offerId || item.itemDiscountPercent !== app.discountPercent) {
+            changed = true;
+            return {
+              ...item,
+              itemDiscountPercent: app.discountPercent,
+              appliedOfferId: app.offerId,
+              appliedOfferName: app.offerName,
+            };
+          }
+        } else if (item.appliedOfferId) {
+          // Remove offer that no longer matches (e.g. qty dropped below threshold)
+          changed = true;
+          return {
+            ...item,
+            itemDiscountPercent: item.variant.effectiveDiscountPercent || 0,
+            appliedOfferId: undefined,
+            appliedOfferName: undefined,
+          };
+        }
+        return item;
+      });
+      return changed ? updated : prev;
+    });
+  }, [offerApplications]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compute offer hints: relevant offers for products in the cart
+  const offerHints = useMemo(() => {
+    if (activeOffers.length === 0 || cart.length === 0) return [];
+
+    const hints: {
+      offerId: number;
+      offerName: string;
+      offerType: string;
+      description: string;
+      status: 'applied' | 'eligible' | 'needs_more';
+      neededQty?: number;
+      neededItems?: string[];
+    }[] = [];
+
+    for (const offer of activeOffers) {
+      const rule = offer.items[0];
+      if (!rule) continue;
+
+      // Check if any cart item relates to this offer
+      const matchingCartItems = cart.filter((ci) => {
+        for (const oi of offer.items) {
+          if (oi.variantId != null && Number(ci.variantId) === Number(oi.variantId)) return true;
+          if (oi.productId != null && Number(ci.variant.productId) === Number(oi.productId)) return true;
+        }
+        return false;
+      });
+
+      if (matchingCartItems.length === 0) continue; // offer not relevant to cart
+
+      const isApplied = cart.some((ci) => ci.appliedOfferId === offer.id);
+
+      switch (offer.offerType) {
+        case 'QUANTITY_PRICE': {
+          const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
+          const desc = `Buy ${rule.minQty}+ ${rule.productName || 'items'} @ ${formatCurrency(rule.offerPrice!, currencySymbol)} each`;
+          if (isApplied) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+          } else if (totalQty >= rule.minQty) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'eligible' });
+          } else {
+            const needed = rule.minQty - totalQty;
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'needs_more', neededQty: needed });
+          }
+          break;
+        }
+        case 'QUANTITY_DISCOUNT': {
+          const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
+          const desc = `Buy ${rule.minQty}+ ${rule.productName || 'items'}, get ${rule.discountPercent}% off`;
+          if (isApplied) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+          } else if (totalQty >= rule.minQty) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'eligible' });
+          } else {
+            const needed = rule.minQty - totalQty;
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'needs_more', neededQty: needed });
+          }
+          break;
+        }
+        case 'COMBO': {
+          const desc = `Combo: ${offer.items.map(i => i.productName || 'item').join(' + ')} for ${formatCurrency(offer.comboPrice!, currencySymbol)}`;
+          if (isApplied) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+          } else {
+            // Check which items are missing
+            const missing: string[] = [];
+            let allPresent = true;
+            for (const oi of offer.items) {
+              const qty = cart.filter((ci) => {
+                if (oi.variantId != null) return Number(ci.variantId) === Number(oi.variantId);
+                if (oi.productId != null) return Number(ci.variant.productId) === Number(oi.productId);
+                return false;
+              }).reduce((s, c) => s + c.qty, 0);
+              if (qty < oi.minQty) {
+                allPresent = false;
+                missing.push(`${oi.minQty - qty} more ${oi.productName || 'item'}`);
+              }
+            }
+            hints.push({
+              offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc,
+              status: allPresent ? 'eligible' : 'needs_more', neededItems: missing.length > 0 ? missing : undefined,
+            });
+          }
+          break;
+        }
+        case 'BOGO': {
+          const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
+          const groupSize = rule.minQty + (rule.freeQty || 0);
+          const desc = `Buy ${rule.minQty} ${rule.productName || 'items'}, get ${rule.freeQty} free`;
+          if (isApplied) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+          } else if (totalQty >= groupSize) {
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'eligible' });
+          } else {
+            const needed = groupSize - totalQty;
+            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'needs_more', neededQty: needed });
+          }
+          break;
+        }
+      }
+    }
+
+    // Sort: applied first, then needs_more (to upsell), then eligible
+    hints.sort((a, b) => {
+      const order = { needs_more: 0, eligible: 1, applied: 2 };
+      return order[a.status] - order[b.status];
+    });
+
+    return hints;
+  }, [activeOffers, cart, currencySymbol]);
 
   const clearCart = useCallback(() => {
     setCart([]);
@@ -295,6 +485,7 @@ export default function BillingPage() {
           qty: item.qty,
           unitPrice: item.unitPrice,
           itemDiscountPercent: item.itemDiscountPercent,
+          appliedOfferId: item.appliedOfferId,
         })),
       });
 
@@ -455,6 +646,56 @@ export default function BillingPage() {
                   </Typography>
                 </Box>
               ) : (
+                <>
+                {offerHints.length > 0 && (
+                  <Box sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                      <LocalOfferIcon fontSize="small" color="primary" />
+                      <Typography variant="subtitle2" color="primary.main" fontWeight={600}>
+                        Available Offers
+                      </Typography>
+                    </Box>
+                    {offerHints.map((hint) => (
+                      <Box
+                        key={hint.offerId}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 1,
+                          py: 0.5,
+                          '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
+                        }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={500} noWrap>
+                            {hint.description}
+                          </Typography>
+                          {hint.status === 'needs_more' && hint.neededQty && (
+                            <Typography variant="caption" color="warning.main" fontWeight={500}>
+                              Add {hint.neededQty} more to unlock this offer
+                            </Typography>
+                          )}
+                          {hint.status === 'needs_more' && hint.neededItems && (
+                            <Typography variant="caption" color="warning.main" fontWeight={500}>
+                              Need: {hint.neededItems.join(', ')}
+                            </Typography>
+                          )}
+                        </Box>
+                        {hint.status === 'applied' && (
+                          <Chip label="Applied" size="small" color="success" variant="filled" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
+                        )}
+                        {hint.status === 'eligible' && (
+                          <Chip label="Eligible" size="small" color="info" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
+                        )}
+                        {hint.status === 'needs_more' && (
+                          <Chip label="Almost!" size="small" color="warning" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+
                 <TableContainer>
                   <Table size="small" sx={{ tableLayout: 'auto' }}>
                     <TableHead>
@@ -518,17 +759,29 @@ export default function BillingPage() {
                             <Money value={item.unitPrice} symbol={currencySymbol} />
                           </TableCell>
                           <TableCell align="right">
-                            <TextField
-                              type="number"
-                              value={itemDiscPct}
-                              onChange={(event) => {
-                                const val = parseFloat(event.target.value) || 0;
-                                updateItemDiscount(item.variantId, val);
-                              }}
-                              size="small"
-                              sx={{ width: 70 }}
-                              inputProps={{ min: 0, max: 100, step: 1, style: { textAlign: 'right' } }}
-                            />
+                            {item.appliedOfferId ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                                <Chip
+                                  label={`${itemDiscPct}%`}
+                                  size="small"
+                                  color="success"
+                                  title={item.appliedOfferName}
+                                  onDelete={() => removeOfferFromItem(item.variantId)}
+                                />
+                              </Box>
+                            ) : (
+                              <TextField
+                                type="number"
+                                value={itemDiscPct}
+                                onChange={(event) => {
+                                  const val = parseFloat(event.target.value) || 0;
+                                  updateItemDiscount(item.variantId, val);
+                                }}
+                                size="small"
+                                sx={{ width: 70 }}
+                                inputProps={{ min: 0, max: 100, step: 1, style: { textAlign: 'right' } }}
+                              />
+                            )}
                           </TableCell>
                           <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                             <Money value={lineTaxableValue} symbol={currencySymbol} />
@@ -554,6 +807,7 @@ export default function BillingPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+                </>
               )}
             </CardContent>
           </Card>

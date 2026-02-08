@@ -21,6 +21,7 @@ DROP TRIGGER IF EXISTS update_suppliers_updated_at ON suppliers;
 DROP TRIGGER IF EXISTS update_purchases_updated_at ON purchases;
 DROP TRIGGER IF EXISTS update_sales_updated_at ON sales;
 DROP TRIGGER IF EXISTS update_settings_updated_at ON settings;
+DROP TRIGGER IF EXISTS update_offers_updated_at ON offers;
 
 -- Apply trigger to all tables with updated_at
 CREATE TRIGGER update_users_updated_at
@@ -49,6 +50,10 @@ CREATE TRIGGER update_sales_updated_at
 
 CREATE TRIGGER update_settings_updated_at
     BEFORE UPDATE ON settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_offers_updated_at
+    BEFORE UPDATE ON offers
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ===========================================

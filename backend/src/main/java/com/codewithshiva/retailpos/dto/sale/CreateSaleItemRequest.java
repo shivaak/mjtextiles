@@ -32,4 +32,6 @@ public class CreateSaleItemRequest {
     @DecimalMin(value = "0.00", message = "Item discount must be at least 0%")
     @DecimalMax(value = "100.00", message = "Item discount must not exceed 100%")
     private BigDecimal itemDiscountPercent;
+
+    private Long appliedOfferId;
 }

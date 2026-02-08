@@ -215,7 +215,8 @@ public class SaleService {
                     item.getQty(),
                     item.getUnitPrice(),
                     unitCostAtSale,
-                    itemDiscountPct
+                    itemDiscountPct,
+                    item.getAppliedOfferId()
             );
         }
 

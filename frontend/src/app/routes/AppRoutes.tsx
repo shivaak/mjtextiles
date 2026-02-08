@@ -16,6 +16,7 @@ const SaleDetailPage = lazy(() => import('../../pages/sales/SaleDetailPage'));
 const ReportsPage = lazy(() => import('../../pages/reports/ReportsPage'));
 const UsersPage = lazy(() => import('../../pages/users/UsersPage'));
 const SettingsPage = lazy(() => import('../../pages/settings/SettingsPage'));
+const OffersPage = lazy(() => import('../../pages/offers/OffersPage'));
 
 function PageLoader() {
   return (
@@ -57,6 +58,14 @@ export default function AppRoutes() {
           <Route path="sales/:id" element={<SaleDetailPage />} />
           
           {/* Admin only routes */}
+          <Route
+            path="offers"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <OffersPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="purchases"
             element={

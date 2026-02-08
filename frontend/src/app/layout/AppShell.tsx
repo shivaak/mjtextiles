@@ -42,6 +42,7 @@ import {
   Search as SearchIcon,
   ReceiptLong as ReceiptLongIcon,
   Warehouse as WarehouseIcon,
+  LocalOffer as LocalOfferIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -70,6 +71,7 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { label: 'Billing (POS)', path: '/billing', icon: <PointOfSaleIcon /> },
   { label: 'Products', path: '/products', icon: <InventoryIcon /> },
+  { label: 'Offers', path: '/offers', icon: <LocalOfferIcon />, adminOnly: true },
   { label: 'Purchases', path: '/purchases', icon: <ShoppingCartIcon />, adminOnly: true },
   { label: 'Inventory', path: '/inventory', icon: <WarehouseIcon /> },
   { label: 'Sales', path: '/sales', icon: <ReceiptLongIcon /> },
