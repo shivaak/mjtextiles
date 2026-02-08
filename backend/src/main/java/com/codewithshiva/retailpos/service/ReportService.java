@@ -424,7 +424,7 @@ public class ReportService {
                     csv.append(String.format("%s,%s,%s,%s,%d,%.2f,%.2f,%.2f,%.1f\n",
                             ts.getSku(), escapeCsv(ts.getProductName()), ts.getCategory(),
                             ts.getBrand(), ts.getQtySold(), ts.getRevenue(),
-                            ts.getCost(), ts.getProfit(), ts.getMarginPercent()));
+                            ts.getCost(), ts.getProfit(), ts.getMarkupPercent()));
                 }
                 break;
 
