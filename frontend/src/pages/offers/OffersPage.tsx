@@ -20,12 +20,14 @@ import {
   Autocomplete,
   Divider,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 import PageHeader from '../../components/common/PageHeader';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -40,6 +42,29 @@ const OFFER_TYPE_LABELS: Record<OfferType, string> = {
   QUANTITY_DISCOUNT: 'Quantity Discount',
   COMBO: 'Combo Deal',
   BOGO: 'Buy X Get Y Free',
+};
+
+const OFFER_TYPE_HELP: Record<OfferType, { description: string; example: string; fields: string }> = {
+  QUANTITY_PRICE: {
+    description: 'Set a special price per unit when the customer buys a minimum quantity.',
+    example: 'Buy 3 or more Cotton Shirts → each at ₹399 instead of ₹499',
+    fields: 'Set: Product, Min Qty, Offer Price',
+  },
+  QUANTITY_DISCOUNT: {
+    description: 'Give a percentage discount when the customer buys a minimum quantity.',
+    example: 'Buy 3 or more Jeans → get 10% off on each',
+    fields: 'Set: Product, Min Qty, Discount %',
+  },
+  COMBO: {
+    description: 'Offer a combined price when the customer buys specific products together.',
+    example: 'Shirt + Pant together for ₹999 (instead of ₹600 + ₹500 = ₹1100)',
+    fields: 'Set: 2+ Products with Min Qty each, Combo Price',
+  },
+  BOGO: {
+    description: 'Give free items when the customer buys a minimum quantity.',
+    example: 'Buy 2 T-Shirts, get 1 free (customer takes 3, pays for 2)',
+    fields: 'Set: Product, Min Qty (buy), Free Qty (get)',
+  },
 };
 
 const EMPTY_ITEM: OfferItem = { minQty: 1, freeQty: 0 };
@@ -411,26 +436,59 @@ export default function OffersPage() {
             sx={{ mb: 2 }}
           />
 
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Offer Type</InputLabel>
-            <Select
-              value={form.offerType}
-              label="Offer Type"
-              onChange={(e) => {
-                const newType = e.target.value as OfferType;
-                const newItems = newType === 'COMBO' && form.items.length < 2
-                  ? [...form.items, { ...EMPTY_ITEM }]
-                  : newType !== 'COMBO' && form.items.length > 1
-                    ? [form.items[0]]
-                    : form.items;
-                setForm({ ...form, offerType: newType, items: newItems });
-              }}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Offer Type</InputLabel>
+              <Select
+                value={form.offerType}
+                label="Offer Type"
+                onChange={(e) => {
+                  const newType = e.target.value as OfferType;
+                  const newItems = newType === 'COMBO' && form.items.length < 2
+                    ? [...form.items, { ...EMPTY_ITEM }]
+                    : newType !== 'COMBO' && form.items.length > 1
+                      ? [form.items[0]]
+                      : form.items;
+                  setForm({ ...form, offerType: newType, items: newItems });
+                }}
+              >
+                {Object.entries(OFFER_TYPE_LABELS).map(([key, label]) => (
+                  <MenuItem key={key} value={key}>{label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Tooltip
+              arrow
+              placement="right"
+              title={
+                <Box sx={{ p: 0.5, maxWidth: 300 }}>
+                  {Object.entries(OFFER_TYPE_HELP).map(([key, info]) => (
+                    <Box key={key} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
+                      <Typography variant="caption" fontWeight={700} display="block" color={key === form.offerType ? 'primary.light' : 'inherit'}>
+                        {OFFER_TYPE_LABELS[key as OfferType]} {key === form.offerType ? '(selected)' : ''}
+                      </Typography>
+                      <Typography variant="caption" display="block" sx={{ mb: 0.25 }}>
+                        {info.description}
+                      </Typography>
+                      <Typography variant="caption" display="block" color="grey.400" fontStyle="italic">
+                        e.g. {info.example}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              }
             >
-              {Object.entries(OFFER_TYPE_LABELS).map(([key, label]) => (
-                <MenuItem key={key} value={key}>{label}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <HelpOutlineIcon sx={{ mt: 1, fontSize: 20, color: 'text.disabled', cursor: 'help' }} />
+            </Tooltip>
+          </Box>
+          <Alert severity="info" variant="outlined" sx={{ mb: 2, py: 0 }} icon={false}>
+            <Typography variant="caption">
+              <strong>{OFFER_TYPE_LABELS[form.offerType]}:</strong> {OFFER_TYPE_HELP[form.offerType].example}
+            </Typography>
+            <Typography variant="caption" display="block" color="text.secondary">
+              {OFFER_TYPE_HELP[form.offerType].fields}
+            </Typography>
+          </Alert>
 
           <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
             <TextField
