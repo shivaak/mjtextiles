@@ -30,6 +30,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -348,25 +349,24 @@ export default function BillingPage() {
     });
   }, [offerApplications]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Compute offer hints: relevant offers for products in the cart
-  const offerHints = useMemo(() => {
-    if (activeOffers.length === 0 || cart.length === 0) return [];
+  // Compute per-item offer hints: relevant offers for a specific cart item
+  type OfferHint = {
+    offerId: number;
+    offerName: string;
+    description: string;
+    status: 'applied' | 'eligible' | 'needs_more';
+    statusLabel: string;
+  };
 
-    const hints: {
-      offerId: number;
-      offerName: string;
-      offerType: string;
-      description: string;
-      status: 'applied' | 'eligible' | 'needs_more';
-      neededQty?: number;
-      neededItems?: string[];
-    }[] = [];
+  const itemOfferHintsMap = useMemo(() => {
+    const map = new Map<number, OfferHint[]>();
+    if (activeOffers.length === 0 || cart.length === 0) return map;
 
     for (const offer of activeOffers) {
       const rule = offer.items[0];
       if (!rule) continue;
 
-      // Check if any cart item relates to this offer
+      // Find cart items that match this offer
       const matchingCartItems = cart.filter((ci) => {
         for (const oi of offer.items) {
           if (oi.variantId != null && Number(ci.variantId) === Number(oi.variantId)) return true;
@@ -374,44 +374,44 @@ export default function BillingPage() {
         }
         return false;
       });
-
-      if (matchingCartItems.length === 0) continue; // offer not relevant to cart
+      if (matchingCartItems.length === 0) continue;
 
       const isApplied = cart.some((ci) => ci.appliedOfferId === offer.id);
+
+      let desc = '';
+      let status: 'applied' | 'eligible' | 'needs_more' = 'eligible';
+      let statusLabel = '';
 
       switch (offer.offerType) {
         case 'QUANTITY_PRICE': {
           const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
-          const desc = `Buy ${rule.minQty}+ ${rule.productName || 'items'} @ ${formatCurrency(rule.offerPrice!, currencySymbol)} each`;
+          desc = `Buy ${rule.minQty}+ @ ${formatCurrency(rule.offerPrice!, currencySymbol)} each`;
           if (isApplied) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+            status = 'applied'; statusLabel = 'Applied';
           } else if (totalQty >= rule.minQty) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'eligible' });
+            status = 'eligible'; statusLabel = 'Eligible';
           } else {
-            const needed = rule.minQty - totalQty;
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'needs_more', neededQty: needed });
+            status = 'needs_more'; statusLabel = `Add ${rule.minQty - totalQty} more`;
           }
           break;
         }
         case 'QUANTITY_DISCOUNT': {
           const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
-          const desc = `Buy ${rule.minQty}+ ${rule.productName || 'items'}, get ${rule.discountPercent}% off`;
+          desc = `Buy ${rule.minQty}+, get ${rule.discountPercent}% off`;
           if (isApplied) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+            status = 'applied'; statusLabel = 'Applied';
           } else if (totalQty >= rule.minQty) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'eligible' });
+            status = 'eligible'; statusLabel = 'Eligible';
           } else {
-            const needed = rule.minQty - totalQty;
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'needs_more', neededQty: needed });
+            status = 'needs_more'; statusLabel = `Add ${rule.minQty - totalQty} more`;
           }
           break;
         }
         case 'COMBO': {
-          const desc = `Combo: ${offer.items.map(i => i.productName || 'item').join(' + ')} for ${formatCurrency(offer.comboPrice!, currencySymbol)}`;
+          desc = `Combo with ${offer.items.filter(i => i.productName).map(i => i.productName).join(' + ')} for ${formatCurrency(offer.comboPrice!, currencySymbol)}`;
           if (isApplied) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+            status = 'applied'; statusLabel = 'Applied';
           } else {
-            // Check which items are missing
             const missing: string[] = [];
             let allPresent = true;
             for (const oi of offer.items) {
@@ -420,42 +420,39 @@ export default function BillingPage() {
                 if (oi.productId != null) return Number(ci.variant.productId) === Number(oi.productId);
                 return false;
               }).reduce((s, c) => s + c.qty, 0);
-              if (qty < oi.minQty) {
-                allPresent = false;
-                missing.push(`${oi.minQty - qty} more ${oi.productName || 'item'}`);
-              }
+              if (qty < oi.minQty) { allPresent = false; missing.push(oi.productName || 'item'); }
             }
-            hints.push({
-              offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc,
-              status: allPresent ? 'eligible' : 'needs_more', neededItems: missing.length > 0 ? missing : undefined,
-            });
+            if (allPresent) { status = 'eligible'; statusLabel = 'Eligible'; }
+            else { status = 'needs_more'; statusLabel = `Need ${missing.join(', ')}`; }
           }
           break;
         }
         case 'BOGO': {
           const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
           const groupSize = rule.minQty + (rule.freeQty || 0);
-          const desc = `Buy ${rule.minQty} ${rule.productName || 'items'}, get ${rule.freeQty} free`;
+          desc = `Buy ${rule.minQty}, get ${rule.freeQty} free`;
           if (isApplied) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'applied' });
+            status = 'applied'; statusLabel = 'Applied';
           } else if (totalQty >= groupSize) {
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'eligible' });
+            status = 'eligible'; statusLabel = 'Eligible';
           } else {
-            const needed = groupSize - totalQty;
-            hints.push({ offerId: offer.id, offerName: offer.name, offerType: offer.offerType, description: desc, status: 'needs_more', neededQty: needed });
+            status = 'needs_more'; statusLabel = `Add ${groupSize - totalQty} more`;
           }
           break;
         }
       }
+
+      const hint: OfferHint = { offerId: offer.id, offerName: offer.name, description: desc, status, statusLabel };
+
+      // Add hint to each matching cart item
+      for (const ci of matchingCartItems) {
+        const existing = map.get(ci.variantId) || [];
+        existing.push(hint);
+        map.set(ci.variantId, existing);
+      }
     }
 
-    // Sort: applied first, then needs_more (to upsell), then eligible
-    hints.sort((a, b) => {
-      const order = { needs_more: 0, eligible: 1, applied: 2 };
-      return order[a.status] - order[b.status];
-    });
-
-    return hints;
+    return map;
   }, [activeOffers, cart, currencySymbol]);
 
   const clearCart = useCallback(() => {
@@ -647,55 +644,6 @@ export default function BillingPage() {
                 </Box>
               ) : (
                 <>
-                {offerHints.length > 0 && (
-                  <Box sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                      <LocalOfferIcon fontSize="small" color="primary" />
-                      <Typography variant="subtitle2" color="primary.main" fontWeight={600}>
-                        Available Offers
-                      </Typography>
-                    </Box>
-                    {offerHints.map((hint) => (
-                      <Box
-                        key={hint.offerId}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 1,
-                          py: 0.5,
-                          '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
-                        }}
-                      >
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="body2" fontWeight={500} noWrap>
-                            {hint.description}
-                          </Typography>
-                          {hint.status === 'needs_more' && hint.neededQty && (
-                            <Typography variant="caption" color="warning.main" fontWeight={500}>
-                              Add {hint.neededQty} more to unlock this offer
-                            </Typography>
-                          )}
-                          {hint.status === 'needs_more' && hint.neededItems && (
-                            <Typography variant="caption" color="warning.main" fontWeight={500}>
-                              Need: {hint.neededItems.join(', ')}
-                            </Typography>
-                          )}
-                        </Box>
-                        {hint.status === 'applied' && (
-                          <Chip label="Applied" size="small" color="success" variant="filled" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
-                        )}
-                        {hint.status === 'eligible' && (
-                          <Chip label="Eligible" size="small" color="info" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
-                        )}
-                        {hint.status === 'needs_more' && (
-                          <Chip label="Almost!" size="small" color="warning" variant="outlined" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-
                 <TableContainer>
                   <Table size="small" sx={{ tableLayout: 'auto' }}>
                     <TableHead>
@@ -721,12 +669,58 @@ export default function BillingPage() {
                       const lineTaxableValue = taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
                       const lineGst = lineAmount - lineTaxableValue;
 
+                      const itemHints = itemOfferHintsMap.get(item.variantId) || [];
+
                       return (
                         <TableRow key={item.variantId}>
                           <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
-                              {item.variant.productName}
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Typography variant="body2" fontWeight={500}>
+                                {item.variant.productName}
+                              </Typography>
+                              {itemHints.length > 0 && (
+                                <Tooltip
+                                  arrow
+                                  placement="right"
+                                  title={
+                                    <Box sx={{ p: 0.5 }}>
+                                      {itemHints.map((h) => (
+                                        <Box key={h.offerId} sx={{ mb: 0.75, '&:last-child': { mb: 0 } }}>
+                                          <Typography variant="caption" fontWeight={600} display="block">
+                                            {h.offerName}
+                                          </Typography>
+                                          <Typography variant="caption" display="block" color="grey.300">
+                                            {h.description}
+                                          </Typography>
+                                          <Typography
+                                            variant="caption"
+                                            fontWeight={600}
+                                            display="block"
+                                            color={
+                                              h.status === 'applied' ? 'success.light'
+                                              : h.status === 'eligible' ? 'info.light'
+                                              : 'warning.light'
+                                            }
+                                          >
+                                            {h.statusLabel}
+                                          </Typography>
+                                        </Box>
+                                      ))}
+                                    </Box>
+                                  }
+                                >
+                                  <LocalOfferIcon
+                                    sx={{
+                                      fontSize: 16,
+                                      cursor: 'pointer',
+                                      color: itemHints.some((h) => h.status === 'applied') ? 'success.main'
+                                        : itemHints.some((h) => h.status === 'eligible') ? 'info.main'
+                                        : 'warning.main',
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
                             <Typography variant="caption" color="text.secondary" component="div">
                               {item.variant.size} | {item.variant.color} | {item.variant.sku}
                             </Typography>

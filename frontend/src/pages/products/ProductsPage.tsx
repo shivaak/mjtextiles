@@ -543,7 +543,17 @@ export default function ProductsPage() {
       width: 110,
       align: 'center',
       renderCell: (params: GridRenderCellParams<Product>) => (
-        <Chip label={params.row.variantCount ?? 0} size="small" />
+        <Chip
+          label={params.row.variantCount ?? 0}
+          size="small"
+          clickable
+          color="primary"
+          variant="outlined"
+          onClick={() => {
+            setSearchQuery(params.row.name);
+            setActiveTab('variants');
+          }}
+        />
       ),
     },
     {
