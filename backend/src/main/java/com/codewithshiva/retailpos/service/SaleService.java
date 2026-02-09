@@ -170,20 +170,26 @@ public class SaleService {
         Customer customer = null;
         String customerPhone = request.getCustomerPhone();
         String customerName = request.getCustomerName();
+        String customerArea = request.getCustomerArea();
 
         if (customerPhone != null && !customerPhone.trim().isEmpty()) {
             Optional<Customer> existingCustomer = customerDao.findByPhone(customerPhone.trim());
             if (existingCustomer.isPresent()) {
                 customer = existingCustomer.get();
                 customerId = customer.getId();
-                // Update name if provided and different
-                if (customerName != null && !customerName.trim().isEmpty() && !customerName.equals(customer.getName())) {
-                    customerDao.update(customerId, customerPhone.trim(), customerName.trim());
+                // Update name/area if provided and different
+                boolean nameChanged = customerName != null && !customerName.trim().isEmpty() && !customerName.equals(customer.getName());
+                boolean areaChanged = customerArea != null && !customerArea.trim().isEmpty() && !customerArea.trim().equals(nullToEmpty(customer.getArea()));
+                if (nameChanged || areaChanged) {
+                    String updatedName = nameChanged ? customerName.trim() : customer.getName();
+                    String updatedArea = areaChanged ? customerArea.trim() : customer.getArea();
+                    customerDao.update(customerId, customerPhone.trim(), updatedName, updatedArea);
                 }
                 log.debug("Found existing customer ID: {} for phone: {}", customerId, customerPhone);
             } else if (customerName != null && !customerName.trim().isEmpty()) {
                 // Create new customer
-                customerId = customerDao.create(customerPhone.trim(), customerName.trim());
+                String areaTrimmed = customerArea != null && !customerArea.trim().isEmpty() ? customerArea.trim() : null;
+                customerId = customerDao.create(customerPhone.trim(), customerName.trim(), areaTrimmed);
                 customer = customerDao.findById(customerId).orElse(null);
                 log.info("Created new customer ID: {} for phone: {}", customerId, customerPhone);
             }
@@ -439,5 +445,9 @@ public class SaleService {
         } catch (Exception e) {
             throw new BadRequestException("INVALID_DATE", "Invalid end date format. Use YYYY-MM-DD");
         }
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

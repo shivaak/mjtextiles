@@ -21,4 +21,7 @@ public class CreateCustomerRequest {
     @NotBlank(message = "Customer name is required")
     @Size(max = 100, message = "Customer name must not exceed 100 characters")
     private String name;
+
+    @Size(max = 100, message = "Area must not exceed 100 characters")
+    private String area;
 }

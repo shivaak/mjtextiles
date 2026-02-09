@@ -206,6 +206,7 @@ export interface Customer {
   id: number;
   phone: string;
   name: string;
+  area?: string;
   loyaltyPoints: number;
   totalPointsEarned: number;
   totalPointsRedeemed: number;
@@ -215,11 +216,13 @@ export interface Customer {
 export interface CreateCustomerRequest {
   phone: string;
   name: string;
+  area?: string;
 }
 
 export interface UpdateCustomerRequest {
   phone: string;
   name: string;
+  area?: string;
 }
 
 export interface CustomerPointsLog {
@@ -595,6 +598,7 @@ export interface CreateSaleItemRequest {
 export interface CreateSaleRequest {
   customerName?: string;
   customerPhone?: string;
+  customerArea?: string;
   paymentMode: PaymentMode;
   discountPercent: number;
   pointsToRedeem?: number;

@@ -96,6 +96,7 @@ export default function BillingPage() {
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerArea, setCustomerArea] = useState('');
   const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(null);
   const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
@@ -211,6 +212,7 @@ export default function BillingPage() {
         const customer = await customerService.getCustomerByPhone(phone.trim());
         setMatchedCustomer(customer);
         setCustomerName(customer.name);
+        setCustomerArea(customer.area || '');
       } catch {
         // Not found - that's fine, new customer
         setMatchedCustomer(null);
@@ -536,6 +538,7 @@ export default function BillingPage() {
     setCart([]);
     setCustomerName('');
     setCustomerPhone('');
+    setCustomerArea('');
     setMatchedCustomer(null);
     setPointsToRedeem(0);
     setDiscountValue(0);
@@ -560,6 +563,7 @@ export default function BillingPage() {
       const sale = await saleService.createSale({
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
+        customerArea: customerArea || undefined,
         paymentMode,
         discountPercent,
         pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
@@ -579,6 +583,7 @@ export default function BillingPage() {
       setCart([]);
       setCustomerName('');
       setCustomerPhone('');
+      setCustomerArea('');
       setMatchedCustomer(null);
       setPointsToRedeem(0);
       setDiscountValue(0);
@@ -594,6 +599,7 @@ export default function BillingPage() {
     cart,
     customerName,
     customerPhone,
+    customerArea,
     paymentMode,
     discountPercent,
     pointsToRedeem,
@@ -935,8 +941,16 @@ export default function BillingPage() {
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
                   size="small"
+                  sx={{ mb: 2 }}
                   error={!!customerName && !customerPhone}
                   helperText={customerName && !customerPhone ? 'Phone is required when name is provided' : ''}
+                />
+                <TextField
+                  fullWidth
+                  label="Area (Optional)"
+                  value={customerArea}
+                  onChange={(event) => setCustomerArea(event.target.value)}
+                  size="small"
                 />
                 {loyaltyEnabled && matchedCustomer && matchedCustomer.loyaltyPoints > 0 && (
                   <Box sx={{ mt: 2 }}>
@@ -1120,9 +1134,9 @@ export default function BillingPage() {
                 Bill No: <strong>{completedSale.billNo}</strong>
               </Alert>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography color="text.secondary">Total Amount</Typography>
+                <Typography color="text.secondary">Net Payable</Typography>
                 <Typography fontWeight={600}>
-                  <Money value={completedSale.total} symbol={currencySymbol} />
+                  <Money value={completedSale.total - (completedSale.pointsRedemptionAmount || 0)} symbol={currencySymbol} />
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

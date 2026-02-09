@@ -22,7 +22,7 @@ public interface CustomerDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT id, phone, name, loyalty_points as loyaltyPoints,
+        SELECT id, phone, name, area, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
                created_at as createdAt, updated_at as updatedAt
@@ -32,7 +32,7 @@ public interface CustomerDao {
     Optional<Customer> findById(@Bind("id") Long id);
 
     @SqlQuery("""
-        SELECT id, phone, name, loyalty_points as loyaltyPoints,
+        SELECT id, phone, name, area, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
                created_at as createdAt, updated_at as updatedAt
@@ -42,7 +42,7 @@ public interface CustomerDao {
     Optional<Customer> findByPhone(@Bind("phone") String phone);
 
     @SqlQuery("""
-        SELECT id, phone, name, loyalty_points as loyaltyPoints,
+        SELECT id, phone, name, area, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
                created_at as createdAt, updated_at as updatedAt
@@ -52,7 +52,7 @@ public interface CustomerDao {
     List<Customer> findAll();
 
     @SqlQuery("""
-        SELECT id, phone, name, loyalty_points as loyaltyPoints,
+        SELECT id, phone, name, area, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
                created_at as createdAt, updated_at as updatedAt
@@ -64,7 +64,7 @@ public interface CustomerDao {
     List<Customer> findWithSearch(@Bind("search") String search);
 
     @SqlQuery("""
-        SELECT id, phone, name, loyalty_points as loyaltyPoints,
+        SELECT id, phone, name, area, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
                created_at as createdAt, updated_at as updatedAt
@@ -78,22 +78,24 @@ public interface CustomerDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO customers (phone, name)
-        VALUES (:phone, :name)
+        INSERT INTO customers (phone, name, area)
+        VALUES (:phone, :name, :area)
         """)
     @GetGeneratedKeys("id")
-    Long create(@Bind("phone") String phone, @Bind("name") String name);
+    Long create(@Bind("phone") String phone, @Bind("name") String name, @Bind("area") String area);
 
     @SqlUpdate("""
         UPDATE customers
         SET phone = :phone,
             name = :name,
+            area = :area,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
         """)
     void update(@Bind("id") Long id,
                 @Bind("phone") String phone,
-                @Bind("name") String name);
+                @Bind("name") String name,
+                @Bind("area") String area);
 
     // ==========================================
     // Points Operations

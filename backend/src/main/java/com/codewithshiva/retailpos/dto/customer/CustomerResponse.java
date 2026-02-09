@@ -21,6 +21,7 @@ public class CustomerResponse {
     private Long id;
     private String phone;
     private String name;
+    private String area;
     private Integer loyaltyPoints;
     private Integer totalPointsEarned;
     private Integer totalPointsRedeemed;
@@ -34,6 +35,7 @@ public class CustomerResponse {
                 .id(customer.getId())
                 .phone(customer.getPhone())
                 .name(customer.getName())
+                .area(customer.getArea())
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .totalPointsEarned(customer.getTotalPointsEarned())
                 .totalPointsRedeemed(customer.getTotalPointsRedeemed())

@@ -96,7 +96,7 @@ public class CustomerService {
             );
         }
 
-        Long customerId = customerDao.create(request.getPhone(), request.getName());
+        Long customerId = customerDao.create(request.getPhone(), request.getName(), request.getArea());
 
         log.info("Customer created successfully with ID: {}", customerId);
 
@@ -129,7 +129,7 @@ public class CustomerService {
             }
         }
 
-        customerDao.update(id, request.getPhone(), request.getName());
+        customerDao.update(id, request.getPhone(), request.getName(), request.getArea());
 
         log.info("Customer updated successfully: {}", id);
 

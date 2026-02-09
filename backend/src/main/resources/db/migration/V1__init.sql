@@ -225,6 +225,7 @@ CREATE TABLE customers (
     id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     phone                   VARCHAR(20) NOT NULL,
     name                    VARCHAR(100) NOT NULL,
+    area                    VARCHAR(100),
     loyalty_points          INTEGER NOT NULL DEFAULT 0,
     total_points_earned     INTEGER NOT NULL DEFAULT 0,
     total_points_redeemed   INTEGER NOT NULL DEFAULT 0,

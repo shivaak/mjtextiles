@@ -41,6 +41,7 @@ import type { Customer, CustomerPointsLog } from '../../domain/types';
 const customerSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
   name: z.string().min(1, 'Customer name is required'),
+  area: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -63,6 +64,7 @@ export default function CustomersPage() {
     defaultValues: {
       phone: '',
       name: '',
+      area: '',
     },
   });
 
@@ -90,12 +92,14 @@ export default function CustomersPage() {
       form.reset({
         phone: selected.phone,
         name: selected.name,
+        area: selected.area || '',
       });
     } else {
       setEditingCustomer(null);
       form.reset({
         phone: '',
         name: '',
+        area: '',
       });
     }
     setDialogOpen(true);
@@ -121,12 +125,14 @@ export default function CustomersPage() {
         await customerService.updateCustomer(editingCustomer.id, {
           phone: data.phone,
           name: data.name,
+          area: data.area || undefined,
         });
         showSuccess('Customer updated successfully');
       } else {
         await customerService.createCustomer({
           phone: data.phone,
           name: data.name,
+          area: data.area || undefined,
         });
         showSuccess('Customer created successfully');
       }
@@ -162,6 +168,12 @@ export default function CustomersPage() {
       headerName: 'Customer Name',
       flex: 1,
       minWidth: 180,
+    },
+    {
+      field: 'area',
+      headerName: 'Area',
+      width: 140,
+      valueGetter: (value) => value || '-',
     },
     {
       field: 'loyaltyPoints',
@@ -314,6 +326,19 @@ export default function CustomersPage() {
                       label="Customer Name"
                       error={!!fieldState.error}
                       helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Controller
+                  name="area"
+                  control={form.control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Area (Optional)"
                     />
                   )}
                 />

@@ -23,6 +23,9 @@ public class CreateSaleRequest {
     @Size(max = 20, message = "Customer phone must not exceed 20 characters")
     private String customerPhone;
 
+    @Size(max = 100, message = "Customer area must not exceed 100 characters")
+    private String customerArea;
+
     @NotNull(message = "Payment mode is required")
     @Pattern(regexp = "^(CASH|CARD|UPI|CREDIT)$", message = "Payment mode must be CASH, CARD, UPI, or CREDIT")
     private String paymentMode;
