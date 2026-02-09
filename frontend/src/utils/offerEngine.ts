@@ -184,39 +184,75 @@ function evaluateQuantityDiscount(cart: CartItem[], offer: Offer): OfferApplicat
 /**
  * COMBO: All required products in cart with min quantities -> combo price.
  * Distribute savings proportionally based on original prices.
+ *
+ * Uses consumption-based matching: each cart unit can only satisfy ONE rule.
+ * This prevents the same item from being double-counted across rules.
  */
 function evaluateCombo(cart: CartItem[], offer: Offer): OfferApplication[] {
   if (!offer.comboPrice || offer.items.length < 2) return [];
 
-  // Check all required items are present with min quantities
-  for (const rule of offer.items) {
-    const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
-    if (totalQty < rule.minQty) return [];
+  // Track remaining available quantities per variant (consumption-based)
+  const remainingQty = new Map<number, number>();
+  for (const item of cart) {
+    remainingQty.set(item.variantId, (remainingQty.get(item.variantId) || 0) + item.qty);
   }
 
-  // Calculate the original total of matching items (one unit per rule)
+  // Try to satisfy each rule by consuming from available cart quantities
   let originalTotal = 0;
-  const matchedItems: { cartItem: CartItem; ruleMinQty: number }[] = [];
+  const matchedItems: { cartItem: CartItem; consumedQty: number }[] = [];
 
   for (const rule of offer.items) {
+    const minQty = rule.minQty || 1;
+    let needed = minQty;
+    let ruleSatisfied = false;
+
     for (const item of cart) {
-      if (itemMatchesRule(item, rule.productId, rule.variantId)) {
-        originalTotal += item.unitPrice * rule.minQty;
-        matchedItems.push({ cartItem: item, ruleMinQty: rule.minQty });
-        break; // Take first matching variant for this rule
-      }
+      if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
+
+      const available = remainingQty.get(item.variantId) || 0;
+      if (available <= 0) continue;
+
+      const consume = Math.min(available, needed);
+      remainingQty.set(item.variantId, available - consume);
+      needed -= consume;
+
+      originalTotal += item.unitPrice * consume;
+      matchedItems.push({ cartItem: item, consumedQty: consume });
+
+      if (needed <= 0) { ruleSatisfied = true; break; }
     }
+
+    // If this rule can't be satisfied, combo doesn't apply
+    if (!ruleSatisfied) return [];
   }
 
   if (originalTotal <= 0 || offer.comboPrice >= originalTotal) return [];
 
-  // Distribute savings proportionally
+  // Distribute savings proportionally based on each item's share of the original total
+  const totalSavings = originalTotal - offer.comboPrice;
   const results: OfferApplication[] = [];
-  for (const { cartItem, ruleMinQty } of matchedItems) {
-    const itemShare = (cartItem.unitPrice * ruleMinQty) / originalTotal;
-    const itemSavings = (originalTotal - offer.comboPrice) * itemShare;
 
-    // Blended discount considering extra qty beyond ruleMinQty
+  // Aggregate consumed quantities per variant for discount calculation
+  const consumedPerVariant = new Map<number, { cartItem: CartItem; totalConsumed: number; consumedValue: number }>();
+  for (const { cartItem, consumedQty } of matchedItems) {
+    const existing = consumedPerVariant.get(cartItem.variantId);
+    if (existing) {
+      existing.totalConsumed += consumedQty;
+      existing.consumedValue += cartItem.unitPrice * consumedQty;
+    } else {
+      consumedPerVariant.set(cartItem.variantId, {
+        cartItem,
+        totalConsumed: consumedQty,
+        consumedValue: cartItem.unitPrice * consumedQty,
+      });
+    }
+  }
+
+  for (const [, { cartItem, consumedValue }] of consumedPerVariant) {
+    const itemShare = consumedValue / originalTotal;
+    const itemSavings = totalSavings * itemShare;
+
+    // Blended discount across ALL units of this item (including non-combo extra units)
     const totalItemValue = cartItem.unitPrice * cartItem.qty;
     const blendedDiscPct = totalItemValue > 0
       ? (itemSavings / totalItemValue) * 100
