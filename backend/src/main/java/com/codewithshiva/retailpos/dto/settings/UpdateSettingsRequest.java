@@ -39,4 +39,19 @@ public class UpdateSettingsRequest {
 
     @Min(value = 0, message = "Low stock threshold must be at least 0")
     private Integer lowStockThreshold;
+
+    private Boolean loyaltyEnabled;
+
+    @DecimalMin(value = "0", message = "Points min purchase amount must be at least 0")
+    private BigDecimal pointsMinPurchaseAmount;
+
+    @DecimalMin(value = "0", message = "Points per hundred must be at least 0")
+    private BigDecimal pointsPerHundred;
+
+    @DecimalMin(value = "0", message = "Point value must be at least 0")
+    private BigDecimal pointValue;
+
+    @DecimalMin(value = "0", message = "Max points redemption percent must be at least 0")
+    @DecimalMax(value = "100", message = "Max points redemption percent must be at most 100")
+    private BigDecimal maxPointsRedemptionPercent;
 }

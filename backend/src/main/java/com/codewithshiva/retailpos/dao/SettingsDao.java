@@ -20,6 +20,11 @@ public interface SettingsDao {
         SELECT id, shop_name as shopName, address, phone, email, gst_number as gstNumber,
                currency, tax_percent as taxPercent, invoice_prefix as invoicePrefix,
                last_bill_number as lastBillNumber, low_stock_threshold as lowStockThreshold,
+               loyalty_enabled as loyaltyEnabled,
+               points_min_purchase_amount as pointsMinPurchaseAmount,
+               points_per_hundred as pointsPerHundred,
+               point_value as pointValue,
+               max_points_redemption_percent as maxPointsRedemptionPercent,
                created_at as createdAt, updated_at as updatedAt
         FROM settings
         WHERE id = 1
@@ -36,7 +41,12 @@ public interface SettingsDao {
             currency = :currency,
             tax_percent = :taxPercent,
             invoice_prefix = :invoicePrefix,
-            low_stock_threshold = :lowStockThreshold
+            low_stock_threshold = :lowStockThreshold,
+            loyalty_enabled = :loyaltyEnabled,
+            points_min_purchase_amount = :pointsMinPurchaseAmount,
+            points_per_hundred = :pointsPerHundred,
+            point_value = :pointValue,
+            max_points_redemption_percent = :maxPointsRedemptionPercent
         WHERE id = 1
         """)
     void update(@Bind("shopName") String shopName,
@@ -47,7 +57,12 @@ public interface SettingsDao {
                 @Bind("currency") String currency,
                 @Bind("taxPercent") BigDecimal taxPercent,
                 @Bind("invoicePrefix") String invoicePrefix,
-                @Bind("lowStockThreshold") Integer lowStockThreshold);
+                @Bind("lowStockThreshold") Integer lowStockThreshold,
+                @Bind("loyaltyEnabled") Boolean loyaltyEnabled,
+                @Bind("pointsMinPurchaseAmount") BigDecimal pointsMinPurchaseAmount,
+                @Bind("pointsPerHundred") BigDecimal pointsPerHundred,
+                @Bind("pointValue") BigDecimal pointValue,
+                @Bind("maxPointsRedemptionPercent") BigDecimal maxPointsRedemptionPercent);
 
     @SqlUpdate("""
         INSERT INTO settings (id, shop_name, currency, tax_percent, invoice_prefix, low_stock_threshold)

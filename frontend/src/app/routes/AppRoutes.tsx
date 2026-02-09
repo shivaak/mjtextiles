@@ -19,6 +19,7 @@ const SettingsPage = lazy(() => import('../../pages/settings/SettingsPage'));
 const OffersPage = lazy(() => import('../../pages/offers/OffersPage'));
 const MastersPage = lazy(() => import('../../pages/masters/MastersPage'));
 const SuppliersPage = lazy(() => import('../../pages/suppliers/SuppliersPage'));
+const CustomersPage = lazy(() => import('../../pages/customers/CustomersPage'));
 
 function PageLoader() {
   return (
@@ -58,6 +59,7 @@ export default function AppRoutes() {
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />
           <Route path="sales/:id" element={<SaleDetailPage />} />
+          <Route path="customers" element={<CustomersPage />} />
           
           {/* Admin only routes */}
           <Route

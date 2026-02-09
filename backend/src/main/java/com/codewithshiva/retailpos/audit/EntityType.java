@@ -12,5 +12,6 @@ public enum EntityType {
     SUPPLIER,
     STOCK_ADJUSTMENT,
     SETTINGS,
-    OFFER
+    OFFER,
+    CUSTOMER
 }

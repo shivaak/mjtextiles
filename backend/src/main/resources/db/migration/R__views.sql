@@ -1,5 +1,6 @@
 -- ===========================================
 -- Repeatable Migration: Views
+-- Updated after V2: customers and loyalty points
 -- ===========================================
 
 -- ===========================================
@@ -46,7 +47,8 @@ JOIN products p ON v.product_id = p.id;
 -- v_sales_with_details
 -- Sales with user and item count
 -- ===========================================
-CREATE OR REPLACE VIEW v_sales_with_details AS
+DROP VIEW IF EXISTS v_sales_with_details;
+CREATE VIEW v_sales_with_details AS
 SELECT 
     s.*,
     u.full_name AS created_by_name,

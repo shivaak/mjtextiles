@@ -3,13 +3,17 @@ package com.codewithshiva.retailpos.service;
 import com.codewithshiva.retailpos.audit.Auditable;
 import com.codewithshiva.retailpos.audit.AuditAction;
 import com.codewithshiva.retailpos.audit.EntityType;
+import com.codewithshiva.retailpos.dao.CustomerDao;
 import com.codewithshiva.retailpos.dao.SaleDao;
+import com.codewithshiva.retailpos.dao.SettingsDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.sale.*;
 import com.codewithshiva.retailpos.exception.BadRequestException;
 import com.codewithshiva.retailpos.exception.ResourceNotFoundException;
+import com.codewithshiva.retailpos.model.Customer;
 import com.codewithshiva.retailpos.model.SaleItemWithVariant;
 import com.codewithshiva.retailpos.model.SaleWithDetails;
+import com.codewithshiva.retailpos.model.Settings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +27,7 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +40,8 @@ public class SaleService {
 
     private final SaleDao saleDao;
     private final VariantDao variantDao;
+    private final CustomerDao customerDao;
+    private final SettingsDao settingsDao;
 
     /**
      * List sales with optional filters.
@@ -86,9 +93,12 @@ public class SaleService {
      * 2. Pre-validates stock availability for all items
      * 3. Generates bill number
      * 4. Gets tax percent from settings
-     * 5. Decreases stock and captures avg_cost for each item
-     * 6. Calculates subtotal, discount, tax, total, and profit
-     * 7. Creates sale and sale items records
+     * 5. Handles customer lookup/creation
+     * 6. Validates and applies points redemption
+     * 7. Decreases stock and captures avg_cost for each item
+     * 8. Calculates subtotal, discount, tax, total, and profit
+     * 9. Creates sale and sale items records
+     * 10. Calculates and awards earned points
      */
     @Transactional
     @Auditable(entity = EntityType.SALE, action = AuditAction.CREATE)
@@ -128,11 +138,10 @@ public class SaleService {
         String billNo = saleDao.generateBillNumber();
         log.debug("Generated bill number: {}", billNo);
 
-        // 3. Get tax percent from settings
-        BigDecimal taxPercent = saleDao.getTaxPercent();
-        if (taxPercent == null) {
-            taxPercent = BigDecimal.ZERO;
-        }
+        // 3. Get settings (tax percent + loyalty config)
+        Settings settings = settingsDao.get().orElse(null);
+        BigDecimal taxPercent = settings != null && settings.getTaxPercent() != null ? settings.getTaxPercent() : BigDecimal.ZERO;
+        boolean loyaltyEnabled = settings != null && Boolean.TRUE.equals(settings.getLoyaltyEnabled());
 
         // 4. Calculate subtotal (sum of line amounts, tax-inclusive, after item discounts)
         BigDecimal taxDivisor = BigDecimal.ONE.add(taxPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
@@ -153,27 +162,84 @@ public class SaleService {
         BigDecimal discountPercent = request.getDiscountPercent() != null ? request.getDiscountPercent() : BigDecimal.ZERO;
         BigDecimal discountAmount = subtotal.multiply(discountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        // 7. Calculate total (final amount payable)
+        // 7. Calculate total (before points redemption)
         BigDecimal total = subtotal.subtract(discountAmount);
 
-        // 8. Decrease stock for each item and calculate profit
-        // Store avg_cost for each item to use when creating sale items
+        // 8. Handle customer lookup/creation
+        Long customerId = null;
+        Customer customer = null;
+        String customerPhone = request.getCustomerPhone();
+        String customerName = request.getCustomerName();
+
+        if (customerPhone != null && !customerPhone.trim().isEmpty()) {
+            Optional<Customer> existingCustomer = customerDao.findByPhone(customerPhone.trim());
+            if (existingCustomer.isPresent()) {
+                customer = existingCustomer.get();
+                customerId = customer.getId();
+                // Update name if provided and different
+                if (customerName != null && !customerName.trim().isEmpty() && !customerName.equals(customer.getName())) {
+                    customerDao.update(customerId, customerPhone.trim(), customerName.trim(), customer.isActive());
+                }
+                log.debug("Found existing customer ID: {} for phone: {}", customerId, customerPhone);
+            } else if (customerName != null && !customerName.trim().isEmpty()) {
+                // Create new customer
+                customerId = customerDao.create(customerPhone.trim(), customerName.trim());
+                customer = customerDao.findById(customerId).orElse(null);
+                log.info("Created new customer ID: {} for phone: {}", customerId, customerPhone);
+            }
+        }
+
+        // 9. Validate and calculate points redemption
+        int pointsToRedeem = 0;
+        BigDecimal pointsRedemptionAmount = BigDecimal.ZERO;
+        BigDecimal pointValue = settings != null && settings.getPointValue() != null ? settings.getPointValue() : BigDecimal.ONE;
+
+        if (request.getPointsToRedeem() != null && request.getPointsToRedeem() > 0) {
+            if (!loyaltyEnabled) {
+                throw new BadRequestException("LOYALTY_DISABLED", "Loyalty program is not enabled");
+            }
+            if (customer == null) {
+                throw new BadRequestException("CUSTOMER_REQUIRED", "Customer is required to redeem points");
+            }
+
+            pointsToRedeem = request.getPointsToRedeem();
+
+            // Validate customer has enough points
+            if (pointsToRedeem > customer.getLoyaltyPoints()) {
+                throw new BadRequestException("INSUFFICIENT_POINTS",
+                        String.format("Customer has %d points, but tried to redeem %d", customer.getLoyaltyPoints(), pointsToRedeem));
+            }
+
+            // Validate max redemption percent
+            BigDecimal maxRedemptionPercent = settings.getMaxPointsRedemptionPercent() != null
+                    ? settings.getMaxPointsRedemptionPercent() : BigDecimal.valueOf(50);
+            BigDecimal maxRedemptionAmount = total.multiply(maxRedemptionPercent)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            int maxRedeemablePoints = maxRedemptionAmount.divide(pointValue, 0, RoundingMode.FLOOR).intValue();
+
+            if (pointsToRedeem > maxRedeemablePoints) {
+                throw new BadRequestException("EXCEEDS_MAX_REDEMPTION",
+                        String.format("Maximum redeemable points for this bill is %d (%.0f%% of total)", maxRedeemablePoints, maxRedemptionPercent));
+            }
+
+            pointsRedemptionAmount = pointValue.multiply(BigDecimal.valueOf(pointsToRedeem)).setScale(2, RoundingMode.HALF_UP);
+            log.debug("Points redemption: {} points = {} amount", pointsToRedeem, pointsRedemptionAmount);
+        }
+
+        // 10. Decrease stock for each item and calculate profit
         Map<CreateSaleItemRequest, BigDecimal> itemCosts = new HashMap<>();
         BigDecimal totalProfit = BigDecimal.ZERO;
 
         for (CreateSaleItemRequest item : request.getItems()) {
-            // Call function which decreases stock and returns avg_cost
             BigDecimal avgCost = saleDao.decreaseVariantStockOnSale(item.getVariantId(), item.getQty());
             itemCosts.put(item, avgCost);
 
-            // Calculate profit for this item (revenue = tax-exclusive base price after item discount)
             BigDecimal itemDiscountPct = item.getItemDiscountPercent() != null ? item.getItemDiscountPercent() : BigDecimal.ZERO;
             BigDecimal itemDiscountFactor = BigDecimal.ONE.subtract(itemDiscountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
             BigDecimal effectiveUnitPrice = item.getUnitPrice().multiply(itemDiscountFactor).setScale(2, RoundingMode.HALF_UP);
             BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(item.getQty()));
             BigDecimal revenue = lineAmount.divide(taxDivisor, 2, RoundingMode.HALF_UP);
 
-            // Apply global discount to revenue (not profit) — discount reduces what we earned, not what we paid
             BigDecimal globalDiscountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
             revenue = revenue.multiply(globalDiscountFactor).setScale(2, RoundingMode.HALF_UP);
 
@@ -185,13 +251,35 @@ public class SaleService {
                     item.getVariantId(), item.getQty(), avgCost, itemProfit);
         }
 
-        // 9. Create sale record
+        // Adjust profit for points redemption (points redemption reduces revenue)
+        if (pointsRedemptionAmount.compareTo(BigDecimal.ZERO) > 0) {
+            totalProfit = totalProfit.subtract(pointsRedemptionAmount);
+        }
+
+        // 11. Calculate earned points
+        int pointsEarned = 0;
+        if (loyaltyEnabled && customer != null && settings != null) {
+            BigDecimal minPurchase = settings.getPointsMinPurchaseAmount() != null
+                    ? settings.getPointsMinPurchaseAmount() : BigDecimal.valueOf(500);
+            BigDecimal pointsPerHundred = settings.getPointsPerHundred() != null
+                    ? settings.getPointsPerHundred() : BigDecimal.ONE;
+
+            if (total.compareTo(minPurchase) >= 0) {
+                pointsEarned = total.divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)
+                        .multiply(pointsPerHundred)
+                        .intValue();
+            }
+            log.debug("Points earned: {} (total: {}, minPurchase: {})", pointsEarned, total, minPurchase);
+        }
+
+        // 12. Create sale record
         OffsetDateTime soldAt = OffsetDateTime.now();
         Long saleId = saleDao.create(
                 billNo,
                 soldAt,
                 request.getCustomerName(),
                 request.getCustomerPhone(),
+                customerId,
                 request.getPaymentMode(),
                 subtotal,
                 discountPercent,
@@ -200,12 +288,15 @@ public class SaleService {
                 taxAmount,
                 total,
                 totalProfit,
+                pointsEarned,
+                pointsToRedeem,
+                pointsRedemptionAmount,
                 createdBy
         );
 
         log.info("Sale created with ID: {}, Bill No: {}", saleId, billNo);
 
-        // 10. Create sale items
+        // 13. Create sale items
         for (CreateSaleItemRequest item : request.getItems()) {
             BigDecimal unitCostAtSale = itemCosts.get(item);
             BigDecimal itemDiscountPct = item.getItemDiscountPercent() != null ? item.getItemDiscountPercent() : BigDecimal.ZERO;
@@ -220,7 +311,29 @@ public class SaleService {
             );
         }
 
-        log.info("Sale completed successfully. Bill No: {}, Total: {}, Profit: {}", billNo, total, totalProfit);
+        // 14. Handle loyalty points transactions
+        if (customer != null) {
+            // Redeem points
+            if (pointsToRedeem > 0) {
+                customerDao.redeemPoints(customerId, pointsToRedeem);
+                customerDao.createPointsLog(customerId, saleId, "REDEEMED", pointsToRedeem,
+                        String.format("Redeemed %d points on bill %s (-%s)", pointsToRedeem, billNo, pointsRedemptionAmount),
+                        createdBy);
+                log.info("Redeemed {} points for customer ID: {}", pointsToRedeem, customerId);
+            }
+
+            // Earn points
+            if (pointsEarned > 0) {
+                customerDao.addPoints(customerId, pointsEarned);
+                customerDao.createPointsLog(customerId, saleId, "EARNED", pointsEarned,
+                        String.format("Earned %d points on bill %s (total: %s)", pointsEarned, billNo, total),
+                        createdBy);
+                log.info("Awarded {} points to customer ID: {}", pointsEarned, customerId);
+            }
+        }
+
+        log.info("Sale completed successfully. Bill No: {}, Total: {}, Profit: {}, Points Earned: {}, Points Redeemed: {}",
+                billNo, total, totalProfit, pointsEarned, pointsToRedeem);
 
         // Return created sale with details
         return getSaleById(saleId);
@@ -231,7 +344,8 @@ public class SaleService {
      * This method:
      * 1. Validates sale exists and is not already voided
      * 2. Restores stock for all items
-     * 3. Marks sale as VOIDED
+     * 3. Reverses loyalty points (earned and redeemed)
+     * 4. Marks sale as VOIDED
      */
     @Transactional
     @Auditable(entity = EntityType.SALE, action = AuditAction.VOID)
@@ -263,7 +377,33 @@ public class SaleService {
         saleDao.restoreStockOnVoid(id);
         log.debug("Stock restored for sale ID: {}", id);
 
-        // 4. Mark sale as voided
+        // 4. Reverse loyalty points if customer was linked
+        if (sale.getCustomerId() != null) {
+            Optional<Customer> customerOpt = customerDao.findById(sale.getCustomerId());
+            if (customerOpt.isPresent()) {
+                // Reverse earned points (deduct from balance)
+                if (sale.getPointsEarned() != null && sale.getPointsEarned() > 0) {
+                    customerDao.reverseEarnedPoints(sale.getCustomerId(), sale.getPointsEarned());
+                    customerDao.createPointsLog(sale.getCustomerId(), id, "VOID_REVERSAL",
+                            -sale.getPointsEarned(),
+                            String.format("Reversed %d earned points due to void of bill %s", sale.getPointsEarned(), sale.getBillNo()),
+                            voidedBy);
+                    log.info("Reversed {} earned points for customer ID: {}", sale.getPointsEarned(), sale.getCustomerId());
+                }
+
+                // Reverse redeemed points (add back to balance)
+                if (sale.getPointsRedeemed() != null && sale.getPointsRedeemed() > 0) {
+                    customerDao.reverseRedeemedPoints(sale.getCustomerId(), sale.getPointsRedeemed());
+                    customerDao.createPointsLog(sale.getCustomerId(), id, "VOID_REVERSAL",
+                            sale.getPointsRedeemed(),
+                            String.format("Refunded %d redeemed points due to void of bill %s", sale.getPointsRedeemed(), sale.getBillNo()),
+                            voidedBy);
+                    log.info("Refunded {} redeemed points to customer ID: {}", sale.getPointsRedeemed(), sale.getCustomerId());
+                }
+            }
+        }
+
+        // 5. Mark sale as voided
         OffsetDateTime voidedAt = OffsetDateTime.now();
         saleDao.voidSale(id, voidedAt, voidedBy, request.getReason());
 

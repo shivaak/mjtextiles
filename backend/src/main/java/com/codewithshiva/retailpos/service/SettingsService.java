@@ -61,7 +61,12 @@ public class SettingsService {
                 request.getCurrency(),
                 request.getTaxPercent(),
                 request.getInvoicePrefix(),
-                request.getLowStockThreshold()
+                request.getLowStockThreshold(),
+                request.getLoyaltyEnabled(),
+                request.getPointsMinPurchaseAmount(),
+                request.getPointsPerHundred(),
+                request.getPointValue(),
+                request.getMaxPointsRedemptionPercent()
         );
 
         log.info("Shop settings updated successfully");

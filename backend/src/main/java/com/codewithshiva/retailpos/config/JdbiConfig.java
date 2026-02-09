@@ -12,6 +12,7 @@ import com.codewithshiva.retailpos.dao.ReportDao;
 import com.codewithshiva.retailpos.dao.SaleDao;
 import com.codewithshiva.retailpos.dao.SettingsDao;
 import com.codewithshiva.retailpos.dao.ShortCodeDao;
+import com.codewithshiva.retailpos.dao.CustomerDao;
 import com.codewithshiva.retailpos.dao.SupplierDao;
 import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
@@ -86,6 +87,11 @@ public class JdbiConfig {
     @Bean
     public SupplierDao supplierDao(Jdbi jdbi) {
         return jdbi.onDemand(SupplierDao.class);
+    }
+
+    @Bean
+    public CustomerDao customerDao(Jdbi jdbi) {
+        return jdbi.onDemand(CustomerDao.class);
     }
 
     @Bean

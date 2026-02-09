@@ -27,17 +27,27 @@ public class Settings {
     private String invoicePrefix;
     private Integer lastBillNumber;
     private Integer lowStockThreshold;
+    private Boolean loyaltyEnabled;
+    private BigDecimal pointsMinPurchaseAmount;
+    private BigDecimal pointsPerHundred;
+    private BigDecimal pointValue;
+    private BigDecimal maxPointsRedemptionPercent;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
     @ConstructorProperties({
         "id", "shopName", "address", "phone", "email", "gstNumber",
         "currency", "taxPercent", "invoicePrefix", "lastBillNumber",
-        "lowStockThreshold", "createdAt", "updatedAt"
+        "lowStockThreshold", "loyaltyEnabled", "pointsMinPurchaseAmount",
+        "pointsPerHundred", "pointValue", "maxPointsRedemptionPercent",
+        "createdAt", "updatedAt"
     })
     public Settings(Integer id, String shopName, String address, String phone,
                     String email, String gstNumber, String currency, BigDecimal taxPercent,
                     String invoicePrefix, Integer lastBillNumber, Integer lowStockThreshold,
+                    Boolean loyaltyEnabled, BigDecimal pointsMinPurchaseAmount,
+                    BigDecimal pointsPerHundred, BigDecimal pointValue,
+                    BigDecimal maxPointsRedemptionPercent,
                     OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = id;
         this.shopName = shopName;
@@ -50,6 +60,11 @@ public class Settings {
         this.invoicePrefix = invoicePrefix;
         this.lastBillNumber = lastBillNumber;
         this.lowStockThreshold = lowStockThreshold;
+        this.loyaltyEnabled = loyaltyEnabled;
+        this.pointsMinPurchaseAmount = pointsMinPurchaseAmount;
+        this.pointsPerHundred = pointsPerHundred;
+        this.pointValue = pointValue;
+        this.maxPointsRedemptionPercent = maxPointsRedemptionPercent;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }

@@ -45,6 +45,7 @@ import {
   LocalOffer as LocalOfferIcon,
   LocalShipping as LocalShippingIcon,
   Tune as TuneIcon,
+  PeopleOutline as PeopleOutlineIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -78,6 +79,7 @@ const navItems: NavItem[] = [
   { label: 'Suppliers', path: '/suppliers', icon: <LocalShippingIcon />, adminOnly: true },
   { label: 'Inventory', path: '/inventory', icon: <WarehouseIcon /> },
   { label: 'Sales', path: '/sales', icon: <ReceiptLongIcon /> },
+  { label: 'Customers', path: '/customers', icon: <PeopleOutlineIcon /> },
   { label: 'Reports', path: '/reports', icon: <AssessmentIcon />, adminOnly: true },
   { label: 'Masters', path: '/masters', icon: <TuneIcon />, adminOnly: true },
   { label: 'Users', path: '/users', icon: <PeopleIcon />, adminOnly: true },

@@ -51,11 +51,13 @@ import { productService } from '../../services/productService';
 import { saleService } from '../../services/saleService';
 import { settingsService } from '../../services/settingsService';
 import { offerService } from '../../services/offerService';
+import { customerService } from '../../services/customerService';
 import { formatApiError } from '../../services/api';
 import { lookupService } from '../../services/lookupService';
 import { evaluateOffers } from '../../utils/offerEngine';
 import type {
   CartItem,
+  Customer,
   Offer,
   VariantSearchResponse,
   PaymentMode,
@@ -94,6 +96,10 @@ export default function BillingPage() {
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(null);
+  const [customerLookupLoading, setCustomerLookupLoading] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  const customerLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [discountType, setDiscountType] = useState<'percent' | 'amount'>('amount');
   const [discountValue, setDiscountValue] = useState(0);
@@ -167,8 +173,59 @@ export default function BillingPage() {
     ? Math.min(discountValue, 100)
     : subtotal > 0 ? Math.min((discountValue / subtotal) * 100, 100) : 0;
   const finalAmount = subtotal - discountAmount;
-  const roundedTotal = Math.round(finalAmount);
-  const roundOff = roundedTotal - finalAmount;
+
+  // Loyalty points calculations
+  const loyaltyEnabled = !!settings?.loyaltyEnabled;
+  const pointValue = settings?.pointValue || 1;
+  const maxRedemptionPercent = settings?.maxPointsRedemptionPercent || 50;
+  const pointsRedemptionAmount = pointsToRedeem * pointValue;
+  const netPayable = finalAmount - pointsRedemptionAmount;
+  const roundedTotal = Math.round(netPayable);
+  const roundOff = roundedTotal - netPayable;
+
+  // Calculate max redeemable points
+  const maxRedeemablePoints = useMemo(() => {
+    if (!loyaltyEnabled || !matchedCustomer || matchedCustomer.loyaltyPoints <= 0) return 0;
+    const maxAmountFromPercent = finalAmount * maxRedemptionPercent / 100;
+    const maxPointsFromAmount = Math.floor(maxAmountFromPercent / pointValue);
+    return Math.min(matchedCustomer.loyaltyPoints, maxPointsFromAmount);
+  }, [loyaltyEnabled, matchedCustomer, finalAmount, maxRedemptionPercent, pointValue]);
+
+  // Customer phone lookup with debounce
+  const handleCustomerPhoneChange = useCallback((phone: string) => {
+    setCustomerPhone(phone);
+
+    if (customerLookupTimerRef.current) {
+      clearTimeout(customerLookupTimerRef.current);
+    }
+
+    if (!phone || phone.trim().length < 3) {
+      setMatchedCustomer(null);
+      setPointsToRedeem(0);
+      return;
+    }
+
+    customerLookupTimerRef.current = setTimeout(async () => {
+      setCustomerLookupLoading(true);
+      try {
+        const customer = await customerService.getCustomerByPhone(phone.trim());
+        setMatchedCustomer(customer);
+        setCustomerName(customer.name);
+      } catch {
+        // Not found - that's fine, new customer
+        setMatchedCustomer(null);
+      } finally {
+        setCustomerLookupLoading(false);
+      }
+    }, 500);
+  }, []);
+
+  // Reset points when customer changes
+  useEffect(() => {
+    if (!matchedCustomer) {
+      setPointsToRedeem(0);
+    }
+  }, [matchedCustomer]);
 
   const addToCart = useCallback((variant: VariantSearchResponse) => {
     setCart((prev) => {
@@ -474,6 +531,8 @@ export default function BillingPage() {
     setCart([]);
     setCustomerName('');
     setCustomerPhone('');
+    setMatchedCustomer(null);
+    setPointsToRedeem(0);
     setDiscountValue(0);
     setShowClearConfirm(false);
     barcodeInputRef.current?.focus();
@@ -485,6 +544,12 @@ export default function BillingPage() {
       return;
     }
 
+    // Cross-validate: if either customer field is filled, both are required
+    if ((customerPhone && !customerName) || (customerName && !customerPhone)) {
+      showError('Both customer name and phone are required when providing customer info');
+      return;
+    }
+
     setIsCompleting(true);
     try {
       const sale = await saleService.createSale({
@@ -492,6 +557,7 @@ export default function BillingPage() {
         customerPhone: customerPhone || undefined,
         paymentMode,
         discountPercent,
+        pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
         items: cart.map((item) => ({
           variantId: item.variantId,
           qty: item.qty,
@@ -508,6 +574,8 @@ export default function BillingPage() {
       setCart([]);
       setCustomerName('');
       setCustomerPhone('');
+      setMatchedCustomer(null);
+      setPointsToRedeem(0);
       setDiscountValue(0);
       setSearchQuery('');
       setSearchResults([]);
@@ -523,6 +591,7 @@ export default function BillingPage() {
     customerPhone,
     paymentMode,
     discountPercent,
+    pointsToRedeem,
     showSuccess,
     showError,
   ]);
@@ -832,19 +901,65 @@ export default function BillingPage() {
               <Box sx={{ mb: 3 }}>
                 <TextField
                   fullWidth
+                  label="Customer Phone (Optional)"
+                  value={customerPhone}
+                  onChange={(event) => handleCustomerPhoneChange(event.target.value)}
+                  size="small"
+                  sx={{ mb: 2 }}
+                  InputProps={{
+                    endAdornment: customerLookupLoading ? (
+                      <InputAdornment position="end">
+                        <CircularProgress size={16} />
+                      </InputAdornment>
+                    ) : matchedCustomer ? (
+                      <InputAdornment position="end">
+                        <Chip label="Existing" size="small" color="success" variant="outlined" />
+                      </InputAdornment>
+                    ) : customerPhone.trim().length >= 3 ? (
+                      <InputAdornment position="end">
+                        <Chip label="New" size="small" variant="outlined" />
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                  error={!!customerPhone && !customerName}
+                  helperText={customerPhone && !customerName ? 'Name is required when phone is provided' : ''}
+                />
+                <TextField
+                  fullWidth
                   label="Customer Name (Optional)"
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
                   size="small"
-                  sx={{ mb: 2 }}
+                  error={!!customerName && !customerPhone}
+                  helperText={customerName && !customerPhone ? 'Phone is required when name is provided' : ''}
                 />
-                <TextField
-                  fullWidth
-                  label="Customer Phone (Optional)"
-                  value={customerPhone}
-                  onChange={(event) => setCustomerPhone(event.target.value)}
-                  size="small"
-                />
+                {loyaltyEnabled && matchedCustomer && matchedCustomer.loyaltyPoints > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="subtitle2">Loyalty Points</Typography>
+                      <Chip
+                        label={`${matchedCustomer.loyaltyPoints} pts available`}
+                        size="small"
+                        color="primary"
+                      />
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="Redeem Points"
+                        value={pointsToRedeem || ''}
+                        onChange={(event) => {
+                          const val = Math.max(0, Math.min(parseInt(event.target.value) || 0, maxRedeemablePoints));
+                          setPointsToRedeem(val);
+                        }}
+                        size="small"
+                        inputProps={{ min: 0, max: maxRedeemablePoints }}
+                        helperText={`Max: ${maxRedeemablePoints} pts (= ${formatCurrency(maxRedeemablePoints * pointValue, currencySymbol)})`}
+                      />
+                    </Box>
+                  </Box>
+                )}
               </Box>
 
               <Divider sx={{ my: 2 }} />
@@ -916,6 +1031,16 @@ export default function BillingPage() {
                     </Typography>
                     <Typography color="error.main">
                       -<Money value={discountAmount} symbol={currencySymbol} />
+                    </Typography>
+                  </Box>
+                )}
+                {pointsRedemptionAmount > 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography color="text.secondary">
+                      Points Redemption ({pointsToRedeem} pts)
+                    </Typography>
+                    <Typography color="error.main">
+                      -<Money value={pointsRedemptionAmount} symbol={currencySymbol} />
                     </Typography>
                   </Box>
                 )}
@@ -999,10 +1124,22 @@ export default function BillingPage() {
                 <Typography color="text.secondary">Payment Mode</Typography>
                 <Chip label={completedSale.paymentMode} size="small" />
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography color="text.secondary">Date/Time</Typography>
                 <Typography>{new Date(completedSale.soldAt).toLocaleString()}</Typography>
               </Box>
+              {completedSale.pointsRedemptionAmount != null && completedSale.pointsRedemptionAmount > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="text.secondary">Points Redeemed</Typography>
+                  <Chip label={`${completedSale.pointsRedeemed} pts (-${formatCurrency(completedSale.pointsRedemptionAmount, currencySymbol)})`} size="small" color="error" variant="outlined" />
+                </Box>
+              )}
+              {completedSale.pointsEarned != null && completedSale.pointsEarned > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography color="text.secondary">Points Earned</Typography>
+                  <Chip label={`+${completedSale.pointsEarned} pts`} size="small" color="success" />
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>

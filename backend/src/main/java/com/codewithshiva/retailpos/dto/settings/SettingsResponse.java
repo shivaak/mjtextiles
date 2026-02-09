@@ -26,6 +26,11 @@ public class SettingsResponse {
     private String invoicePrefix;
     private Integer lowStockThreshold;
     private Integer lastBillNumber;
+    private Boolean loyaltyEnabled;
+    private BigDecimal pointsMinPurchaseAmount;
+    private BigDecimal pointsPerHundred;
+    private BigDecimal pointValue;
+    private BigDecimal maxPointsRedemptionPercent;
 
     /**
      * Create SettingsResponse from Settings entity.
@@ -42,6 +47,11 @@ public class SettingsResponse {
                 .invoicePrefix(settings.getInvoicePrefix())
                 .lowStockThreshold(settings.getLowStockThreshold())
                 .lastBillNumber(settings.getLastBillNumber())
+                .loyaltyEnabled(settings.getLoyaltyEnabled())
+                .pointsMinPurchaseAmount(settings.getPointsMinPurchaseAmount())
+                .pointsPerHundred(settings.getPointsPerHundred())
+                .pointValue(settings.getPointValue())
+                .maxPointsRedemptionPercent(settings.getMaxPointsRedemptionPercent())
                 .build();
     }
 }

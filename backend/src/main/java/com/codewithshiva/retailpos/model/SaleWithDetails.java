@@ -20,6 +20,7 @@ public class SaleWithDetails {
     private OffsetDateTime soldAt;
     private String customerName;
     private String customerPhone;
+    private Long customerId;
     private String paymentMode;
     private BigDecimal subtotal;
     private BigDecimal discountPercent;
@@ -29,6 +30,9 @@ public class SaleWithDetails {
     private BigDecimal total;
     private BigDecimal profit;
     private String status;
+    private Integer pointsEarned;
+    private Integer pointsRedeemed;
+    private BigDecimal pointsRedemptionAmount;
     private OffsetDateTime voidedAt;
     private Long voidedBy;
     private String voidReason;
@@ -39,14 +43,16 @@ public class SaleWithDetails {
     private String voidedByName;
     private Integer itemCount;
 
-    @ConstructorProperties({"id", "billNo", "soldAt", "customerName", "customerPhone", "paymentMode",
-                           "subtotal", "discountPercent", "discountAmount", "taxPercent", "taxAmount",
-                           "total", "profit", "status", "voidedAt", "voidedBy", "voidReason",
+    @ConstructorProperties({"id", "billNo", "soldAt", "customerName", "customerPhone", "customerId",
+                           "paymentMode", "subtotal", "discountPercent", "discountAmount", "taxPercent", "taxAmount",
+                           "total", "profit", "status", "pointsEarned", "pointsRedeemed", "pointsRedemptionAmount",
+                           "voidedAt", "voidedBy", "voidReason",
                            "createdBy", "createdAt", "updatedAt", "createdByName", "voidedByName", "itemCount"})
     public SaleWithDetails(Long id, String billNo, OffsetDateTime soldAt, String customerName, String customerPhone,
-                           String paymentMode, BigDecimal subtotal, BigDecimal discountPercent, BigDecimal discountAmount,
-                           BigDecimal taxPercent, BigDecimal taxAmount, BigDecimal total, BigDecimal profit,
-                           String status, OffsetDateTime voidedAt, Long voidedBy, String voidReason,
+                           Long customerId, String paymentMode, BigDecimal subtotal, BigDecimal discountPercent,
+                           BigDecimal discountAmount, BigDecimal taxPercent, BigDecimal taxAmount, BigDecimal total,
+                           BigDecimal profit, String status, Integer pointsEarned, Integer pointsRedeemed,
+                           BigDecimal pointsRedemptionAmount, OffsetDateTime voidedAt, Long voidedBy, String voidReason,
                            Long createdBy, OffsetDateTime createdAt, OffsetDateTime updatedAt,
                            String createdByName, String voidedByName, Integer itemCount) {
         this.id = id;
@@ -54,6 +60,7 @@ public class SaleWithDetails {
         this.soldAt = soldAt;
         this.customerName = customerName;
         this.customerPhone = customerPhone;
+        this.customerId = customerId;
         this.paymentMode = paymentMode;
         this.subtotal = subtotal;
         this.discountPercent = discountPercent;
@@ -63,6 +70,9 @@ public class SaleWithDetails {
         this.total = total;
         this.profit = profit;
         this.status = status;
+        this.pointsEarned = pointsEarned;
+        this.pointsRedeemed = pointsRedeemed;
+        this.pointsRedemptionAmount = pointsRedemptionAmount;
         this.voidedAt = voidedAt;
         this.voidedBy = voidedBy;
         this.voidReason = voidReason;

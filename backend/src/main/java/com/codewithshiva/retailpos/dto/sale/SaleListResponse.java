@@ -32,6 +32,8 @@ public class SaleListResponse {
     @JsonView(Views.Employee.class)
     private String customerPhone;
     @JsonView(Views.Employee.class)
+    private Long customerId;
+    @JsonView(Views.Employee.class)
     private String paymentMode;
     @JsonView(Views.Employee.class)
     private BigDecimal subtotal;
@@ -68,6 +70,7 @@ public class SaleListResponse {
                 .soldAt(sale.getSoldAt())
                 .customerName(sale.getCustomerName())
                 .customerPhone(sale.getCustomerPhone())
+                .customerId(sale.getCustomerId())
                 .paymentMode(sale.getPaymentMode())
                 .subtotal(sale.getSubtotal())
                 .discountPercent(sale.getDiscountPercent())

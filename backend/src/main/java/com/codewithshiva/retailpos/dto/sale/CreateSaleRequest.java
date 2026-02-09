@@ -31,6 +31,9 @@ public class CreateSaleRequest {
     @DecimalMax(value = "100.00", message = "Discount percent cannot exceed 100")
     private BigDecimal discountPercent;
 
+    @Min(value = 0, message = "Points to redeem must be non-negative")
+    private Integer pointsToRedeem;
+
     @NotEmpty(message = "At least one item is required")
     @Valid
     private List<CreateSaleItemRequest> items;

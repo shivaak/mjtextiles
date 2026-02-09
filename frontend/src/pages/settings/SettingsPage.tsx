@@ -6,8 +6,10 @@ import {
   Card,
   CardContent,
   Divider,
+  FormControlLabel,
   Grid,
   InputAdornment,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -32,6 +34,11 @@ const settingsSchema = z.object({
   taxPercent: z.number().min(0).max(100),
   invoicePrefix: z.string().min(1, 'Invoice prefix is required'),
   lowStockThreshold: z.number().min(0),
+  loyaltyEnabled: z.boolean(),
+  pointsMinPurchaseAmount: z.number().min(0),
+  pointsPerHundred: z.number().min(0),
+  pointValue: z.number().min(0),
+  maxPointsRedemptionPercent: z.number().min(0).max(100),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -52,6 +59,11 @@ export default function SettingsPage() {
       taxPercent: 0,
       invoicePrefix: '',
       lowStockThreshold: 10,
+      loyaltyEnabled: false,
+      pointsMinPurchaseAmount: 500,
+      pointsPerHundred: 1,
+      pointValue: 1,
+      maxPointsRedemptionPercent: 50,
     },
   });
 
@@ -70,6 +82,11 @@ export default function SettingsPage() {
           taxPercent: data.taxPercent || 0,
           invoicePrefix: data.invoicePrefix || '',
           lowStockThreshold: data.lowStockThreshold || 0,
+          loyaltyEnabled: data.loyaltyEnabled ?? false,
+          pointsMinPurchaseAmount: data.pointsMinPurchaseAmount ?? 500,
+          pointsPerHundred: data.pointsPerHundred ?? 1,
+          pointValue: data.pointValue ?? 1,
+          maxPointsRedemptionPercent: data.maxPointsRedemptionPercent ?? 50,
         });
       } catch (error) {
         showError(formatApiError(error, 'Failed to load settings'));
@@ -94,6 +111,11 @@ export default function SettingsPage() {
         taxPercent: data.taxPercent,
         invoicePrefix: data.invoicePrefix,
         lowStockThreshold: data.lowStockThreshold,
+        loyaltyEnabled: data.loyaltyEnabled,
+        pointsMinPurchaseAmount: data.pointsMinPurchaseAmount,
+        pointsPerHundred: data.pointsPerHundred,
+        pointValue: data.pointValue,
+        maxPointsRedemptionPercent: data.maxPointsRedemptionPercent,
       };
       await settingsService.updateSettings(payload);
       showSuccess('Settings saved successfully');
@@ -261,7 +283,7 @@ export default function SettingsPage() {
                           fullWidth
                           label="Invoice Prefix"
                           error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'e.g., MJT000001'}
+                          helperText={fieldState.error?.message || 'e.g., INV000001'}
                         />
                       )}
                     />
@@ -288,6 +310,116 @@ export default function SettingsPage() {
                           error={!!fieldState.error}
                           helperText={fieldState.error?.message || 'Items at or below this quantity will be flagged'}
                           onChange={(event) => field.onChange(parseInt(event.target.value) || 0)}
+                        />
+                      )}
+                    />
+                  </Grid>
+                </Grid>
+
+                <Divider sx={{ my: 3 }} />
+
+                <Typography variant="h6" gutterBottom>
+                  Loyalty Program
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Configure customer loyalty points earning and redemption
+                </Typography>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12 }}>
+                    <Controller
+                      name="loyaltyEnabled"
+                      control={form.control}
+                      render={({ field }) => (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={field.value}
+                              onChange={(e) => field.onChange(e.target.checked)}
+                            />
+                          }
+                          label="Enable Loyalty Program"
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Controller
+                      name="pointsMinPurchaseAmount"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Min Purchase to Earn Points"
+                          type="number"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message || 'Customer must spend at least this amount to earn points'}
+                          disabled={!form.watch('loyaltyEnabled')}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                          }}
+                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Controller
+                      name="pointsPerHundred"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Points Earned per ₹100 Spent"
+                          type="number"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message || 'Number of points earned for every ₹100 spent'}
+                          disabled={!form.watch('loyaltyEnabled')}
+                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Controller
+                      name="pointValue"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Point Value in Currency"
+                          type="number"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message || 'How much 1 point is worth in ₹'}
+                          disabled={!form.watch('loyaltyEnabled')}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                          }}
+                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Controller
+                      name="maxPointsRedemptionPercent"
+                      control={form.control}
+                      render={({ field, fieldState }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Max Redemption % of Bill"
+                          type="number"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message || 'Maximum percentage of bill that can be paid with points'}
+                          disabled={!form.watch('loyaltyEnabled')}
+                          InputProps={{
+                            endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                          }}
+                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
                         />
                       )}
                     />

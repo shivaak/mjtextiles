@@ -24,9 +24,12 @@ public interface SaleDao {
 
     @SqlQuery("""
         SELECT id, bill_no as billNo, sold_at as soldAt, customer_name as customerName,
-               customer_phone as customerPhone, payment_mode as paymentMode,
+               customer_phone as customerPhone, customer_id as customerId,
+               payment_mode as paymentMode,
                subtotal, discount_percent as discountPercent, discount_amount as discountAmount,
                tax_percent as taxPercent, tax_amount as taxAmount, total, profit, status,
+               points_earned as pointsEarned, points_redeemed as pointsRedeemed,
+               points_redemption_amount as pointsRedemptionAmount,
                voided_at as voidedAt, voided_by as voidedBy, void_reason as voidReason,
                created_by as createdBy, created_at as createdAt, updated_at as updatedAt,
                created_by_name as createdByName, voided_by_name as voidedByName,
@@ -39,9 +42,12 @@ public interface SaleDao {
 
     @SqlQuery("""
         SELECT id, bill_no as billNo, sold_at as soldAt, customer_name as customerName,
-               customer_phone as customerPhone, payment_mode as paymentMode,
+               customer_phone as customerPhone, customer_id as customerId,
+               payment_mode as paymentMode,
                subtotal, discount_percent as discountPercent, discount_amount as discountAmount,
                tax_percent as taxPercent, tax_amount as taxAmount, total, profit, status,
+               points_earned as pointsEarned, points_redeemed as pointsRedeemed,
+               points_redemption_amount as pointsRedemptionAmount,
                voided_at as voidedAt, voided_by as voidedBy, void_reason as voidReason,
                created_by as createdBy, created_at as createdAt, updated_at as updatedAt,
                created_by_name as createdByName, voided_by_name as voidedByName,
@@ -69,9 +75,12 @@ public interface SaleDao {
 
     @SqlQuery("""
         SELECT id, bill_no as billNo, sold_at as soldAt, customer_name as customerName,
-               customer_phone as customerPhone, payment_mode as paymentMode,
+               customer_phone as customerPhone, customer_id as customerId,
+               payment_mode as paymentMode,
                subtotal, discount_percent as discountPercent, discount_amount as discountAmount,
                tax_percent as taxPercent, tax_amount as taxAmount, total, profit, status,
+               points_earned as pointsEarned, points_redeemed as pointsRedeemed,
+               points_redemption_amount as pointsRedemptionAmount,
                voided_at as voidedAt, voided_by as voidedBy, void_reason as voidReason,
                created_by as createdBy, created_at as createdAt, updated_at as updatedAt,
                created_by_name as createdByName, voided_by_name as voidedByName,
@@ -136,18 +145,19 @@ public interface SaleDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO sales (bill_no, sold_at, customer_name, customer_phone, payment_mode,
+        INSERT INTO sales (bill_no, sold_at, customer_name, customer_phone, customer_id, payment_mode,
                           subtotal, discount_percent, discount_amount, tax_percent, tax_amount,
-                          total, profit, created_by)
-        VALUES (:billNo, :soldAt, :customerName, :customerPhone, :paymentMode,
+                          total, profit, points_earned, points_redeemed, points_redemption_amount, created_by)
+        VALUES (:billNo, :soldAt, :customerName, :customerPhone, :customerId, :paymentMode,
                 :subtotal, :discountPercent, :discountAmount, :taxPercent, :taxAmount,
-                :total, :profit, :createdBy)
+                :total, :profit, :pointsEarned, :pointsRedeemed, :pointsRedemptionAmount, :createdBy)
         """)
     @GetGeneratedKeys("id")
     Long create(@Bind("billNo") String billNo,
                 @Bind("soldAt") OffsetDateTime soldAt,
                 @Bind("customerName") String customerName,
                 @Bind("customerPhone") String customerPhone,
+                @Bind("customerId") Long customerId,
                 @Bind("paymentMode") String paymentMode,
                 @Bind("subtotal") BigDecimal subtotal,
                 @Bind("discountPercent") BigDecimal discountPercent,
@@ -156,6 +166,9 @@ public interface SaleDao {
                 @Bind("taxAmount") BigDecimal taxAmount,
                 @Bind("total") BigDecimal total,
                 @Bind("profit") BigDecimal profit,
+                @Bind("pointsEarned") Integer pointsEarned,
+                @Bind("pointsRedeemed") Integer pointsRedeemed,
+                @Bind("pointsRedemptionAmount") BigDecimal pointsRedemptionAmount,
                 @Bind("createdBy") Long createdBy);
 
     // ==========================================

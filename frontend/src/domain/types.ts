@@ -201,6 +201,39 @@ export interface UpdateSupplierRequest {
   isActive: boolean;
 }
 
+// Customers
+export interface Customer {
+  id: number;
+  phone: string;
+  name: string;
+  loyaltyPoints: number;
+  totalPointsEarned: number;
+  totalPointsRedeemed: number;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface CreateCustomerRequest {
+  phone: string;
+  name: string;
+}
+
+export interface UpdateCustomerRequest {
+  phone: string;
+  name: string;
+  isActive?: boolean;
+}
+
+export interface CustomerPointsLog {
+  id: number;
+  customerId: number;
+  saleId?: number;
+  type: 'EARNED' | 'REDEEMED' | 'ADJUSTMENT' | 'VOID_REVERSAL';
+  points: number;
+  description?: string;
+  createdAt: string;
+}
+
 // Purchases
 export interface PurchaseList {
   id: number;
@@ -348,6 +381,7 @@ export interface SaleDetail {
   soldAt: string;
   customerName?: string;
   customerPhone?: string;
+  customerId?: number;
   paymentMode: PaymentMode;
   subtotal: number;
   discountPercent: number;
@@ -357,6 +391,9 @@ export interface SaleDetail {
   total: number;
   profit?: number;
   status: SaleStatus;
+  pointsEarned?: number;
+  pointsRedeemed?: number;
+  pointsRedemptionAmount?: number;
   createdBy: number;
   createdByName?: string;
   createdAt: string;
@@ -559,6 +596,7 @@ export interface CreateSaleRequest {
   customerPhone?: string;
   paymentMode: PaymentMode;
   discountPercent: number;
+  pointsToRedeem?: number;
   items: CreateSaleItemRequest[];
 }
 
@@ -574,6 +612,11 @@ export interface Settings {
   invoicePrefix: string;
   lastBillNumber: number;
   lowStockThreshold: number;
+  loyaltyEnabled?: boolean;
+  pointsMinPurchaseAmount?: number;
+  pointsPerHundred?: number;
+  pointValue?: number;
+  maxPointsRedemptionPercent?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -588,6 +631,11 @@ export interface UpdateSettingsRequest {
   taxPercent: number;
   invoicePrefix: string;
   lowStockThreshold: number;
+  loyaltyEnabled?: boolean;
+  pointsMinPurchaseAmount?: number;
+  pointsPerHundred?: number;
+  pointValue?: number;
+  maxPointsRedemptionPercent?: number;
 }
 
 // Reports

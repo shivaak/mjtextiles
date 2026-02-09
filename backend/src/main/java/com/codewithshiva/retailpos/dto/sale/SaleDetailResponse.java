@@ -35,6 +35,8 @@ public class SaleDetailResponse {
     @JsonView(Views.Employee.class)
     private String customerPhone;
     @JsonView(Views.Employee.class)
+    private Long customerId;
+    @JsonView(Views.Employee.class)
     private String paymentMode;
     @JsonView(Views.Employee.class)
     private BigDecimal subtotal;
@@ -52,6 +54,12 @@ public class SaleDetailResponse {
     private BigDecimal profit;
     @JsonView(Views.Employee.class)
     private String status;
+    @JsonView(Views.Employee.class)
+    private Integer pointsEarned;
+    @JsonView(Views.Employee.class)
+    private Integer pointsRedeemed;
+    @JsonView(Views.Employee.class)
+    private BigDecimal pointsRedemptionAmount;
     @JsonView(Views.Employee.class)
     private Long createdBy;
     @JsonView(Views.Employee.class)
@@ -83,6 +91,7 @@ public class SaleDetailResponse {
                 .soldAt(sale.getSoldAt())
                 .customerName(sale.getCustomerName())
                 .customerPhone(sale.getCustomerPhone())
+                .customerId(sale.getCustomerId())
                 .paymentMode(sale.getPaymentMode())
                 .subtotal(sale.getSubtotal())
                 .discountPercent(sale.getDiscountPercent())
@@ -92,6 +101,9 @@ public class SaleDetailResponse {
                 .total(sale.getTotal())
                 .profit(sale.getProfit())
                 .status(sale.getStatus())
+                .pointsEarned(sale.getPointsEarned())
+                .pointsRedeemed(sale.getPointsRedeemed())
+                .pointsRedemptionAmount(sale.getPointsRedemptionAmount())
                 .createdBy(sale.getCreatedBy())
                 .createdByName(sale.getCreatedByName())
                 .createdAt(sale.getCreatedAt())

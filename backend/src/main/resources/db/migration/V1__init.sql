@@ -218,6 +218,31 @@ CREATE INDEX idx_offer_items_product_id ON offer_items(product_id);
 CREATE INDEX idx_offer_items_variant_id ON offer_items(variant_id);
 
 -- ===========================================
+-- Customers table
+-- Phone is the unique key for customer lookup
+-- ===========================================
+CREATE TABLE customers (
+    id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    phone                   VARCHAR(20) NOT NULL,
+    name                    VARCHAR(100) NOT NULL,
+    loyalty_points          INTEGER NOT NULL DEFAULT 0,
+    total_points_earned     INTEGER NOT NULL DEFAULT 0,
+    total_points_redeemed   INTEGER NOT NULL DEFAULT 0,
+    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT customers_phone_unique UNIQUE (phone),
+    CONSTRAINT customers_loyalty_points_non_negative CHECK (loyalty_points >= 0),
+    CONSTRAINT customers_total_earned_non_negative CHECK (total_points_earned >= 0),
+    CONSTRAINT customers_total_redeemed_non_negative CHECK (total_points_redeemed >= 0)
+);
+
+CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_customers_name ON customers(name);
+CREATE INDEX idx_customers_is_active ON customers(is_active);
+
+-- ===========================================
 -- Sales table
 -- ===========================================
 CREATE TABLE sales (
@@ -226,6 +251,7 @@ CREATE TABLE sales (
     sold_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     customer_name       VARCHAR(100),
     customer_phone      VARCHAR(20),
+    customer_id         BIGINT REFERENCES customers(id),
     payment_mode        VARCHAR(20) NOT NULL DEFAULT 'CASH',
     subtotal            DECIMAL(12, 2) NOT NULL DEFAULT 0,
     discount_percent    DECIMAL(5, 2) NOT NULL DEFAULT 0,
@@ -235,6 +261,9 @@ CREATE TABLE sales (
     total               DECIMAL(12, 2) NOT NULL DEFAULT 0,
     profit              DECIMAL(12, 2) NOT NULL DEFAULT 0,
     status              VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+    points_earned       INTEGER NOT NULL DEFAULT 0,
+    points_redeemed     INTEGER NOT NULL DEFAULT 0,
+    points_redemption_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
     voided_at           TIMESTAMP WITH TIME ZONE,
     voided_by           BIGINT REFERENCES users(id),
     void_reason         TEXT,
@@ -256,6 +285,7 @@ CREATE TABLE sales (
 CREATE INDEX idx_sales_bill_no ON sales(bill_no);
 CREATE INDEX idx_sales_sold_at ON sales(sold_at);
 CREATE INDEX idx_sales_customer_phone ON sales(customer_phone);
+CREATE INDEX idx_sales_customer_id ON sales(customer_id);
 CREATE INDEX idx_sales_payment_mode ON sales(payment_mode);
 CREATE INDEX idx_sales_status ON sales(status);
 CREATE INDEX idx_sales_created_by ON sales(created_by);
@@ -285,6 +315,26 @@ CREATE TABLE sale_items (
 CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
 CREATE INDEX idx_sale_items_variant_id ON sale_items(variant_id);
 CREATE INDEX idx_sale_items_applied_offer_id ON sale_items(applied_offer_id);
+
+-- ===========================================
+-- Customer Points Log table
+-- Audit trail for all points transactions
+-- ===========================================
+CREATE TABLE customer_points_log (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    customer_id         BIGINT NOT NULL REFERENCES customers(id),
+    sale_id             BIGINT REFERENCES sales(id),
+    type                VARCHAR(20) NOT NULL,
+    points              INTEGER NOT NULL,
+    description         TEXT,
+    created_by          BIGINT REFERENCES users(id),
+    created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT customer_points_log_type_check CHECK (type IN ('EARNED', 'REDEEMED', 'ADJUSTMENT', 'VOID_REVERSAL'))
+);
+
+CREATE INDEX idx_customer_points_log_customer_id ON customer_points_log(customer_id);
+CREATE INDEX idx_customer_points_log_sale_id ON customer_points_log(sale_id);
 
 -- ===========================================
 -- Stock Adjustments table
@@ -321,6 +371,11 @@ CREATE TABLE settings (
     invoice_prefix      VARCHAR(10) NOT NULL DEFAULT 'MJT',
     last_bill_number    INTEGER NOT NULL DEFAULT 0,
     low_stock_threshold INTEGER NOT NULL DEFAULT 10,
+    loyalty_enabled     BOOLEAN NOT NULL DEFAULT FALSE,
+    points_min_purchase_amount DECIMAL(12, 2) NOT NULL DEFAULT 500,
+    points_per_hundred  DECIMAL(5, 2) NOT NULL DEFAULT 1,
+    point_value         DECIMAL(5, 2) NOT NULL DEFAULT 1,
+    max_points_redemption_percent DECIMAL(5, 2) NOT NULL DEFAULT 50,
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
