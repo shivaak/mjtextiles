@@ -1,23 +1,18 @@
 package com.codewithshiva.retailpos.dto.shortcode;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Request DTO for creating a new short code.
+ * Request DTO for updating an existing short code.
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateShortCodeRequest {
-
-    @NotBlank(message = "Type is required")
-    @Pattern(regexp = "^(CATEGORY|BRAND|FABRIC|SIZE|COLOR)$", message = "Type must be CATEGORY, BRAND, FABRIC, SIZE, or COLOR")
-    private String type;
+public class UpdateShortCodeRequest {
 
     @NotBlank(message = "Name is required")
     @Size(max = 100, message = "Name must not exceed 100 characters")

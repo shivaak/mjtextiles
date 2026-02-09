@@ -43,6 +43,7 @@ import {
   ReceiptLong as ReceiptLongIcon,
   Warehouse as WarehouseIcon,
   LocalOffer as LocalOfferIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -76,6 +77,7 @@ const navItems: NavItem[] = [
   { label: 'Inventory', path: '/inventory', icon: <WarehouseIcon /> },
   { label: 'Sales', path: '/sales', icon: <ReceiptLongIcon /> },
   { label: 'Reports', path: '/reports', icon: <AssessmentIcon />, adminOnly: true },
+  { label: 'Masters', path: '/masters', icon: <TuneIcon />, adminOnly: true },
   { label: 'Users', path: '/users', icon: <PeopleIcon />, adminOnly: true },
   { label: 'Settings', path: '/settings', icon: <SettingsIcon />, adminOnly: true },
 ];

@@ -48,6 +48,50 @@ public interface ShortCodeDao {
     @RegisterConstructorMapper(ShortCode.class)
     Optional<ShortCode> findByTypeAndShortCode(@Bind("type") String type, @Bind("shortCode") String shortCode);
 
+    @SqlQuery("""
+        SELECT id, type, name, short_code as shortCode, created_at as createdAt
+        FROM short_codes
+        WHERE id = :id
+        """)
+    @RegisterConstructorMapper(ShortCode.class)
+    Optional<ShortCode> findById(@Bind("id") Long id);
+
+    @SqlQuery("""
+        SELECT id, type, name, short_code as shortCode, created_at as createdAt
+        FROM short_codes
+        WHERE type = :type AND name = :name AND id != :excludeId
+        """)
+    @RegisterConstructorMapper(ShortCode.class)
+    Optional<ShortCode> findByTypeAndNameExcludingId(@Bind("type") String type,
+                                                      @Bind("name") String name,
+                                                      @Bind("excludeId") Long excludeId);
+
+    @SqlQuery("""
+        SELECT id, type, name, short_code as shortCode, created_at as createdAt
+        FROM short_codes
+        WHERE type = :type AND short_code = :shortCode AND id != :excludeId
+        """)
+    @RegisterConstructorMapper(ShortCode.class)
+    Optional<ShortCode> findByTypeAndShortCodeExcludingId(@Bind("type") String type,
+                                                           @Bind("shortCode") String shortCode,
+                                                           @Bind("excludeId") Long excludeId);
+
+    // In-use count queries for delete validation
+    @SqlQuery("SELECT COUNT(*) FROM products WHERE category = :name")
+    int countProductsByCategory(@Bind("name") String name);
+
+    @SqlQuery("SELECT COUNT(*) FROM products WHERE brand = :name")
+    int countProductsByBrand(@Bind("name") String name);
+
+    @SqlQuery("SELECT COUNT(*) FROM variants WHERE fabric = :name")
+    int countVariantsByFabric(@Bind("name") String name);
+
+    @SqlQuery("SELECT COUNT(*) FROM variants WHERE size = :name")
+    int countVariantsBySize(@Bind("name") String name);
+
+    @SqlQuery("SELECT COUNT(*) FROM variants WHERE color = :name")
+    int countVariantsByColor(@Bind("name") String name);
+
     @SqlUpdate("""
         INSERT INTO short_codes (type, name, short_code)
         VALUES (:type, :name, :shortCode)

@@ -373,7 +373,7 @@ export default function ProductsPage() {
   // Helper: update a variant row and regenerate SKU
   const updateVariantRow = useCallback(
     (
-      rows: VariantRow[],
+      _rows: VariantRow[],
       setRows: React.Dispatch<React.SetStateAction<VariantRow[]>>,
       key: string,
       field: keyof VariantRow,

@@ -26,18 +26,18 @@ public interface LookupDao {
     List<String> findAllBrands();
 
     @SqlQuery("""
-        SELECT DISTINCT size 
-        FROM variants 
-        WHERE status = 'ACTIVE' AND size IS NOT NULL 
-        ORDER BY size
+        SELECT name 
+        FROM short_codes 
+        WHERE type = 'SIZE' 
+        ORDER BY name
         """)
     List<String> findAllSizes();
 
     @SqlQuery("""
-        SELECT DISTINCT color 
-        FROM variants 
-        WHERE status = 'ACTIVE' AND color IS NOT NULL 
-        ORDER BY color
+        SELECT name 
+        FROM short_codes 
+        WHERE type = 'COLOR' 
+        ORDER BY name
         """)
     List<String> findAllColors();
 

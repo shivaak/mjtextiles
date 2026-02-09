@@ -381,15 +381,22 @@ export interface UserLookup {
   isActive: boolean;
 }
 
+export type ShortCodeType = 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR';
+
 export interface ShortCode {
   id: number;
-  type: 'CATEGORY' | 'BRAND' | 'FABRIC';
+  type: ShortCodeType;
   name: string;
   shortCode: string;
 }
 
 export interface CreateShortCodeRequest {
-  type: 'CATEGORY' | 'BRAND' | 'FABRIC';
+  type: ShortCodeType;
+  name: string;
+  shortCode: string;
+}
+
+export interface UpdateShortCodeRequest {
   name: string;
   shortCode: string;
 }
