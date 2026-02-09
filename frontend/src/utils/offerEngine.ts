@@ -106,15 +106,17 @@ function evaluateQuantityPrice(cart: CartItem[], offer: Offer): OfferApplication
     const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
     if (totalQty < rule.minQty) continue;
 
+    // Shared pool of qualifying units across all matching variants
+    const totalOfferQty = Math.floor(totalQty / rule.minQty) * rule.minQty;
+    let remainingOfferQty = totalOfferQty;
+
     for (const item of cart) {
       if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
+      if (remainingOfferQty <= 0) continue;
 
-      // Calculate how many of THIS item's units qualify for the offer
-      // Distribute qualifying qty proportionally if multiple variants match
-      const offerQty = Math.min(
-        item.qty,
-        Math.floor(totalQty / rule.minQty) * rule.minQty
-      );
+      // Consume from the shared qualifying pool
+      const offerQty = Math.min(item.qty, remainingOfferQty);
+      remainingOfferQty -= offerQty;
       const regularQty = item.qty - offerQty;
 
       if (offerQty <= 0) continue;
@@ -154,13 +156,17 @@ function evaluateQuantityDiscount(cart: CartItem[], offer: Offer): OfferApplicat
     const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
     if (totalQty < rule.minQty) continue;
 
+    // Shared pool of qualifying units across all matching variants
+    const totalOfferQty = Math.floor(totalQty / rule.minQty) * rule.minQty;
+    let remainingOfferQty = totalOfferQty;
+
     for (const item of cart) {
       if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
+      if (remainingOfferQty <= 0) continue;
 
-      const offerQty = Math.min(
-        item.qty,
-        Math.floor(totalQty / rule.minQty) * rule.minQty
-      );
+      // Consume from the shared qualifying pool
+      const offerQty = Math.min(item.qty, remainingOfferQty);
+      remainingOfferQty -= offerQty;
 
       if (offerQty <= 0) continue;
 
