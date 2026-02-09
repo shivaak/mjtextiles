@@ -192,6 +192,15 @@ export interface CreateSupplierRequest {
   gstNumber?: string;
 }
 
+export interface UpdateSupplierRequest {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstNumber?: string;
+  isActive: boolean;
+}
+
 // Purchases
 export interface PurchaseList {
   id: number;

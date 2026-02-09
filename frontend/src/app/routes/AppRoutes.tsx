@@ -18,6 +18,7 @@ const UsersPage = lazy(() => import('../../pages/users/UsersPage'));
 const SettingsPage = lazy(() => import('../../pages/settings/SettingsPage'));
 const OffersPage = lazy(() => import('../../pages/offers/OffersPage'));
 const MastersPage = lazy(() => import('../../pages/masters/MastersPage'));
+const SuppliersPage = lazy(() => import('../../pages/suppliers/SuppliersPage'));
 
 function PageLoader() {
   return (
@@ -72,6 +73,14 @@ export default function AppRoutes() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <PurchasesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="suppliers"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <SuppliersPage />
               </ProtectedRoute>
             }
           />

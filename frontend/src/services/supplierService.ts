@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   Supplier,
   CreateSupplierRequest,
+  UpdateSupplierRequest,
 } from '../domain/types';
 
 export const supplierService = {
@@ -18,6 +19,11 @@ export const supplierService = {
 
   async createSupplier(data: CreateSupplierRequest): Promise<Supplier> {
     const response = await api.post<ApiResponse<Supplier>>('/suppliers', data);
+    return unwrapApiResponse(response);
+  },
+
+  async updateSupplier(id: number, data: UpdateSupplierRequest): Promise<Supplier> {
+    const response = await api.put<ApiResponse<Supplier>>(`/suppliers/${id}`, data);
     return unwrapApiResponse(response);
   },
 };
