@@ -469,11 +469,9 @@ public class InvoiceService {
 
     private String formatItemName(SaleItemResponse item) {
         String name = safe(item.getProductName());
-        String size = item.getSize();
-        String color = item.getColor();
-        String variantDetails = joinNonEmpty(" | ", size, color);
-        if (hasValue(variantDetails)) {
-            return name + " (" + variantDetails + ")";
+        String sku = item.getVariantBarcode();
+        if (hasValue(sku)) {
+            return name + " (" + sku + ")";
         }
         return name;
     }

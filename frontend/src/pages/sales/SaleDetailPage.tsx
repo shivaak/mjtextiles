@@ -47,7 +47,11 @@ import { formatApiError } from '../../services/api';
 import { saleService } from '../../services/saleService';
 import PageHeader from '../../components/common/PageHeader';
 import Money from '../../components/common/Money';
+import { formatCurrency } from '../../utils/calculations';
 import type { SaleDetail } from '../../domain/types';
+
+/** Format a number as ₹X,XXX.XX for use in plain-text tooltips */
+const fmt = (v: number) => formatCurrency(Math.abs(v));
 
 /* ------------------------------------------------------------------ */
 /*  Small presentational helpers (kept local to avoid extra files)     */
@@ -216,6 +220,27 @@ export default function SaleDetailPage() {
   /* ---------- derived values for summary ---------- */
   const discountedSubtotal = sale.subtotal - sale.discountAmount;
   const taxableValue = discountedSubtotal - sale.taxAmount;
+
+  /* ---------- per-item profit (before bill discount & points) ---------- */
+  const taxDivisor = 1 + sale.taxPercent / 100;
+  const itemProfitData = sale.items.map((item) => {
+    const itemDiscPct = item.itemDiscountPercent || 0;
+    const effectiveUnitPrice = item.unitPrice * (1 - itemDiscPct / 100);
+    const lineAmount = item.qty * effectiveUnitPrice;
+    const lineTaxableValue = sale.taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
+    const lineCost = (item.unitCostAtSale || 0) * item.qty;
+    const profit = lineTaxableValue - lineCost;
+    return {
+      id: item.id,
+      name: `${item.productName || '-'} (${item.size || '-'})`,
+      lineTaxableValue,
+      unitCost: item.unitCostAtSale || 0,
+      qty: item.qty,
+      lineCost,
+      profit,
+    };
+  });
+  const productProfitSum = itemProfitData.reduce((sum, p) => sum + p.profit, 0);
 
   /* ---------- styles ---------- */
   const summaryRowSx = { display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 2 };
@@ -441,20 +466,13 @@ export default function SaleDetailPage() {
                     {sale.items.map((item, idx) => {
                       const itemDiscPct = item.itemDiscountPercent || 0;
                       const effectiveUnitPrice = item.unitPrice * (1 - itemDiscPct / 100);
-                      const taxDivisor = 1 + sale.taxPercent / 100;
                       const lineAmount = item.qty * effectiveUnitPrice;
                       const lineTaxableValue = sale.taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
                       const lineGst = lineAmount - lineTaxableValue;
-
-                      const globalDiscountFactor = 1 - (sale.discountPercent || 0) / 100;
-                      const lineAfterGlobal = lineAmount * globalDiscountFactor;
-                      const profitTaxableValue = sale.taxPercent > 0 ? lineAfterGlobal / taxDivisor : lineAfterGlobal;
                       const lineCost = (item.unitCostAtSale || 0) * item.qty;
-                      const pointsRedemptionAmount = sale.pointsRedemptionAmount || 0;
-                      const redemptionShare = (pointsRedemptionAmount > 0 && sale.total > 0)
-                        ? pointsRedemptionAmount * (lineAfterGlobal / sale.total)
-                        : 0;
-                      const itemProfit = profitTaxableValue - lineCost - redemptionShare;
+                      const itemProfit = lineTaxableValue - lineCost;
+
+                      const profitTooltip = `Taxable ${fmt(lineTaxableValue)} − Cost (${fmt(item.unitCostAtSale || 0)} × ${item.qty}) ${fmt(lineCost)} = ${fmt(itemProfit)}`;
 
                       return (
                         <TableRow
@@ -469,8 +487,8 @@ export default function SaleDetailPage() {
                             <Typography variant="body2" fontWeight={500}>
                               {item.productName || '-'}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', gap: 0.5, mt: 0.25 }}>
-                              {item.size || '-'} · {item.color || '-'} · {item.variantBarcode || '-'}
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25 }}>
+                              {item.variantBarcode || '-'}
                             </Typography>
                           </TableCell>
                           <TableCell align="center">
@@ -512,9 +530,11 @@ export default function SaleDetailPage() {
                           )}
                           {isAdmin && (
                             <TableCell align="right">
-                              <Typography variant="body2" color="success.main" fontWeight={600}>
-                                <Money value={itemProfit} />
-                              </Typography>
+                              <Tooltip title={profitTooltip} arrow placement="top">
+                                <Typography variant="body2" color="success.main" fontWeight={600} sx={{ cursor: 'help' }}>
+                                  <Money value={itemProfit} />
+                                </Typography>
+                              </Tooltip>
                             </TableCell>
                           )}
                         </TableRow>
@@ -616,16 +636,59 @@ export default function SaleDetailPage() {
                   </Typography>
                 </Box>
 
-                {/* Profit (admin) */}
+                {/* Product Profit — sum of per-item profits (admin) */}
                 {isAdmin && sale.status === 'COMPLETED' && (
-                  <Box sx={{ ...summaryRowSx, mt: 1.5 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Product Profit (before bill discounts & points)
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" fontWeight={500} sx={summaryAmountSx}>
-                      <Money value={sale.profit || 0} />
-                    </Typography>
-                  </Box>
+                  <>
+                    <Box sx={{ ...summaryRowSx, mt: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Product Profit (before bill discounts & points)
+                        </Typography>
+                        <Tooltip
+                          title={
+                            itemProfitData.length <= 1
+                              ? `Taxable ${fmt(itemProfitData[0]?.lineTaxableValue ?? 0)} − Cost ${fmt(itemProfitData[0]?.lineCost ?? 0)} = ${fmt(productProfitSum)}`
+                              : itemProfitData.map((p) => `${p.name}: ${fmt(p.profit)}`).join(' + ') + ` = ${fmt(productProfitSum)}`
+                          }
+                          arrow
+                          placement="top"
+                        >
+                          <Box component="span" sx={{ display: 'inline-flex', cursor: 'help' }}>
+                            <HelpOutlineIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                          </Box>
+                        </Tooltip>
+                      </Box>
+                      <Typography variant="body2" color="success.main" fontWeight={600} sx={summaryAmountSx}>
+                        <Money value={productProfitSum} />
+                      </Typography>
+                    </Box>
+
+                    {/* Net Profit — backend value after bill discount & points */}
+                    <Box sx={{ ...summaryRowSx, mt: 0.75 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="caption" color="text.disabled">
+                          Net Profit (after bill discounts & points)
+                        </Typography>
+                        <Tooltip
+                          title={
+                            `Product Profit ${fmt(productProfitSum)}`
+                            + (sale.discountAmount > 0 ? ` − Bill Discount ${fmt(sale.discountAmount)}` : '')
+                            + ((sale.pointsRedemptionAmount || 0) > 0 ? ` − Points ${fmt(sale.pointsRedemptionAmount || 0)}` : '')
+                            + ` = ${fmt(sale.profit || 0)}`
+                          }
+                          arrow
+                          placement="top"
+                        >
+                          <Box component="span" sx={{ display: 'inline-flex', cursor: 'help' }}>
+                            <HelpOutlineIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
+                          </Box>
+                        </Tooltip>
+                      </Box>
+                      <Typography variant="caption" color="text.disabled" fontWeight={500} sx={summaryAmountSx}>
+                        <Money value={sale.profit || 0} />
+                      </Typography>
+                    </Box>
+                  </>
                 )}
 
                 {/* Points earned */}
