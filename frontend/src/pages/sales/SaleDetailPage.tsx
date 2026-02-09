@@ -13,6 +13,7 @@ import {
   DialogTitle,
   Divider,
   Grid,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -22,12 +23,22 @@ import {
   TextField,
   Tooltip,
   Typography,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PrintIcon from '@mui/icons-material/Print';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import PersonIcon from '@mui/icons-material/Person';
+import PhoneIcon from '@mui/icons-material/Phone';
+import PaymentIcon from '@mui/icons-material/Payment';
+import BadgeIcon from '@mui/icons-material/Badge';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import BlockIcon from '@mui/icons-material/Block';
 import dayjs from 'dayjs';
 
 import { useAuth } from '../../app/context/AuthContext';
@@ -38,11 +49,40 @@ import PageHeader from '../../components/common/PageHeader';
 import Money from '../../components/common/Money';
 import type { SaleDetail } from '../../domain/types';
 
+/* ------------------------------------------------------------------ */
+/*  Small presentational helpers (kept local to avoid extra files)     */
+/* ------------------------------------------------------------------ */
+
+interface InfoRowProps {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}
+
+function InfoRow({ icon, label, value }: InfoRowProps) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: 1 }}>
+      <Box sx={{ color: 'text.secondary', mt: 0.25, fontSize: 20, display: 'flex' }}>{icon}</Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2, letterSpacing: 0.3, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+          {label}
+        </Typography>
+        <Box sx={{ mt: 0.25 }}>{typeof value === 'string' ? <Typography variant="body2" fontWeight={500}>{value}</Typography> : value}</Box>
+      </Box>
+    </Box>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SaleDetailPage                                                    */
+/* ------------------------------------------------------------------ */
+
 export default function SaleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const { success: showSuccess, error: showError } = useNotification();
+  const theme = useTheme();
 
   const [sale, setSale] = useState<SaleDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,8 +93,6 @@ export default function SaleDetailPage() {
   const [voiding, setVoiding] = useState(false);
 
   const saleId = useMemo(() => (id ? Number(id) : NaN), [id]);
-  const summaryRowSx = { display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 2 };
-  const summaryAmountSx = { textAlign: 'right', minWidth: 96 };
 
   useEffect(() => {
     if (!id) {
@@ -122,6 +160,8 @@ export default function SaleDetailPage() {
     }
   };
 
+  /* ---------- loading / error / empty states ---------- */
+
   if (loading) {
     return (
       <Box>
@@ -173,6 +213,15 @@ export default function SaleDetailPage() {
     );
   }
 
+  /* ---------- derived values for summary ---------- */
+  const discountedSubtotal = sale.subtotal - sale.discountAmount;
+  const taxableValue = discountedSubtotal - sale.taxAmount;
+
+  /* ---------- styles ---------- */
+  const summaryRowSx = { display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 2 };
+  const summaryAmountSx = { textAlign: 'right', minWidth: 96 };
+  const isVoided = sale.status === 'VOIDED';
+
   return (
     <Box>
       <PageHeader
@@ -184,7 +233,7 @@ export default function SaleDetailPage() {
           { label: sale.billNo },
         ]}
         action={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Stack direction="row" spacing={1}>
             <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/sales')}>
               Back
             </Button>
@@ -213,95 +262,175 @@ export default function SaleDetailPage() {
                 )}
               </>
             )}
-          </Box>
+          </Stack>
         }
       />
 
-      {sale.status === 'VOIDED' && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          This sale was voided on {sale.voidedAt ? dayjs(sale.voidedAt).format('MMM D, YYYY [at] h:mm A') : '-'}
-          {sale.voidedByName ? ` by ${sale.voidedByName}` : ''}
-          {sale.voidReason ? `. Reason: ${sale.voidReason}` : ''}
-        </Alert>
+      {/* -------- Voided banner -------- */}
+      {isVoided && (
+        <Box
+          sx={{
+            mb: 3,
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            borderRadius: 2,
+            bgcolor: alpha(theme.palette.error.main, 0.06),
+            border: `1px solid ${alpha(theme.palette.error.main, 0.25)}`,
+          }}
+        >
+          <BlockIcon color="error" />
+          <Box>
+            <Typography variant="subtitle2" color="error.main" fontWeight={600}>
+              Sale Voided
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {sale.voidedAt ? dayjs(sale.voidedAt).format('MMM D, YYYY [at] h:mm A') : '-'}
+              {sale.voidedByName ? ` by ${sale.voidedByName}` : ''}
+              {sale.voidReason ? ` — ${sale.voidReason}` : ''}
+            </Typography>
+          </Box>
+        </Box>
       )}
 
       <Grid container spacing={3}>
+        {/* ============================================================ */}
+        {/*  LEFT SIDEBAR — Sale Information                             */}
+        {/* ============================================================ */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Sale Information</Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">Bill Number</Typography>
-                <Typography variant="body1" fontWeight={500}>{sale.billNo}</Typography>
+          <Card variant="outlined" sx={{ height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              {/* Card header */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <ReceiptLongIcon fontSize="small" color="primary" />
+                <Typography variant="subtitle1" fontWeight={600}>Sale Information</Typography>
               </Box>
+              <Divider />
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">Date & Time</Typography>
-                <Typography variant="body1">
-                  {dayjs(sale.soldAt).format('MMMM D, YYYY [at] h:mm A')}
+              {/* Status highlight */}
+              <Box
+                sx={{
+                  mt: 2,
+                  mb: 1,
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  bgcolor: isVoided
+                    ? alpha(theme.palette.error.main, 0.06)
+                    : alpha(theme.palette.success.main, 0.06),
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="body2" fontWeight={500} color="text.secondary">
+                  Status
                 </Typography>
+                <Chip
+                  label={sale.status}
+                  color={sale.status === 'COMPLETED' ? 'success' : 'error'}
+                  size="small"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                />
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">Status</Typography>
-                <Box>
-                  <Chip
-                    label={sale.status}
-                    color={sale.status === 'COMPLETED' ? 'success' : 'error'}
-                    size="small"
+              {/* Info rows */}
+              <Stack spacing={0} sx={{ mt: 1 }} divider={<Divider sx={{ borderStyle: 'dashed' }} />}>
+                <InfoRow
+                  icon={<ReceiptLongIcon fontSize="inherit" />}
+                  label="Bill Number"
+                  value={sale.billNo}
+                />
+                <InfoRow
+                  icon={<CalendarTodayIcon fontSize="inherit" />}
+                  label="Date & Time"
+                  value={dayjs(sale.soldAt).format('MMM D, YYYY · h:mm A')}
+                />
+                <InfoRow
+                  icon={<PaymentIcon fontSize="inherit" />}
+                  label="Payment Mode"
+                  value={
+                    <Chip
+                      label={sale.paymentMode}
+                      variant="outlined"
+                      size="small"
+                      sx={{ fontWeight: 500, mt: 0.25 }}
+                    />
+                  }
+                />
+                <InfoRow
+                  icon={<BadgeIcon fontSize="inherit" />}
+                  label="Cashier"
+                  value={sale.createdByName || '-'}
+                />
+                {sale.customerName && (
+                  <InfoRow
+                    icon={<PersonIcon fontSize="inherit" />}
+                    label="Customer Name"
+                    value={sale.customerName}
                   />
-                </Box>
-              </Box>
-
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">Payment Mode</Typography>
-                <Box>
-                  <Chip label={sale.paymentMode} variant="outlined" size="small" />
-                </Box>
-              </Box>
-
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">Cashier</Typography>
-                <Typography variant="body1">{sale.createdByName || '-'}</Typography>
-              </Box>
-
-              {sale.customerName && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Customer Name</Typography>
-                  <Typography variant="body1">{sale.customerName}</Typography>
-                </Box>
-              )}
-
-              {sale.customerPhone && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Customer Phone</Typography>
-                  <Typography variant="body1">{sale.customerPhone}</Typography>
-                </Box>
-              )}
+                )}
+                {sale.customerPhone && (
+                  <InfoRow
+                    icon={<PhoneIcon fontSize="inherit" />}
+                    label="Customer Phone"
+                    value={sale.customerPhone}
+                  />
+                )}
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
 
+        {/* ============================================================ */}
+        {/*  MAIN — Items table & summary                                */}
+        {/* ============================================================ */}
         <Grid size={{ xs: 12, md: 8 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Items</Typography>
-              <Divider sx={{ mb: 2 }} />
+          <Card variant="outlined">
+            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              {/* Card header */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ShoppingCartIcon fontSize="small" color="primary" />
+                  <Typography variant="subtitle1" fontWeight={600}>Items</Typography>
+                </Box>
+                <Chip
+                  label={`${sale.items.length} item${sale.items.length !== 1 ? 's' : ''}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontWeight: 500 }}
+                />
+              </Box>
+              <Divider />
 
-              <TableContainer>
-                <Table>
+              {/* Items table */}
+              <TableContainer sx={{ mt: 1 }}>
+                <Table size="small">
                   <TableHead>
-                    <TableRow>
+                    <TableRow
+                      sx={{
+                        bgcolor: alpha(theme.palette.primary.main, 0.04),
+                        '& .MuiTableCell-head': {
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          color: 'text.secondary',
+                          py: 1.5,
+                          borderBottom: `2px solid ${theme.palette.divider}`,
+                        },
+                      }}
+                    >
                       <TableCell>Product</TableCell>
                       <TableCell align="center">Qty</TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2" fontWeight={600}>Rate</Typography>
-                        <Typography variant="caption" color="text.secondary">(Incl GST)</Typography>
+                        <Typography variant="inherit">Rate</Typography>
+                        <Typography variant="caption" sx={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: '0.65rem' }}>
+                          (Incl GST)
+                        </Typography>
                       </TableCell>
                       <TableCell align="right">Discount</TableCell>
-                      <TableCell align="right">Taxable Value</TableCell>
+                      <TableCell align="right">Taxable</TableCell>
                       <TableCell align="right">GST ({sale.taxPercent}%)</TableCell>
                       <TableCell align="right">Amount</TableCell>
                       {isAdmin && <TableCell align="right">Cost</TableCell>}
@@ -309,7 +438,7 @@ export default function SaleDetailPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {sale.items.map((item) => {
+                    {sale.items.map((item, idx) => {
                       const itemDiscPct = item.itemDiscountPercent || 0;
                       const effectiveUnitPrice = item.unitPrice * (1 - itemDiscPct / 100);
                       const taxDivisor = 1 + sale.taxPercent / 100;
@@ -326,35 +455,53 @@ export default function SaleDetailPage() {
                         ? pointsRedemptionAmount * (lineAfterGlobal / sale.total)
                         : 0;
                       const itemProfit = profitTaxableValue - lineCost - redemptionShare;
+
                       return (
-                        <TableRow key={item.id}>
+                        <TableRow
+                          key={item.id}
+                          sx={{
+                            bgcolor: idx % 2 === 0 ? 'transparent' : alpha(theme.palette.text.primary, 0.02),
+                            '&:last-child td': { borderBottom: 0 },
+                            '& .MuiTableCell-root': { py: 1.25 },
+                          }}
+                        >
                           <TableCell>
                             <Typography variant="body2" fontWeight={500}>
                               {item.productName || '-'}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {item.size || '-'} | {item.color || '-'} | {item.variantBarcode || '-'}
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', gap: 0.5, mt: 0.25 }}>
+                              {item.size || '-'} · {item.color || '-'} · {item.variantBarcode || '-'}
                             </Typography>
                           </TableCell>
-                          <TableCell align="center">{item.qty}</TableCell>
-                          <TableCell align="right"><Money value={item.unitPrice} /></TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" fontWeight={500}>{item.qty}</Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2"><Money value={item.unitPrice} /></Typography>
+                          </TableCell>
                           <TableCell align="right">
                             {itemDiscPct > 0 ? (
-                              <Typography variant="body2" color="error.main" fontWeight={500}>
-                                {itemDiscPct}%
-                              </Typography>
+                              <Chip
+                                label={`${itemDiscPct}%`}
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                sx={{ fontWeight: 600, height: 22, fontSize: '0.7rem' }}
+                              />
                             ) : (
-                              <Typography variant="body2" color="text.secondary">-</Typography>
+                              <Typography variant="body2" color="text.disabled">—</Typography>
                             )}
                           </TableCell>
-                          <TableCell align="right"><Money value={lineTaxableValue} /></TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2"><Money value={lineTaxableValue} /></Typography>
+                          </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2" color="text.secondary">
                               <Money value={lineGst} />
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
-                            <Typography fontWeight={500}><Money value={lineAmount} /></Typography>
+                            <Typography variant="body2" fontWeight={600}><Money value={lineAmount} /></Typography>
                           </TableCell>
                           {isAdmin && (
                             <TableCell align="right">
@@ -365,7 +512,7 @@ export default function SaleDetailPage() {
                           )}
                           {isAdmin && (
                             <TableCell align="right">
-                              <Typography color="success.main" fontWeight={500}>
+                              <Typography variant="body2" color="success.main" fontWeight={600}>
                                 <Money value={itemProfit} />
                               </Typography>
                             </TableCell>
@@ -377,44 +524,60 @@ export default function SaleDetailPage() {
                 </Table>
               </TableContainer>
 
-              <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                {(() => {
-                  const discountedSubtotal = sale.subtotal - sale.discountAmount;
-                  const taxableValue = discountedSubtotal - sale.taxAmount;
-                  return (
-                    <>
+              {/* -------- Summary -------- */}
+              <Box
+                sx={{
+                  mt: 3,
+                  p: 2.5,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.primary.main, 0.03),
+                  border: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                {/* Subtotal */}
                 <Box sx={{ ...summaryRowSx, mb: 1 }}>
-                  <Typography fontWeight={500}>Subtotal (after item discounts)</Typography>
-                  <Typography fontWeight={500} sx={summaryAmountSx}><Money value={sale.subtotal} /></Typography>
+                  <Typography variant="body2" fontWeight={500}>Subtotal (after item discounts)</Typography>
+                  <Typography variant="body2" fontWeight={500} sx={summaryAmountSx}><Money value={sale.subtotal} /></Typography>
                 </Box>
+
+                {/* Bill-level discount */}
                 {sale.discountAmount > 0 && (
                   <Box sx={{ ...summaryRowSx, mb: 1 }}>
-                    <Typography color="text.secondary">
-                      Bill-level Discount (affects GST) ({sale.discountPercent.toFixed(1)}%)
+                    <Typography variant="body2" color="text.secondary">
+                      Bill Discount ({sale.discountPercent.toFixed(1)}%)
                     </Typography>
-                    <Typography color="error.main" sx={summaryAmountSx}>-<Money value={sale.discountAmount} /></Typography>
+                    <Typography variant="body2" color="error.main" fontWeight={500} sx={summaryAmountSx}>
+                      -<Money value={sale.discountAmount} />
+                    </Typography>
                   </Box>
                 )}
-                <Divider sx={{ my: 1 }} />
+
+                <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
+
+                {/* Taxable value */}
                 <Box sx={{ ...summaryRowSx, mb: 1 }}>
-                  <Typography color="text.secondary">Taxable Value (after bill discount)</Typography>
-                  <Typography sx={summaryAmountSx}><Money value={taxableValue} /></Typography>
+                  <Typography variant="body2" color="text.secondary">Taxable Value</Typography>
+                  <Typography variant="body2" sx={summaryAmountSx}><Money value={taxableValue} /></Typography>
                 </Box>
+
+                {/* GST */}
                 <Box sx={{ ...summaryRowSx, mb: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography color="text.secondary">Total GST ({sale.taxPercent}%)</Typography>
+                    <Typography variant="body2" color="text.secondary">GST ({sale.taxPercent}%)</Typography>
                     <Tooltip title="GST is calculated after bill-level discount.">
                       <Box component="span" sx={{ display: 'inline-flex' }}>
                         <HelpOutlineIcon aria-label="GST is calculated after bill-level discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
                       </Box>
                     </Tooltip>
                   </Box>
-                  <Typography sx={summaryAmountSx}><Money value={sale.taxAmount} /></Typography>
+                  <Typography variant="body2" sx={summaryAmountSx}><Money value={sale.taxAmount} /></Typography>
                 </Box>
+
+                {/* Points redeemed */}
                 {(sale.pointsRedeemed ?? 0) > 0 && (
                   <Box sx={{ ...summaryRowSx, mb: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Typography color="text.secondary">
+                      <Typography variant="body2" color="text.secondary">
                         Points Redeemed ({sale.pointsRedeemed} pts)
                       </Typography>
                       <Tooltip title="Points are applied after GST.">
@@ -423,49 +586,68 @@ export default function SaleDetailPage() {
                         </Box>
                       </Tooltip>
                     </Box>
-                    <Typography color="error.main" sx={summaryAmountSx}>
+                    <Typography variant="body2" color="error.main" fontWeight={500} sx={summaryAmountSx}>
                       -<Money value={sale.pointsRedemptionAmount || 0} />
                     </Typography>
                   </Box>
                 )}
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ ...summaryRowSx, mt: 1.5 }}>
-                  <Typography variant="h6" fontWeight={700}>Net Payable</Typography>
+
+                {/* Net Payable */}
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    borderRadius: 1.5,
+                    bgcolor: alpha(theme.palette.primary.main, 0.06),
+                    ...summaryRowSx,
+                  }}
+                >
+                  <Typography variant="subtitle1" fontWeight={700}>Net Payable</Typography>
                   <Typography
-                    variant="h5"
+                    variant="h6"
                     fontWeight={700}
-                    sx={{ ...summaryAmountSx, textDecoration: sale.status === 'VOIDED' ? 'line-through' : 'none' }}
+                    color="primary.main"
+                    sx={{
+                      ...summaryAmountSx,
+                      textDecoration: isVoided ? 'line-through' : 'none',
+                    }}
                   >
                     <Money value={sale.total - (sale.pointsRedemptionAmount || 0)} />
                   </Typography>
                 </Box>
+
+                {/* Profit (admin) */}
                 {isAdmin && sale.status === 'COMPLETED' && (
-                  <Box sx={{ ...summaryRowSx, mt: 1 }}>
-                    <Typography color="text.secondary">Product Profit (before bill discounts & points)</Typography>
-                    <Typography color="text.secondary" fontWeight={500} sx={summaryAmountSx}>
+                  <Box sx={{ ...summaryRowSx, mt: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Product Profit (before bill discounts & points)
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" fontWeight={500} sx={summaryAmountSx}>
                       <Money value={sale.profit || 0} />
                     </Typography>
                   </Box>
                 )}
+
+                {/* Points earned */}
                 {(sale.pointsEarned ?? 0) > 0 && (
-                  <Box sx={{ ...summaryRowSx, mt: 1 }}>
-                    <Typography color="success.main" fontWeight={500}>
+                  <Box sx={{ ...summaryRowSx, mt: 1.5 }}>
+                    <Typography variant="body2" color="success.main" fontWeight={600}>
                       Points Earned
                     </Typography>
-                    <Typography color="success.main" fontWeight={500} sx={summaryAmountSx}>
+                    <Typography variant="body2" color="success.main" fontWeight={600} sx={summaryAmountSx}>
                       +{sale.pointsEarned} pts
                     </Typography>
                   </Box>
                 )}
-                    </>
-                  );
-                })()}
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
+      {/* ============================================================ */}
+      {/*  Void Dialog                                                  */}
+      {/* ============================================================ */}
       <Dialog
         open={voidDialogOpen}
         onClose={() => setVoidDialogOpen(false)}
@@ -502,6 +684,9 @@ export default function SaleDetailPage() {
         </DialogActions>
       </Dialog>
 
+      {/* ============================================================ */}
+      {/*  Exchange Dialog                                              */}
+      {/* ============================================================ */}
       <Dialog
         open={exchangeDialogOpen}
         onClose={() => setExchangeDialogOpen(false)}
