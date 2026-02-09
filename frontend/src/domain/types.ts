@@ -85,6 +85,7 @@ export interface Variant {
   barcode: string;
   size: string;
   color: string;
+  fabric?: string;
   sellingPrice: number;
   avgCost: number;
   stockQty: number;
@@ -104,6 +105,7 @@ export interface VariantSearchResponse {
   barcode: string;
   size: string;
   color: string;
+  fabric?: string;
   sellingPrice: number;
   avgCost: number;
   stockQty: number;
@@ -137,9 +139,11 @@ export interface CreateVariantRequest {
   barcode?: string;
   size?: string;
   color?: string;
+  fabric?: string;
   sellingPrice: number;
   avgCost?: number;
   defaultDiscountPercent?: number;
+  initialStock?: number;
 }
 
 export interface UpdateVariantRequest {
@@ -147,6 +151,7 @@ export interface UpdateVariantRequest {
   barcode?: string;
   size?: string;
   color?: string;
+  fabric?: string;
   sellingPrice: number;
   avgCost?: number;
   defaultDiscountPercent?: number;
@@ -376,14 +381,61 @@ export interface UserLookup {
   isActive: boolean;
 }
 
+export interface ShortCode {
+  id: number;
+  type: 'CATEGORY' | 'BRAND' | 'FABRIC';
+  name: string;
+  shortCode: string;
+}
+
+export interface CreateShortCodeRequest {
+  type: 'CATEGORY' | 'BRAND' | 'FABRIC';
+  name: string;
+  shortCode: string;
+}
+
+export interface VariantItemRequest {
+  sku: string;
+  barcode?: string;
+  size?: string;
+  color?: string;
+  fabric?: string;
+  sellingPrice: number;
+  avgCost?: number;
+  defaultDiscountPercent?: number;
+  initialStock?: number;
+}
+
+export interface BatchCreateVariantsRequest {
+  productId: number;
+  variants: VariantItemRequest[];
+}
+
+export interface CreateProductWithVariantsRequest {
+  name: string;
+  brand: string;
+  category: string;
+  hsn: string;
+  description?: string;
+  defaultDiscountPercent?: number;
+  variants?: VariantItemRequest[];
+}
+
+export interface ProductWithVariantsResponse {
+  product: Product;
+  variants: Variant[];
+}
+
 export interface LookupDataResponse {
   categories: string[];
   brands: string[];
   sizes: string[];
   colors: string[];
+  fabrics: string[];
   paymentModes: string[];
   adjustmentReasons: string[];
   userRoles: string[];
+  shortCodes: ShortCode[];
 }
 
 // Dashboard

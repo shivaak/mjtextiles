@@ -6,6 +6,8 @@ import com.codewithshiva.retailpos.audit.EntityType;
 import com.codewithshiva.retailpos.dao.ProductDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.product.*;
+import com.codewithshiva.retailpos.dto.variant.CreateVariantRequest;
+import com.codewithshiva.retailpos.dto.variant.VariantDetailResponse;
 import com.codewithshiva.retailpos.exception.ConflictException;
 import com.codewithshiva.retailpos.exception.ResourceNotFoundException;
 import com.codewithshiva.retailpos.model.Product;
@@ -15,6 +17,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -29,11 +32,14 @@ public class ProductService {
     private final ProductDao productDao;
     private final VariantDao variantDao;
     private final LookupService lookupService;
+    private final VariantService variantService;
 
-    public ProductService(ProductDao productDao, VariantDao variantDao, @Lazy LookupService lookupService) {
+    public ProductService(ProductDao productDao, VariantDao variantDao,
+                          @Lazy LookupService lookupService, @Lazy VariantService variantService) {
         this.productDao = productDao;
         this.variantDao = variantDao;
         this.lookupService = lookupService;
+        this.variantService = variantService;
     }
 
     /**
@@ -119,6 +125,71 @@ public class ProductService {
                 ));
 
         return ProductResponse.fromProduct(product);
+    }
+
+    /**
+     * Create a product with variants in a single transaction.
+     */
+    @Transactional
+    @Auditable(entity = EntityType.PRODUCT, action = AuditAction.CREATE)
+    public ProductWithVariantsResponse createProductWithVariants(CreateProductWithVariantsRequest request, Long createdBy) {
+        log.info("Creating product with variants: {} - {} ({} variants)",
+                request.getBrand(), request.getName(),
+                request.getVariants() != null ? request.getVariants().size() : 0);
+
+        // Check for duplicate product
+        Optional<Product> existing = productDao.findByNameAndBrand(request.getName(), request.getBrand());
+        if (existing.isPresent()) {
+            throw new ConflictException("DUPLICATE_PRODUCT", "Product with same name and brand already exists");
+        }
+
+        // Create product
+        Long productId = productDao.create(
+                request.getName(),
+                request.getBrand(),
+                request.getCategory(),
+                request.getHsn(),
+                request.getDescription(),
+                request.getDefaultDiscountPercent() != null ? request.getDefaultDiscountPercent() : java.math.BigDecimal.ZERO,
+                createdBy
+        );
+
+        log.info("Product created with ID: {}", productId);
+
+        // Create variants if provided
+        List<VariantDetailResponse> variantResponses = new ArrayList<>();
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            for (var variantItem : request.getVariants()) {
+                CreateVariantRequest cvr = new CreateVariantRequest();
+                cvr.setProductId(productId);
+                cvr.setSku(variantItem.getSku());
+                cvr.setBarcode(variantItem.getBarcode());
+                cvr.setSize(variantItem.getSize());
+                cvr.setColor(variantItem.getColor());
+                cvr.setFabric(variantItem.getFabric());
+                cvr.setSellingPrice(variantItem.getSellingPrice());
+                cvr.setAvgCost(variantItem.getAvgCost());
+                cvr.setDefaultDiscountPercent(variantItem.getDefaultDiscountPercent());
+                cvr.setInitialStock(variantItem.getInitialStock());
+
+                variantResponses.add(variantService.createVariant(cvr, createdBy));
+            }
+        }
+
+        // Evict lookup cache
+        lookupService.evictLookupCache();
+
+        // Fetch created product
+        Product product = productDao.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("PRODUCT_NOT_FOUND", "Failed to retrieve created product"));
+
+        int variantCount = productDao.countAllVariantsByProductId(productId);
+        ProductResponse productResponse = ProductResponse.fromProduct(product, variantCount);
+
+        return ProductWithVariantsResponse.builder()
+                .product(productResponse)
+                .variants(variantResponses)
+                .build();
     }
 
     /**

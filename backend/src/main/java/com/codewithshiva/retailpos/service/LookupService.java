@@ -2,7 +2,9 @@ package com.codewithshiva.retailpos.service;
 
 import com.codewithshiva.retailpos.config.CacheConfig;
 import com.codewithshiva.retailpos.dao.LookupDao;
+import com.codewithshiva.retailpos.dao.ShortCodeDao;
 import com.codewithshiva.retailpos.dto.lookup.LookupDataResponse;
+import com.codewithshiva.retailpos.dto.shortcode.ShortCodeResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Service for lookup/utility operations.
@@ -22,6 +25,7 @@ import java.util.List;
 public class LookupService {
 
     private final LookupDao lookupDao;
+    private final ShortCodeDao shortCodeDao;
 
     // Static lookup values
     private static final List<String> PAYMENT_MODES = Arrays.asList(
@@ -49,15 +53,21 @@ public class LookupService {
         List<String> brands = lookupDao.findAllBrands();
         List<String> sizes = lookupDao.findAllSizes();
         List<String> colors = lookupDao.findAllColors();
+        List<String> fabrics = lookupDao.findAllFabrics();
+        List<ShortCodeResponse> shortCodes = shortCodeDao.findAll().stream()
+                .map(ShortCodeResponse::fromShortCode)
+                .collect(Collectors.toList());
 
         return LookupDataResponse.builder()
                 .categories(categories)
                 .brands(brands)
                 .sizes(sizes)
                 .colors(colors)
+                .fabrics(fabrics)
                 .paymentModes(PAYMENT_MODES)
                 .adjustmentReasons(ADJUSTMENT_REASONS)
                 .userRoles(USER_ROLES)
+                .shortCodes(shortCodes)
                 .build();
     }
 

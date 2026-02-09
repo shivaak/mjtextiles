@@ -3,6 +3,7 @@ package com.codewithshiva.retailpos.service;
 import com.codewithshiva.retailpos.audit.Auditable;
 import com.codewithshiva.retailpos.audit.AuditAction;
 import com.codewithshiva.retailpos.audit.EntityType;
+import com.codewithshiva.retailpos.dao.InventoryDao;
 import com.codewithshiva.retailpos.dao.ProductDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
 import com.codewithshiva.retailpos.dto.variant.*;
@@ -29,11 +30,14 @@ public class VariantService {
 
     private final VariantDao variantDao;
     private final ProductDao productDao;
+    private final InventoryDao inventoryDao;
     private final LookupService lookupService;
 
-    public VariantService(VariantDao variantDao, ProductDao productDao, @Lazy LookupService lookupService) {
+    public VariantService(VariantDao variantDao, ProductDao productDao, InventoryDao inventoryDao,
+                          @Lazy LookupService lookupService) {
         this.variantDao = variantDao;
         this.productDao = productDao;
+        this.inventoryDao = inventoryDao;
         this.lookupService = lookupService;
     }
 
@@ -148,6 +152,9 @@ public class VariantService {
         // Set default avgCost if not provided
         BigDecimal avgCost = request.getAvgCost() != null ? request.getAvgCost() : BigDecimal.ZERO;
 
+        // Determine initial stock
+        int initialStock = request.getInitialStock() != null ? request.getInitialStock() : 0;
+
         // Create variant
         Long variantId = variantDao.create(
                 request.getProductId(),
@@ -155,19 +162,65 @@ public class VariantService {
                 request.getBarcode(),
                 request.getSize(),
                 request.getColor(),
+                request.getFabric(),
                 request.getSellingPrice(),
                 avgCost,
+                initialStock,
                 request.getDefaultDiscountPercent(),
                 createdBy
         );
 
         log.info("Variant created successfully with ID: {}", variantId);
 
+        // If initial stock provided, create an OPENING_STOCK adjustment for audit trail
+        if (initialStock > 0) {
+            inventoryDao.createAdjustment(variantId, initialStock, "OPENING_STOCK",
+                    "Initial stock set during variant creation", createdBy);
+            log.info("Opening stock adjustment created for variant {}: {} units", variantId, initialStock);
+        }
+
         // Evict lookup cache since sizes/colors may have changed
         lookupService.evictLookupCache();
 
         // Fetch and return created variant with product info
         return getVariantById(variantId);
+    }
+
+    /**
+     * Batch create variants for an existing product.
+     */
+    @Transactional
+    public List<VariantDetailResponse> batchCreateVariants(
+            com.codewithshiva.retailpos.dto.variant.BatchCreateVariantsRequest request, Long createdBy) {
+        log.info("Batch creating {} variants for product ID: {}", request.getVariants().size(), request.getProductId());
+
+        // Validate product exists
+        productDao.findById(request.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "PRODUCT_NOT_FOUND",
+                        "Product not found with ID: " + request.getProductId()
+                ));
+
+        List<VariantDetailResponse> results = new java.util.ArrayList<>();
+
+        for (var variantItem : request.getVariants()) {
+            CreateVariantRequest cvr = new CreateVariantRequest();
+            cvr.setProductId(request.getProductId());
+            cvr.setSku(variantItem.getSku());
+            cvr.setBarcode(variantItem.getBarcode());
+            cvr.setSize(variantItem.getSize());
+            cvr.setColor(variantItem.getColor());
+            cvr.setFabric(variantItem.getFabric());
+            cvr.setSellingPrice(variantItem.getSellingPrice());
+            cvr.setAvgCost(variantItem.getAvgCost());
+            cvr.setDefaultDiscountPercent(variantItem.getDefaultDiscountPercent());
+            cvr.setInitialStock(variantItem.getInitialStock());
+
+            results.add(createVariant(cvr, createdBy));
+        }
+
+        log.info("Batch created {} variants successfully", results.size());
+        return results;
     }
 
     /**
@@ -216,6 +269,7 @@ public class VariantService {
                 request.getBarcode(),
                 request.getSize(),
                 request.getColor(),
+                request.getFabric(),
                 request.getSellingPrice(),
                 avgCost,
                 request.getDefaultDiscountPercent()

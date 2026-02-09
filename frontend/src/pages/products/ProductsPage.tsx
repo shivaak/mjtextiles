@@ -22,6 +22,8 @@ import {
   Grid,
   Typography,
   Autocomplete,
+  Divider,
+  Collapse,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams, GridPaginationModel } from '@mui/x-data-grid';
@@ -32,6 +34,8 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,16 +52,16 @@ import { settingsService } from '../../services/settingsService';
 import { offerService } from '../../services/offerService';
 import { formatApiError } from '../../services/api';
 import { lookupService } from '../../services/lookupService';
+import { shortCodeService } from '../../services/shortCodeService';
 import { formatCurrency } from '../../utils/calculations';
 import type {
   Product,
   Variant,
   Offer,
   VariantStatus,
-  CreateProductRequest,
   UpdateProductRequest,
-  CreateVariantRequest,
   UpdateVariantRequest,
+  ShortCode,
   Settings,
 } from '../../domain/types';
 import { calculateMarkupPercent, isLowStock, isOutOfStock } from '../../utils/calculations';
@@ -72,19 +76,75 @@ const productSchema = z.object({
   defaultDiscountPercent: z.number().min(0).max(100).optional(),
 });
 
-const variantSchema = z.object({
+const editVariantSchema = z.object({
   productId: z.number().min(1, 'Product is required'),
   sku: z.string().min(1, 'SKU is required'),
-  barcode: z.string().min(1, 'Barcode is required'),
-  size: z.string().min(1, 'Size is required'),
-  color: z.string().min(1, 'Color is required'),
+  barcode: z.string().optional(),
+  size: z.string().optional(),
+  color: z.string().optional(),
+  fabric: z.string().optional(),
   sellingPrice: z.number().min(0.01, 'Selling price must be greater than 0'),
   avgCost: z.number().min(0, 'Cost must be positive'),
   defaultDiscountPercent: z.number().min(0).max(100).nullable().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
-type VariantFormData = z.infer<typeof variantSchema>;
+type EditVariantFormData = z.infer<typeof editVariantSchema>;
+
+// Inline variant row type for multi-variant creation
+interface VariantRow {
+  key: string;
+  fabric: string;
+  color: string;
+  size: string;
+  sellingPrice: number;
+  avgCost: number;
+  initialStock: number;
+  sku: string;
+  barcode: string;
+  skuEdited: boolean;
+  barcodeEdited: boolean;
+  defaultDiscountPercent: number | null;
+}
+
+const createEmptyVariantRow = (): VariantRow => ({
+  key: crypto.randomUUID(),
+  fabric: '',
+  color: '',
+  size: '',
+  sellingPrice: 0,
+  avgCost: 0,
+  initialStock: 0,
+  sku: '',
+  barcode: '',
+  skuEdited: false,
+  barcodeEdited: false,
+  defaultDiscountPercent: null,
+});
+
+// SKU generation helper
+function generateSku(
+  categoryCode: string,
+  brandCode: string,
+  fabricCode: string,
+  color: string,
+  size: string
+): string {
+  const parts: string[] = [];
+  if (categoryCode) parts.push(categoryCode.toUpperCase());
+  if (brandCode) parts.push(brandCode.toUpperCase());
+  if (fabricCode) parts.push(fabricCode.toUpperCase());
+  if (color) parts.push(color.substring(0, 3).toUpperCase());
+  if (size) parts.push(size.toUpperCase());
+  return parts.join('-');
+}
+
+function getShortCodeForName(shortCodes: ShortCode[], type: string, name: string): string {
+  const found = shortCodes.find(
+    (sc) => sc.type === type && sc.name.toLowerCase() === name.toLowerCase()
+  );
+  return found?.shortCode || '';
+}
 
 export default function ProductsPage() {
   const { success: showSuccess, error: showError } = useNotification();
@@ -99,7 +159,7 @@ export default function ProductsPage() {
   const [productRows, setProductRows] = useState<Product[]>([]);
   const [productTotalElements, setProductTotalElements] = useState(0);
   const [productLoading, setProductLoading] = useState(false);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -119,6 +179,8 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
+  const [fabrics, setFabrics] = useState<string[]>([]);
+  const [shortCodes, setShortCodes] = useState<ShortCode[]>([]);
   const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
 
   // Product search for variant dialog
@@ -128,6 +190,7 @@ export default function ProductsPage() {
   // Dialog states
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
+  const [editVariantDialogOpen, setEditVariantDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingVariant, setEditingVariant] = useState<Variant | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ variant: Variant; newStatus: VariantStatus } | null>(null);
@@ -136,25 +199,41 @@ export default function ProductsPage() {
     action: 'delete' | 'deactivate' | 'activate';
   } | null>(null);
 
+  // Inline variant rows for product dialog
+  const [variantRowsForProduct, setVariantRowsForProduct] = useState<VariantRow[]>([]);
+  const [showVariantsSection, setShowVariantsSection] = useState(false);
+
+  // Inline variant rows for standalone variant dialog
+  const [variantRowsForBatch, setVariantRowsForBatch] = useState<VariantRow[]>([createEmptyVariantRow()]);
+  const [batchProductId, setBatchProductId] = useState<number>(0);
+
+  // Short code dialog state
+  const [shortCodeDialogOpen, setShortCodeDialogOpen] = useState(false);
+  const [newShortCodeType, setNewShortCodeType] = useState<'CATEGORY' | 'BRAND' | 'FABRIC'>('CATEGORY');
+  const [newShortCodeName, setNewShortCodeName] = useState('');
+  const [newShortCodeValue, setNewShortCodeValue] = useState('');
+  const [shortCodeCallback, setShortCodeCallback] = useState<((name: string) => void) | null>(null);
+
+  // Saving state
+  const [saving, setSaving] = useState(false);
+
   // Forms
   const productForm = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: { name: '', brand: '', category: '', hsn: '', description: '', defaultDiscountPercent: 0 },
   });
 
-  const variantForm = useForm<VariantFormData>({
-    resolver: zodResolver(variantSchema),
+  const editVariantForm = useForm<EditVariantFormData>({
+    resolver: zodResolver(editVariantSchema),
     defaultValues: {
-      productId: 0,
-      sku: '',
-      barcode: '',
-      size: '',
-      color: '',
-      sellingPrice: 0,
-      avgCost: 0,
-      defaultDiscountPercent: null,
+      productId: 0, sku: '', barcode: '', size: '', color: '', fabric: '',
+      sellingPrice: 0, avgCost: 0, defaultDiscountPercent: null,
     },
   });
+
+  // Watch product form values for SKU generation
+  const watchedBrand = productForm.watch('brand');
+  const watchedCategory = productForm.watch('category');
 
   // Fetch variants
   const fetchVariants = useCallback(async () => {
@@ -208,6 +287,8 @@ export default function ProductsPage() {
       ]);
       setCategories(lookups.categories || []);
       setBrands(lookups.brands || []);
+      setFabrics(lookups.fabrics || []);
+      setShortCodes(lookups.shortCodes || []);
       setProducts(productsData.content);
     } catch (error) {
       showError(formatApiError(error, 'Failed to load filter options'));
@@ -223,7 +304,6 @@ export default function ProductsPage() {
     } catch (error) {
       showError(formatApiError(error, 'Failed to load settings'));
       console.error('Failed to fetch settings', error);
-      // Default threshold if fetch fails
       setSettings({ lowStockThreshold: 10 } as Settings);
     }
   }, [showError]);
@@ -274,6 +354,88 @@ export default function ProductsPage() {
     fetchActiveOffers();
   }, [fetchFilterOptions, fetchSettings, fetchActiveOffers]);
 
+  // Auto-update SKUs for product dialog variant rows
+  useEffect(() => {
+    const catCode = getShortCodeForName(shortCodes, 'CATEGORY', watchedCategory);
+    const braCode = getShortCodeForName(shortCodes, 'BRAND', watchedBrand);
+
+    setVariantRowsForProduct((prev) =>
+      prev.map((row) => {
+        if (row.skuEdited) return row;
+        const fabCode = getShortCodeForName(shortCodes, 'FABRIC', row.fabric);
+        const newSku = generateSku(catCode, braCode, fabCode, row.color, row.size);
+        const newBarcode = row.barcodeEdited ? row.barcode : newSku;
+        return { ...row, sku: newSku, barcode: newBarcode };
+      })
+    );
+  }, [watchedCategory, watchedBrand, shortCodes]);
+
+  // Helper: update a variant row and regenerate SKU
+  const updateVariantRow = useCallback(
+    (
+      rows: VariantRow[],
+      setRows: React.Dispatch<React.SetStateAction<VariantRow[]>>,
+      key: string,
+      field: keyof VariantRow,
+      value: string | number | boolean | null,
+      catName?: string,
+      brandName?: string
+    ) => {
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.key !== key) return row;
+          const updated = { ...row, [field]: value };
+
+          // Regenerate SKU if not manually edited
+          if (!updated.skuEdited && field !== 'skuEdited') {
+            const cat = catName ?? watchedCategory;
+            const bra = brandName ?? watchedBrand;
+            const catCode = getShortCodeForName(shortCodes, 'CATEGORY', cat);
+            const braCode = getShortCodeForName(shortCodes, 'BRAND', bra);
+            const fabCode = getShortCodeForName(shortCodes, 'FABRIC', updated.fabric);
+            updated.sku = generateSku(catCode, braCode, fabCode, updated.color, updated.size);
+          }
+          // Sync barcode with SKU if not manually edited
+          if (!updated.barcodeEdited) {
+            updated.barcode = updated.sku;
+          }
+          return updated;
+        })
+      );
+    },
+    [shortCodes, watchedCategory, watchedBrand]
+  );
+
+  // Short code dialog
+  const openShortCodeDialog = (type: 'CATEGORY' | 'BRAND' | 'FABRIC', name: string, callback: (name: string) => void) => {
+    setNewShortCodeType(type);
+    setNewShortCodeName(name);
+    setNewShortCodeValue(name.substring(0, 3).toUpperCase());
+    setShortCodeCallback(() => callback);
+    setShortCodeDialogOpen(true);
+  };
+
+  const handleSaveShortCode = async () => {
+    try {
+      await shortCodeService.createShortCode({
+        type: newShortCodeType,
+        name: newShortCodeName,
+        shortCode: newShortCodeValue.toUpperCase(),
+      });
+      showSuccess(`${newShortCodeType.charAt(0) + newShortCodeType.slice(1).toLowerCase()} "${newShortCodeName}" added`);
+      setShortCodeDialogOpen(false);
+      // Refresh lookups to get updated short codes
+      const lookups = await lookupService.getLookups();
+      setCategories(lookups.categories || []);
+      setBrands(lookups.brands || []);
+      setFabrics(lookups.fabrics || []);
+      setShortCodes(lookups.shortCodes || []);
+      if (shortCodeCallback) shortCodeCallback(newShortCodeName);
+    } catch (error: unknown) {
+      showError(formatApiError(error, 'Failed to save short code'));
+    }
+  };
+
   // Handlers
   const openProductDialog = (product?: Product) => {
     if (product) {
@@ -286,75 +448,132 @@ export default function ProductsPage() {
         description: product.description || '',
         defaultDiscountPercent: product.defaultDiscountPercent || 0,
       });
+      setVariantRowsForProduct([]);
+      setShowVariantsSection(false);
     } else {
       setEditingProduct(null);
       productForm.reset({ name: '', brand: '', category: '', hsn: '', description: '', defaultDiscountPercent: 0 });
+      setVariantRowsForProduct([]);
+      setShowVariantsSection(false);
     }
     setProductDialogOpen(true);
   };
 
-  const openVariantDialog = (variant?: Variant) => {
-    if (variant) {
-      setEditingVariant(variant);
-      variantForm.reset({
-        productId: variant.productId,
-        sku: variant.sku,
-        barcode: variant.barcode,
-        size: variant.size,
-        color: variant.color,
-        sellingPrice: variant.sellingPrice,
-        avgCost: variant.avgCost,
-        defaultDiscountPercent: variant.effectiveDiscountPercent ?? null,
-      });
-    } else {
-      setEditingVariant(null);
-      variantForm.reset({
-        productId: 0,
-        sku: '',
-        barcode: '',
-        size: '',
-        color: '',
-        sellingPrice: 0,
-        avgCost: 0,
-        defaultDiscountPercent: null,
-      });
-    }
+  const openBatchVariantDialog = () => {
+    setBatchProductId(0);
+    setVariantRowsForBatch([createEmptyVariantRow()]);
     setVariantDialogOpen(true);
   };
 
+  const openEditVariantDialog = (variant: Variant) => {
+    setEditingVariant(variant);
+    editVariantForm.reset({
+      productId: variant.productId,
+      sku: variant.sku,
+      barcode: variant.barcode,
+      size: variant.size,
+      color: variant.color,
+      fabric: variant.fabric || '',
+      sellingPrice: variant.sellingPrice,
+      avgCost: variant.avgCost,
+      defaultDiscountPercent: variant.effectiveDiscountPercent ?? null,
+    });
+    setEditVariantDialogOpen(true);
+  };
+
   const handleSaveProduct = async (data: ProductFormData) => {
+    setSaving(true);
     try {
       if (editingProduct) {
         await productService.updateProduct(editingProduct.id, data as UpdateProductRequest);
         showSuccess('Product updated successfully');
       } else {
-        await productService.createProduct(data as CreateProductRequest);
-        showSuccess('Product created successfully');
+        // Check if there are variants to create with the product
+        const validVariants = variantRowsForProduct.filter((r) => r.sku && r.sellingPrice > 0);
+        if (validVariants.length > 0) {
+          await productService.createProductWithVariants({
+            ...data,
+            variants: validVariants.map((r) => ({
+              sku: r.sku,
+              barcode: r.barcode || undefined,
+              size: r.size || undefined,
+              color: r.color || undefined,
+              fabric: r.fabric || undefined,
+              sellingPrice: r.sellingPrice,
+              avgCost: r.avgCost || undefined,
+              defaultDiscountPercent: r.defaultDiscountPercent ?? undefined,
+              initialStock: r.initialStock || undefined,
+            })),
+          });
+          showSuccess(`Product created with ${validVariants.length} variant(s)`);
+        } else {
+          await productService.createProduct(data);
+          showSuccess('Product created successfully');
+        }
       }
       setProductDialogOpen(false);
-      fetchFilterOptions(); // Refresh products for dropdown
-      fetchVariants(); // Refresh variants list
-      fetchProducts(); // Refresh products list
-    } catch (error: unknown) {
-      showError(formatApiError(error, 'Failed to save product'));
-    }
-  };
-
-  const handleSaveVariant = async (data: VariantFormData) => {
-    try {
-      if (editingVariant) {
-        const { productId: _productId, ...updateData } = data;
-        await productService.updateVariant(editingVariant.id, updateData as UpdateVariantRequest);
-        showSuccess('Variant updated successfully');
-      } else {
-        await productService.createVariant(data as CreateVariantRequest);
-        showSuccess('Variant created. Add stock via Purchases or Inventory adjustment.');
-      }
-      setVariantDialogOpen(false);
+      fetchFilterOptions();
       fetchVariants();
       fetchProducts();
     } catch (error: unknown) {
-      showError(formatApiError(error, 'Failed to save variant'));
+      showError(formatApiError(error, 'Failed to save product'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveBatchVariants = async () => {
+    if (!batchProductId) {
+      showError('Please select a product');
+      return;
+    }
+    const validVariants = variantRowsForBatch.filter((r) => r.sku && r.sellingPrice > 0);
+    if (validVariants.length === 0) {
+      showError('Please add at least one variant with SKU and selling price');
+      return;
+    }
+    setSaving(true);
+    try {
+      await productService.createVariantsBatch({
+        productId: batchProductId,
+        variants: validVariants.map((r) => ({
+          sku: r.sku,
+          barcode: r.barcode || undefined,
+          size: r.size || undefined,
+          color: r.color || undefined,
+          fabric: r.fabric || undefined,
+          sellingPrice: r.sellingPrice,
+          avgCost: r.avgCost || undefined,
+          defaultDiscountPercent: r.defaultDiscountPercent ?? undefined,
+          initialStock: r.initialStock || undefined,
+        })),
+      });
+      showSuccess(`${validVariants.length} variant(s) created successfully`);
+      setVariantDialogOpen(false);
+      fetchVariants();
+      fetchProducts();
+      fetchFilterOptions();
+    } catch (error: unknown) {
+      showError(formatApiError(error, 'Failed to create variants'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateVariant = async (data: EditVariantFormData) => {
+    if (!editingVariant) return;
+    setSaving(true);
+    try {
+      const { productId: _productId, ...updateData } = data;
+      await productService.updateVariant(editingVariant.id, updateData as UpdateVariantRequest);
+      showSuccess('Variant updated successfully');
+      setEditVariantDialogOpen(false);
+      fetchVariants();
+      fetchProducts();
+    } catch (error: unknown) {
+      showError(formatApiError(error, 'Failed to update variant'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -390,6 +609,52 @@ export default function ProductsPage() {
     } catch (error: unknown) {
       showError(formatApiError(error, 'Failed to update product'));
     }
+  };
+
+  // Helper: strip "+ Add ..." prefix if present
+  const stripAddPrefix = (value: string): string => {
+    if (value.startsWith('+ Add "') && value.endsWith('"')) {
+      return value.slice(7, -1);
+    }
+    return value;
+  };
+
+  // Helper: build creatable autocomplete options for brand/category
+  const buildCreatableOptions = (options: string[], type: 'CATEGORY' | 'BRAND') => {
+    return {
+      options,
+      filterOptions: (opts: string[], state: { inputValue: string }) => {
+        const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+        if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+          filtered.push(`+ Add "${state.inputValue}"`);
+        }
+        return filtered;
+      },
+      handleChange: (value: string | null, fieldOnChange: (v: string) => void) => {
+        if (value && value.startsWith('+ Add "')) {
+          const name = value.slice(7, -1);
+          openShortCodeDialog(type, name, (savedName) => {
+            fieldOnChange(savedName);
+          });
+          fieldOnChange(name);
+        } else {
+          fieldOnChange(value || '');
+        }
+      },
+      handleInputChange: (value: string, reason: string, fieldOnChange: (v: string) => void) => {
+        if (reason === 'input') {
+          fieldOnChange(stripAddPrefix(value));
+        } else if (reason === 'reset') {
+          fieldOnChange(stripAddPrefix(value));
+        }
+      },
+      // On blur, if the typed text doesn't match any known option, clear it
+      handleBlur: (currentValue: string, fieldOnChange: (v: string) => void) => {
+        if (currentValue && !options.some((o) => o.toLowerCase() === currentValue.toLowerCase())) {
+          fieldOnChange('');
+        }
+      },
+    };
   };
 
   // Helper: find active offers for a product or variant
@@ -496,6 +761,206 @@ export default function ProductsPage() {
     });
   }, [variants, offerFilter, getOffersForVariant]);
 
+  // =============================================
+  // Variant Row Component (shared by both dialogs)
+  // =============================================
+  const renderVariantRows = (
+    rows: VariantRow[],
+    setRows: React.Dispatch<React.SetStateAction<VariantRow[]>>,
+    catName?: string,
+    brandName?: string,
+  ) => (
+    <Box>
+      {rows.map((row, index) => (
+        <Box key={row.key} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.default' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Variant {index + 1}
+            </Typography>
+            {rows.length > 1 && (
+              <IconButton size="small" color="error" onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+          <Grid container spacing={1.5}>
+            <Grid size={{ xs: 4 }}>
+              <Autocomplete
+                freeSolo
+                size="small"
+                options={fabrics}
+                value={row.fabric}
+                inputValue={row.fabric || ''}
+                onChange={(_, value) => {
+                  if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                    const name = value.slice(7, -1);
+                    openShortCodeDialog('FABRIC', name, (savedName) => {
+                      updateVariantRow(rows, setRows, row.key, 'fabric', savedName, catName, brandName);
+                    });
+                    updateVariantRow(rows, setRows, row.key, 'fabric', name, catName, brandName);
+                  } else {
+                    updateVariantRow(rows, setRows, row.key, 'fabric', typeof value === 'string' ? value : value || '', catName, brandName);
+                  }
+                }}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'input' || reason === 'reset') {
+                    updateVariantRow(rows, setRows, row.key, 'fabric', stripAddPrefix(value), catName, brandName);
+                  }
+                }}
+                filterOptions={(opts, state) => {
+                  const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                  if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                    filtered.push(`+ Add "${state.inputValue}"`);
+                  }
+                  return filtered;
+                }}
+                onBlur={() => {
+                  if (row.fabric && !fabrics.some((f) => f.toLowerCase() === row.fabric.toLowerCase())) {
+                    updateVariantRow(rows, setRows, row.key, 'fabric', '', catName, brandName);
+                  }
+                }}
+                renderInput={(params) => <TextField {...params} label="Fabric" />}
+              />
+            </Grid>
+            <Grid size={{ xs: 4 }}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Color (Optional)"
+                value={row.color}
+                onChange={(e) => updateVariantRow(rows, setRows, row.key, 'color', e.target.value, catName, brandName)}
+              />
+            </Grid>
+            <Grid size={{ xs: 4 }}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Size"
+                value={row.size}
+                onChange={(e) => updateVariantRow(rows, setRows, row.key, 'size', e.target.value, catName, brandName)}
+              />
+            </Grid>
+            <Grid size={{ xs: 4 }}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Selling Price"
+                type="number"
+                value={row.sellingPrice || ''}
+                onChange={(e) => updateVariantRow(rows, setRows, row.key, 'sellingPrice', parseFloat(e.target.value) || 0, catName, brandName)}
+                InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+              />
+            </Grid>
+            {isAdmin && (
+              <Grid size={{ xs: 4 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="Cost"
+                  type="number"
+                  value={row.avgCost || ''}
+                  onChange={(e) => updateVariantRow(rows, setRows, row.key, 'avgCost', parseFloat(e.target.value) || 0, catName, brandName)}
+                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                />
+              </Grid>
+            )}
+            <Grid size={{ xs: 4 }}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Initial Stock"
+                type="number"
+                value={row.initialStock || ''}
+                onChange={(e) => updateVariantRow(rows, setRows, row.key, 'initialStock', parseInt(e.target.value) || 0, catName, brandName)}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 32 }}>SKU:</Typography>
+                {row.skuEdited ? (
+                  <TextField
+                    size="small"
+                    variant="outlined"
+                    value={row.sku}
+                    onChange={(e) => {
+                      setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, sku: e.target.value } : r));
+                    }}
+                    sx={{ flex: 1 }}
+                    inputProps={{ style: { fontSize: 13, fontFamily: 'monospace' } }}
+                  />
+                ) : (
+                  <Chip
+                    label={row.sku || '(auto-generated)'}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                )}
+                <Tooltip title={row.skuEdited ? 'Use auto-generated SKU' : 'Edit SKU manually'}>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      if (row.skuEdited) {
+                        // Reset to auto-generated
+                        updateVariantRow(rows, setRows, row.key, 'skuEdited', false, catName, brandName);
+                      } else {
+                        setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, skuEdited: true } : r));
+                      }
+                    }}
+                  >
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1, minWidth: 55 }}>Barcode:</Typography>
+                {row.barcodeEdited ? (
+                  <TextField
+                    size="small"
+                    variant="outlined"
+                    value={row.barcode}
+                    onChange={(e) => {
+                      setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, barcode: e.target.value } : r));
+                    }}
+                    sx={{ flex: 1 }}
+                    inputProps={{ style: { fontSize: 13, fontFamily: 'monospace' } }}
+                  />
+                ) : (
+                  <Chip
+                    label={row.barcode || '(= SKU)'}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontFamily: 'monospace', fontSize: 12 }}
+                  />
+                )}
+                <Tooltip title={row.barcodeEdited ? 'Use SKU as barcode' : 'Edit barcode manually'}>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      if (row.barcodeEdited) {
+                        setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, barcodeEdited: false, barcode: r.sku } : r));
+                      } else {
+                        setRows((prev) => prev.map((r) => r.key === row.key ? { ...r, barcodeEdited: true } : r));
+                      }
+                    }}
+                  >
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Grid>
+          </Grid>
+        </Box>
+      ))}
+      <Button
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={() => setRows((prev) => [...prev, createEmptyVariantRow()])}
+      >
+        Add Variant
+      </Button>
+    </Box>
+  );
+
   // Columns
   const productColumns: GridColDef[] = [
     {
@@ -520,16 +985,8 @@ export default function ProductsPage() {
         );
       },
     },
-    {
-      field: 'category',
-      headerName: 'Category',
-      width: 140,
-    },
-    {
-      field: 'hsn',
-      headerName: 'HSN',
-      width: 120,
-    },
+    { field: 'category', headerName: 'Category', width: 140 },
+    { field: 'hsn', headerName: 'HSN', width: 120 },
     {
       field: 'description',
       headerName: 'Description',
@@ -607,16 +1064,8 @@ export default function ProductsPage() {
   ];
 
   const variantColumns: GridColDef[] = [
-    {
-      field: 'barcode',
-      headerName: 'Barcode',
-      width: 130,
-    },
-    {
-      field: 'sku',
-      headerName: 'SKU',
-      width: 150,
-    },
+    { field: 'barcode', headerName: 'Barcode', width: 130 },
+    { field: 'sku', headerName: 'SKU', width: 170 },
     {
       field: 'productName',
       headerName: 'Product',
@@ -639,21 +1088,10 @@ export default function ProductsPage() {
         );
       },
     },
-    {
-      field: 'productHsn',
-      headerName: 'HSN',
-      width: 110,
-    },
-    {
-      field: 'size',
-      headerName: 'Size',
-      width: 80,
-    },
-    {
-      field: 'color',
-      headerName: 'Color',
-      width: 100,
-    },
+    { field: 'productHsn', headerName: 'HSN', width: 100 },
+    { field: 'fabric', headerName: 'Fabric', width: 100 },
+    { field: 'size', headerName: 'Size', width: 70 },
+    { field: 'color', headerName: 'Color', width: 90 },
     {
       field: 'stockQty',
       headerName: 'Stock',
@@ -715,15 +1153,7 @@ export default function ProductsPage() {
                     How is Markup calculated?
                   </Typography>
                   <Typography variant="caption" display="block" sx={{ mb: 1 }}>
-                    Markup % = ((Price − Cost) / Cost) × 100
-                  </Typography>
-                  <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
-                    Example:
-                  </Typography>
-                  <Typography variant="caption" display="block">Selling Price: ₹150</Typography>
-                  <Typography variant="caption" display="block">Cost: ₹100</Typography>
-                  <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                    Markup = (150 − 100) / 100 × 100 = 50%
+                    Markup % = ((Price - Cost) / Cost) x 100
                   </Typography>
                 </Box>
               }
@@ -773,7 +1203,7 @@ export default function ProductsPage() {
       renderCell: (params: GridRenderCellParams<Variant>) => (
         <Box>
           <Tooltip title="Edit">
-            <IconButton size="small" onClick={() => openVariantDialog(params.row)}>
+            <IconButton size="small" onClick={() => openEditVariantDialog(params.row)}>
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -797,6 +1227,9 @@ export default function ProductsPage() {
     }] : []),
   ];
 
+  const brandHelpers = buildCreatableOptions(brands, 'BRAND');
+  const categoryHelpers = buildCreatableOptions(categories, 'CATEGORY');
+
   return (
     <Box>
       <PageHeader
@@ -818,9 +1251,9 @@ export default function ProductsPage() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => openVariantDialog()}
+              onClick={() => openBatchVariantDialog()}
             >
-              Add Variant
+              Add Variants
             </Button>
           </Box>
         }
@@ -967,11 +1400,11 @@ export default function ProductsPage() {
         </Card>
       )}
 
-      {/* Product Dialog */}
+      {/* =============== Product Dialog (Create / Edit) =============== */}
       <Dialog
         open={productDialogOpen}
         onClose={() => setProductDialogOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
         <form onSubmit={productForm.handleSubmit(handleSaveProduct)}>
@@ -1002,10 +1435,13 @@ export default function ProductsPage() {
                   render={({ field, fieldState }) => (
                     <Autocomplete
                       freeSolo
-                      options={brands}
+                      options={brandHelpers.options}
                       value={field.value}
-                      onChange={(_, value) => field.onChange(value || '')}
-                      onInputChange={(_, value) => field.onChange(value)}
+                      inputValue={field.value || ''}
+                      onChange={(_, value) => brandHelpers.handleChange(typeof value === 'string' ? value : value || '', field.onChange)}
+                      onInputChange={(_, value, reason) => brandHelpers.handleInputChange(value, reason, field.onChange)}
+                      filterOptions={brandHelpers.filterOptions}
+                      onBlur={() => brandHelpers.handleBlur(field.value, field.onChange)}
                       renderInput={(params) => (
                         <TextField
                           {...params}
@@ -1025,10 +1461,13 @@ export default function ProductsPage() {
                   render={({ field, fieldState }) => (
                     <Autocomplete
                       freeSolo
-                      options={categories}
+                      options={categoryHelpers.options}
                       value={field.value}
-                      onChange={(_, value) => field.onChange(value || '')}
-                      onInputChange={(_, value) => field.onChange(value)}
+                      inputValue={field.value || ''}
+                      onChange={(_, value) => categoryHelpers.handleChange(typeof value === 'string' ? value : value || '', field.onChange)}
+                      onInputChange={(_, value, reason) => categoryHelpers.handleInputChange(value, reason, field.onChange)}
+                      filterOptions={categoryHelpers.filterOptions}
+                      onBlur={() => categoryHelpers.handleBlur(field.value, field.onChange)}
                       renderInput={(params) => (
                         <TextField
                           {...params}
@@ -1056,6 +1495,24 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Controller
+                  name="defaultDiscountPercent"
+                  control={productForm.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                      fullWidth
+                      label="Default Discount %"
+                      type="number"
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid>
               <Grid size={{ xs: 12 }}>
                 <Controller
                   name="description"
@@ -1071,160 +1528,171 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 12 }}>
-                <Controller
-                  name="defaultDiscountPercent"
-                  control={productForm.control}
-                  render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-                      fullWidth
-                      label="Default Discount % (applies to all variants)"
-                      type="number"
-                      inputProps={{ min: 0, max: 100, step: 0.01 }}
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
-                    />
-                  )}
-                />
-              </Grid>
             </Grid>
+
+            {/* Inline Variants Section (only for new products) */}
+            {!editingProduct && (
+              <>
+                <Divider sx={{ my: 3 }} />
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', mb: 1 }}
+                  onClick={() => {
+                    setShowVariantsSection(!showVariantsSection);
+                    if (!showVariantsSection && variantRowsForProduct.length === 0) {
+                      setVariantRowsForProduct([createEmptyVariantRow()]);
+                    }
+                  }}
+                >
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Variants {variantRowsForProduct.length > 0 ? `(${variantRowsForProduct.length})` : '(Optional)'}
+                  </Typography>
+                  {showVariantsSection ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </Box>
+                <Collapse in={showVariantsSection}>
+                  {renderVariantRows(variantRowsForProduct, setVariantRowsForProduct)}
+                </Collapse>
+              </>
+            )}
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button type="button" onClick={() => setProductDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingProduct ? 'Update' : 'Create'}
+            <Button type="submit" variant="contained" disabled={saving}>
+              {saving ? 'Saving...' : editingProduct ? 'Update' : 'Create'}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
 
-      {/* Variant Dialog */}
+      {/* =============== Batch Add Variants Dialog =============== */}
       <Dialog
         open={variantDialogOpen}
         onClose={() => setVariantDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Add Variants</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1, mb: 2 }}>
+            <Autocomplete
+              options={productSearchOptions.length > 0 ? productSearchOptions : products}
+              getOptionLabel={(option) => `${option.name} (${option.brand})`}
+              value={[...products, ...productSearchOptions].find((p) => p.id === batchProductId) || null}
+              onChange={(_, value) => setBatchProductId(value ? value.id : 0)}
+              onInputChange={(_, value, reason) => {
+                if (reason === 'input') handleProductSearch(value);
+                if (reason === 'clear') {
+                  setBatchProductId(0);
+                  setProductSearchOptions(products);
+                }
+              }}
+              onFocus={() => setProductSearchOptions(products)}
+              isOptionEqualToValue={(option, val) => option.id === val.id}
+              renderInput={(params) => (
+                <TextField {...params} label="Product" placeholder="Search product..." />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="body2">{option.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.brand} | {option.category}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            />
+          </Box>
+
+          {batchProductId > 0 && (() => {
+            const selectedProduct = [...products, ...productSearchOptions].find((p) => p.id === batchProductId);
+            const catName = selectedProduct?.category || '';
+            const brandName = selectedProduct?.brand || '';
+            return renderVariantRows(variantRowsForBatch, setVariantRowsForBatch, catName, brandName);
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveBatchVariants} disabled={saving || !batchProductId}>
+            {saving ? 'Saving...' : 'Create Variants'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* =============== Edit Variant Dialog =============== */}
+      <Dialog
+        open={editVariantDialogOpen}
+        onClose={() => setEditVariantDialogOpen(false)}
         maxWidth="sm"
         fullWidth
       >
-        <form onSubmit={variantForm.handleSubmit(handleSaveVariant)}>
-          <DialogTitle>
-            {editingVariant ? 'Edit Variant' : 'Add Variant'}
-          </DialogTitle>
+        <form onSubmit={editVariantForm.handleSubmit(handleUpdateVariant)}>
+          <DialogTitle>Edit Variant</DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid size={{ xs: 12 }}>
-                <Controller
-                  name="productId"
-                  control={variantForm.control}
-                  render={({ field, fieldState }) => (
-                    <Autocomplete
-                      options={productSearchOptions.length > 0 ? productSearchOptions : products}
-                      getOptionLabel={(option) => `${option.name} (${option.brand})`}
-                      value={
-                        [...products, ...productSearchOptions].find((p) => p.id === field.value) || null
-                      }
-                      onChange={(_, value) => {
-                        field.onChange(value ? value.id : 0);
-                      }}
-                      onInputChange={(_, value, reason) => {
-                        if (reason === 'input') {
-                          handleProductSearch(value);
-                        }
-                        if (reason === 'clear') {
-                          field.onChange(0);
-                          setProductSearchOptions(products);
-                        }
-                      }}
-                      onFocus={() => setProductSearchOptions(products)}
-                      isOptionEqualToValue={(option, val) => option.id === val.id}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Product"
-                          placeholder="Search product..."
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                      renderOption={(props, option) => (
-                        <Box component="li" {...props} key={option.id}>
-                          <Box>
-                            <Typography variant="body2">{option.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {option.brand} | {option.category}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )}
-                    />
-                  )}
+                <TextField
+                  fullWidth
+                  label="Product"
+                  value={editingVariant ? `${editingVariant.productName} (${editingVariant.productBrand})` : ''}
+                  disabled
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <Controller
                   name="sku"
-                  control={variantForm.control}
+                  control={editVariantForm.control}
                   render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="SKU"
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
-                    />
+                    <TextField {...field} fullWidth label="SKU" error={!!fieldState.error} helperText={fieldState.error?.message} />
                   )}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <Controller
                   name="barcode"
-                  control={variantForm.control}
+                  control={editVariantForm.control}
                   render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Barcode"
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
-                    />
+                    <TextField {...field} fullWidth label="Barcode" error={!!fieldState.error} helperText={fieldState.error?.message} />
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 4 }}>
                 <Controller
-                  name="size"
-                  control={variantForm.control}
-                  render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Size"
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
+                  name="fabric"
+                  control={editVariantForm.control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={fabrics}
+                      value={field.value || ''}
+                      onChange={(_, value) => field.onChange(value || '')}
+                      onInputChange={(_, value, reason) => { if (reason === 'input') field.onChange(value); }}
+                      renderInput={(params) => <TextField {...params} label="Fabric" />}
                     />
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 4 }}>
                 <Controller
                   name="color"
-                  control={variantForm.control}
-                  render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Color"
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
-                    />
+                  control={editVariantForm.control}
+                  render={({ field }) => (
+                    <TextField {...field} fullWidth label="Color (Optional)" />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 4 }}>
+                <Controller
+                  name="size"
+                  control={editVariantForm.control}
+                  render={({ field }) => (
+                    <TextField {...field} fullWidth label="Size" />
                   )}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
                 <Controller
                   name="sellingPrice"
-                  control={variantForm.control}
+                  control={editVariantForm.control}
                   render={({ field, fieldState }) => (
                     <TextField
                       {...field}
@@ -1234,9 +1702,7 @@ export default function ProductsPage() {
                       error={!!fieldState.error}
                       helperText={fieldState.error?.message}
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                      }}
+                      InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                     />
                   )}
                 />
@@ -1245,7 +1711,7 @@ export default function ProductsPage() {
                 <Grid size={{ xs: 6 }}>
                   <Controller
                     name="avgCost"
-                    control={variantForm.control}
+                    control={editVariantForm.control}
                     render={({ field, fieldState }) => (
                       <TextField
                         {...field}
@@ -1255,9 +1721,7 @@ export default function ProductsPage() {
                         error={!!fieldState.error}
                         helperText={fieldState.error?.message}
                         onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        InputProps={{
-                          startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                        }}
+                        InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                       />
                     )}
                   />
@@ -1266,7 +1730,7 @@ export default function ProductsPage() {
               <Grid size={{ xs: 6 }}>
                 <Controller
                   name="defaultDiscountPercent"
-                  control={variantForm.control}
+                  control={editVariantForm.control}
                   render={({ field, fieldState }) => (
                     <TextField
                       {...field}
@@ -1282,22 +1746,56 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              {!editingVariant && (
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                    💡 Stock starts at 0. Add stock through <strong>Purchases</strong> (from supplier) or <strong>Inventory → Adjust Stock</strong> (for existing inventory).
-                  </Typography>
-                </Grid>
-              )}
             </Grid>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button type="button" onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingVariant ? 'Update' : 'Create'}
+            <Button type="button" onClick={() => setEditVariantDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={saving}>
+              {saving ? 'Saving...' : 'Update'}
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* =============== Short Code Dialog =============== */}
+      <Dialog
+        open={shortCodeDialogOpen}
+        onClose={() => setShortCodeDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          Add {newShortCodeType === 'CATEGORY' ? 'Category' : newShortCodeType === 'BRAND' ? 'Brand' : 'Fabric'} Short Code
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Name"
+              value={newShortCodeName}
+              onChange={(e) => setNewShortCodeName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Short Code (for SKU)"
+              value={newShortCodeValue}
+              onChange={(e) => setNewShortCodeValue(e.target.value.toUpperCase())}
+              inputProps={{ maxLength: 10 }}
+              helperText="2-5 character code used in auto-generated SKU"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShortCodeDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveShortCode}
+            disabled={!newShortCodeName || !newShortCodeValue}
+          >
+            Save
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Status Change Confirmation */}

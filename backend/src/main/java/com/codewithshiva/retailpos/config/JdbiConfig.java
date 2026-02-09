@@ -11,6 +11,7 @@ import com.codewithshiva.retailpos.dao.RefreshTokenDao;
 import com.codewithshiva.retailpos.dao.ReportDao;
 import com.codewithshiva.retailpos.dao.SaleDao;
 import com.codewithshiva.retailpos.dao.SettingsDao;
+import com.codewithshiva.retailpos.dao.ShortCodeDao;
 import com.codewithshiva.retailpos.dao.SupplierDao;
 import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.dao.VariantDao;
@@ -125,6 +126,11 @@ public class JdbiConfig {
     @Bean
     public AuditDao auditDao(Jdbi jdbi) {
         return jdbi.onDemand(AuditDao.class);
+    }
+
+    @Bean
+    public ShortCodeDao shortCodeDao(Jdbi jdbi) {
+        return jdbi.onDemand(ShortCodeDao.class);
     }
 
     // ==========================================

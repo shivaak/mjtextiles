@@ -24,7 +24,7 @@ public interface VariantDao {
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
                product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
-               sku, barcode, size, color, selling_price as sellingPrice, 
+               sku, barcode, size, color, fabric, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt,
                effective_discount_percent as effectiveDiscountPercent
@@ -37,7 +37,7 @@ public interface VariantDao {
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
                product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
-               sku, barcode, size, color, selling_price as sellingPrice, 
+               sku, barcode, size, color, fabric, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt,
                effective_discount_percent as effectiveDiscountPercent
@@ -50,7 +50,7 @@ public interface VariantDao {
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
                product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
-               sku, barcode, size, color, selling_price as sellingPrice, 
+               sku, barcode, size, color, fabric, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt,
                effective_discount_percent as effectiveDiscountPercent
@@ -81,10 +81,10 @@ public interface VariantDao {
     @SqlQuery("""
         SELECT v.id, v.product_id as productId, p.name as productName, 
                p.brand as productBrand, p.category as productCategory, p.hsn as productHsn,
-               v.sku, v.barcode, v.size, v.color, v.selling_price as sellingPrice, 
+               v.sku, v.barcode, v.size, v.color, v.fabric, v.selling_price as sellingPrice, 
                v.avg_cost as avgCost, v.stock_qty as stockQty, v.status, 
                v.created_at as createdAt, v.updated_at as updatedAt,
-               COALESCE(v.default_discount_percent, p.default_discount_percent) as effectiveDiscountPercent
+               v.effective_discount_percent as effectiveDiscountPercent
         FROM v_low_stock_variants v
         JOIN products p ON v.product_id = p.id
         WHERE (:productId IS NULL OR v.product_id = :productId)
@@ -109,7 +109,7 @@ public interface VariantDao {
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
                product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
-               sku, barcode, size, color, selling_price as sellingPrice, 
+               sku, barcode, size, color, fabric, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt,
                effective_discount_percent as effectiveDiscountPercent
@@ -141,7 +141,7 @@ public interface VariantDao {
     @SqlQuery("""
         SELECT id, product_id as productId, product_name as productName, 
                product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
-               sku, barcode, size, color, selling_price as sellingPrice, 
+               sku, barcode, size, color, fabric, selling_price as sellingPrice, 
                avg_cost as avgCost, stock_qty as stockQty, status, 
                created_at as createdAt, updated_at as updatedAt,
                effective_discount_percent as effectiveDiscountPercent
@@ -168,7 +168,7 @@ public interface VariantDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT id, product_id as productId, sku, barcode, size, color,
+        SELECT id, product_id as productId, sku, barcode, size, color, fabric,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
                status, default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
@@ -179,7 +179,7 @@ public interface VariantDao {
     Optional<Variant> findBySku(@Bind("sku") String sku);
 
     @SqlQuery("""
-        SELECT id, product_id as productId, sku, barcode, size, color,
+        SELECT id, product_id as productId, sku, barcode, size, color, fabric,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
                status, default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
@@ -190,7 +190,7 @@ public interface VariantDao {
     Optional<Variant> findByBarcode(@Bind("barcode") String barcode);
 
     @SqlQuery("""
-        SELECT id, product_id as productId, sku, barcode, size, color,
+        SELECT id, product_id as productId, sku, barcode, size, color, fabric,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
                status, default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
@@ -201,7 +201,7 @@ public interface VariantDao {
     Optional<Variant> findBySkuExcludingId(@Bind("sku") String sku, @Bind("excludeId") Long excludeId);
 
     @SqlQuery("""
-        SELECT id, product_id as productId, sku, barcode, size, color,
+        SELECT id, product_id as productId, sku, barcode, size, color, fabric,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
                status, default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy
@@ -216,8 +216,8 @@ public interface VariantDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO variants (product_id, sku, barcode, size, color, selling_price, avg_cost, default_discount_percent, created_by)
-        VALUES (:productId, :sku, :barcode, :size, :color, :sellingPrice, :avgCost, :defaultDiscountPercent, :createdBy)
+        INSERT INTO variants (product_id, sku, barcode, size, color, fabric, selling_price, avg_cost, stock_qty, default_discount_percent, created_by)
+        VALUES (:productId, :sku, :barcode, :size, :color, :fabric, :sellingPrice, :avgCost, :stockQty, :defaultDiscountPercent, :createdBy)
         """)
     @GetGeneratedKeys("id")
     Long create(@Bind("productId") Long productId,
@@ -225,8 +225,10 @@ public interface VariantDao {
                 @Bind("barcode") String barcode,
                 @Bind("size") String size,
                 @Bind("color") String color,
+                @Bind("fabric") String fabric,
                 @Bind("sellingPrice") BigDecimal sellingPrice,
                 @Bind("avgCost") BigDecimal avgCost,
+                @Bind("stockQty") Integer stockQty,
                 @Bind("defaultDiscountPercent") BigDecimal defaultDiscountPercent,
                 @Bind("createdBy") Long createdBy);
 
@@ -236,6 +238,7 @@ public interface VariantDao {
             barcode = :barcode,
             size = :size,
             color = :color,
+            fabric = :fabric,
             selling_price = :sellingPrice,
             avg_cost = :avgCost,
             default_discount_percent = :defaultDiscountPercent
@@ -246,6 +249,7 @@ public interface VariantDao {
                 @Bind("barcode") String barcode,
                 @Bind("size") String size,
                 @Bind("color") String color,
+                @Bind("fabric") String fabric,
                 @Bind("sellingPrice") BigDecimal sellingPrice,
                 @Bind("avgCost") BigDecimal avgCost,
                 @Bind("defaultDiscountPercent") BigDecimal defaultDiscountPercent);
@@ -269,7 +273,7 @@ public interface VariantDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT id, product_id as productId, sku, barcode, size, color,
+        SELECT id, product_id as productId, sku, barcode, size, color, fabric,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
                status, default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy

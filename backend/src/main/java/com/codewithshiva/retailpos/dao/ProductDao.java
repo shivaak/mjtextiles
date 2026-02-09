@@ -160,7 +160,7 @@ public interface ProductDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT id, product_id as productId, sku, barcode, size, color,
+        SELECT id, product_id as productId, sku, barcode, size, color, fabric,
                selling_price as sellingPrice, avg_cost as avgCost, stock_qty as stockQty,
                status, default_discount_percent as defaultDiscountPercent,
                created_at as createdAt, updated_at as updatedAt, created_by as createdBy

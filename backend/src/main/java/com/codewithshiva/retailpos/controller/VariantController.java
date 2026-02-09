@@ -81,6 +81,19 @@ public class VariantController {
         return ResponseEntity.ok(ApiResponse.success(variants));
     }
 
+    @PostMapping("/batch")
+    @Operation(summary = "Batch Create Variants", description = "Create multiple variants for a product in one go")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<List<VariantDetailResponse>>> batchCreateVariants(
+            @Valid @RequestBody com.codewithshiva.retailpos.dto.variant.BatchCreateVariantsRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Batch create variants request - productId: {}, count: {}",
+                request.getProductId(), request.getVariants().size());
+        List<VariantDetailResponse> variants = variantService.batchCreateVariants(request, userDetails.getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(variants, "Variants created successfully"));
+    }
+
     @PostMapping
     @Operation(summary = "Create Variant", description = "Create a new variant for a product")
     @SecurityRequirement(name = "bearerAuth")

@@ -69,6 +69,20 @@ public class ProductController {
                 .body(ApiResponse.success(product, "Product created successfully"));
     }
 
+    @PostMapping("/with-variants")
+    @Operation(summary = "Create Product with Variants", description = "Create a product and its variants in a single transaction")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<com.codewithshiva.retailpos.dto.product.ProductWithVariantsResponse>> createProductWithVariants(
+            @Valid @RequestBody com.codewithshiva.retailpos.dto.product.CreateProductWithVariantsRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Create product with variants request: {} - {} ({} variants)",
+                request.getBrand(), request.getName(),
+                request.getVariants() != null ? request.getVariants().size() : 0);
+        var result = productService.createProductWithVariants(request, userDetails.getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(result, "Product created with variants successfully"));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Update Product", description = "Update an existing product")
     @SecurityRequirement(name = "bearerAuth")

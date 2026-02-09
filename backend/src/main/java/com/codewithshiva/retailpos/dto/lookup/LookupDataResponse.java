@@ -1,5 +1,6 @@
 package com.codewithshiva.retailpos.dto.lookup;
 
+import com.codewithshiva.retailpos.dto.shortcode.ShortCodeResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,7 +20,9 @@ public class LookupDataResponse {
     private List<String> brands;
     private List<String> sizes;
     private List<String> colors;
+    private List<String> fabrics;
     private List<String> paymentModes;
     private List<String> adjustmentReasons;
     private List<String> userRoles;
+    private List<ShortCodeResponse> shortCodes;
 }

@@ -29,6 +29,7 @@ public class VariantListResponse {
     private String barcode;
     private String size;
     private String color;
+    private String fabric;
     private BigDecimal sellingPrice;
     private BigDecimal avgCost;
     private Integer stockQty;
@@ -51,6 +52,7 @@ public class VariantListResponse {
                 .barcode(variant.getBarcode())
                 .size(variant.getSize())
                 .color(variant.getColor())
+                .fabric(variant.getFabric())
                 .sellingPrice(variant.getSellingPrice())
                 .avgCost(variant.getAvgCost())
                 .stockQty(variant.getStockQty())

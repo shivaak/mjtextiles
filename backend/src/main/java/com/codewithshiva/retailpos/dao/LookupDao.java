@@ -10,18 +10,18 @@ import java.util.List;
 public interface LookupDao {
 
     @SqlQuery("""
-        SELECT DISTINCT category 
-        FROM products 
-        WHERE is_active = true AND category IS NOT NULL 
-        ORDER BY category
+        SELECT name 
+        FROM short_codes 
+        WHERE type = 'CATEGORY' 
+        ORDER BY name
         """)
     List<String> findAllCategories();
 
     @SqlQuery("""
-        SELECT DISTINCT brand 
-        FROM products 
-        WHERE is_active = true AND brand IS NOT NULL 
-        ORDER BY brand
+        SELECT name 
+        FROM short_codes 
+        WHERE type = 'BRAND' 
+        ORDER BY name
         """)
     List<String> findAllBrands();
 
@@ -40,4 +40,12 @@ public interface LookupDao {
         ORDER BY color
         """)
     List<String> findAllColors();
+
+    @SqlQuery("""
+        SELECT DISTINCT name 
+        FROM short_codes 
+        WHERE type = 'FABRIC' 
+        ORDER BY name
+        """)
+    List<String> findAllFabrics();
 }

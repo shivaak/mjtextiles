@@ -35,6 +35,9 @@ public class CreateVariantRequest {
     @Size(max = 50, message = "Color must not exceed 50 characters")
     private String color;
 
+    @Size(max = 50, message = "Fabric must not exceed 50 characters")
+    private String fabric;
+
     @NotNull(message = "Selling price is required")
     @DecimalMin(value = "0.00", message = "Selling price must be non-negative")
     private BigDecimal sellingPrice;
@@ -45,4 +48,7 @@ public class CreateVariantRequest {
     @DecimalMin(value = "0.00", message = "Discount must be at least 0%")
     @DecimalMax(value = "100.00", message = "Discount must not exceed 100%")
     private BigDecimal defaultDiscountPercent;
+
+    @jakarta.validation.constraints.Min(value = 0, message = "Initial stock must be non-negative")
+    private Integer initialStock;
 }

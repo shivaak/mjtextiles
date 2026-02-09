@@ -32,6 +32,9 @@ public class UpdateVariantRequest {
     @Size(max = 50, message = "Color must not exceed 50 characters")
     private String color;
 
+    @Size(max = 50, message = "Fabric must not exceed 50 characters")
+    private String fabric;
+
     @NotNull(message = "Selling price is required")
     @DecimalMin(value = "0.00", message = "Selling price must be non-negative")
     private BigDecimal sellingPrice;

@@ -10,6 +10,9 @@ import type {
   PagedResponse,
   ApiResponse,
   VariantSearchResponse,
+  CreateProductWithVariantsRequest,
+  ProductWithVariantsResponse,
+  BatchCreateVariantsRequest,
 } from '../domain/types';
 
 // Product API calls
@@ -34,6 +37,11 @@ export const productService = {
 
   async createProduct(data: CreateProductRequest): Promise<Product> {
     const response = await api.post<ApiResponse<Product>>('/products', data);
+    return unwrapApiResponse(response);
+  },
+
+  async createProductWithVariants(data: CreateProductWithVariantsRequest): Promise<ProductWithVariantsResponse> {
+    const response = await api.post<ApiResponse<ProductWithVariantsResponse>>('/products/with-variants', data);
     return unwrapApiResponse(response);
   },
 
@@ -85,6 +93,11 @@ export const productService = {
 
   async createVariant(data: CreateVariantRequest): Promise<Variant> {
     const response = await api.post<ApiResponse<Variant>>('/variants', data);
+    return unwrapApiResponse(response);
+  },
+
+  async createVariantsBatch(data: BatchCreateVariantsRequest): Promise<Variant[]> {
+    const response = await api.post<ApiResponse<Variant[]>>('/variants/batch', data);
     return unwrapApiResponse(response);
   },
 

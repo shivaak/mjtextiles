@@ -6,7 +6,9 @@
 -- v_variants_with_products
 -- Variant details with product information
 -- ===========================================
-CREATE OR REPLACE VIEW v_variants_with_products AS
+DROP VIEW IF EXISTS v_low_stock_variants;
+DROP VIEW IF EXISTS v_variants_with_products;
+CREATE VIEW v_variants_with_products AS
 SELECT 
     v.id,
     v.product_id,
@@ -17,6 +19,7 @@ SELECT
     v.barcode,
     v.size,
     v.color,
+    v.fabric,
     v.selling_price,
     v.avg_cost,
     v.stock_qty,
@@ -94,7 +97,8 @@ SELECT
     p.brand AS product_brand,
     p.category AS product_category,
     s.low_stock_threshold,
-    p.hsn AS product_hsn
+    p.hsn AS product_hsn,
+    COALESCE(v.default_discount_percent, p.default_discount_percent) AS effective_discount_percent
 FROM variants v
 JOIN products p ON v.product_id = p.id
 CROSS JOIN settings s
