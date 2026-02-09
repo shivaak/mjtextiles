@@ -5,6 +5,11 @@ import type {
   CreateCustomerRequest,
   UpdateCustomerRequest,
   CustomerPointsLog,
+  CustomerAnalyticsSummary,
+  CustomerRanking,
+  AreaDistribution,
+  MonthlyCustomerTrend,
+  PurchaseFrequency,
 } from '../domain/types';
 
 export const customerService = {
@@ -35,6 +40,37 @@ export const customerService = {
 
   async getPointsHistory(customerId: number): Promise<CustomerPointsLog[]> {
     const response = await api.get<ApiResponse<CustomerPointsLog[]>>(`/customers/${customerId}/points-history`);
+    return unwrapApiResponse(response);
+  },
+
+  // Analytics endpoints
+  async getAnalyticsSummary(): Promise<CustomerAnalyticsSummary> {
+    const response = await api.get<ApiResponse<CustomerAnalyticsSummary>>('/customer-analytics/summary');
+    return unwrapApiResponse(response);
+  },
+
+  async getTopByPurchases(limit = 20): Promise<CustomerRanking[]> {
+    const response = await api.get<ApiResponse<CustomerRanking[]>>('/customer-analytics/top-by-purchases', { params: { limit } });
+    return unwrapApiResponse(response);
+  },
+
+  async getTopByRevenue(limit = 20): Promise<CustomerRanking[]> {
+    const response = await api.get<ApiResponse<CustomerRanking[]>>('/customer-analytics/top-by-revenue', { params: { limit } });
+    return unwrapApiResponse(response);
+  },
+
+  async getAreaDistribution(): Promise<AreaDistribution[]> {
+    const response = await api.get<ApiResponse<AreaDistribution[]>>('/customer-analytics/area-distribution');
+    return unwrapApiResponse(response);
+  },
+
+  async getMonthlyTrend(): Promise<MonthlyCustomerTrend[]> {
+    const response = await api.get<ApiResponse<MonthlyCustomerTrend[]>>('/customer-analytics/monthly-trend');
+    return unwrapApiResponse(response);
+  },
+
+  async getPurchaseFrequency(): Promise<PurchaseFrequency[]> {
+    const response = await api.get<ApiResponse<PurchaseFrequency[]>>('/customer-analytics/purchase-frequency');
     return unwrapApiResponse(response);
   },
 };

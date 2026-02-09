@@ -235,6 +235,50 @@ export interface CustomerPointsLog {
   createdAt: string;
 }
 
+// Customer Analytics
+export interface CustomerAnalyticsSummary {
+  totalCustomers: number;
+  customersWithPurchases: number;
+  totalRevenue: number;
+  avgOrderValue: number;
+  totalTransactions: number;
+  totalPointsEarned: number;
+  totalPointsRedeemed: number;
+  totalPointsBalance: number;
+  repeatCustomers: number;
+  repeatRate: number;
+}
+
+export interface CustomerRanking {
+  customerId: number;
+  name: string;
+  phone: string;
+  area?: string;
+  purchaseCount: number;
+  totalSpent: number;
+  avgOrderValue: number;
+  lastPurchaseAt?: string;
+  loyaltyPoints: number;
+  rank: number;
+}
+
+export interface AreaDistribution {
+  area: string;
+  customerCount: number;
+  activeCustomers: number;
+  totalRevenue: number;
+}
+
+export interface MonthlyCustomerTrend {
+  month: string;
+  newCustomers: number;
+}
+
+export interface PurchaseFrequency {
+  bucket: string;
+  customerCount: number;
+}
+
 // Purchases
 export interface PurchaseList {
   id: number;

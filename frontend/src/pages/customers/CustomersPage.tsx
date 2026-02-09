@@ -11,6 +11,8 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -27,16 +29,20 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import HistoryIcon from '@mui/icons-material/History';
 import SearchIcon from '@mui/icons-material/Search';
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import dayjs from 'dayjs';
 
 import PageHeader from '../../components/common/PageHeader';
+import { useAuth } from '../../app/context/AuthContext';
 import { useNotification } from '../../app/context/NotificationContext';
 import { customerService } from '../../services/customerService';
 import { formatApiError } from '../../services/api';
 import type { Customer, CustomerPointsLog } from '../../domain/types';
+import CustomerAnalyticsTab from './CustomerAnalyticsTab';
 
 const customerSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
@@ -47,8 +53,10 @@ const customerSchema = z.object({
 type CustomerFormData = z.infer<typeof customerSchema>;
 
 export default function CustomersPage() {
+  const { isAdmin } = useAuth();
   const { success: showSuccess, error: showError } = useNotification();
 
+  const [activeTab, setActiveTab] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -236,57 +244,89 @@ export default function CustomersPage() {
           { label: 'Customers' },
         ]}
         action={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => openDialog()}>
-            Add Customer
-          </Button>
+          activeTab === 0 ? (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => openDialog()}>
+              Add Customer
+            </Button>
+          ) : undefined
         }
       />
 
-      <Card sx={{ mb: 3 }}>
-        <Box sx={{ p: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                placeholder="Search by name or phone..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={() => setSearch('')}
-              >
-                Reset
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-      </Card>
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_e, val) => setActiveTab(val)}
+          aria-label="customer tabs"
+        >
+          <Tab
+            icon={<PeopleOutlineIcon />}
+            iconPosition="start"
+            label="Customers"
+          />
+          {isAdmin && (
+            <Tab
+              icon={<AnalyticsIcon />}
+              iconPosition="start"
+              label="Analytics"
+            />
+          )}
+        </Tabs>
+      </Box>
 
-      <Card>
-        <DataGrid
-          rows={customers}
-          columns={columns}
-          pageSizeOptions={[10, 25]}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 10 } },
-          }}
-          disableRowSelectionOnClick
-          loading={loading}
-          sx={{ border: 0, minHeight: 400 }}
-        />
-      </Card>
+      {/* Tab: Customers List */}
+      {activeTab === 0 && (
+        <>
+          <Card sx={{ mb: 3 }}>
+            <Box sx={{ p: 2 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    placeholder="Search by name or phone..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    size="small"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 2 }}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => setSearch('')}
+                  >
+                    Reset
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
+          </Card>
+
+          <Card>
+            <DataGrid
+              rows={customers}
+              columns={columns}
+              pageSizeOptions={[10, 25]}
+              initialState={{
+                pagination: { paginationModel: { pageSize: 10 } },
+              }}
+              disableRowSelectionOnClick
+              loading={loading}
+              sx={{ border: 0, minHeight: 400 }}
+            />
+          </Card>
+        </>
+      )}
+
+      {/* Tab: Analytics */}
+      {activeTab === 1 && isAdmin && <CustomerAnalyticsTab />}
 
       {/* Create/Edit Dialog */}
       <Dialog
