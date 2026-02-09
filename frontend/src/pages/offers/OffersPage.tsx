@@ -47,23 +47,23 @@ const OFFER_TYPE_LABELS: Record<OfferType, string> = {
 
 const OFFER_TYPE_HELP: Record<OfferType, { description: string; example: string; fields: string }> = {
   QUANTITY_PRICE: {
-    description: 'Set a special price per unit when the customer buys a minimum quantity.',
-    example: 'Buy 3 or more Cotton Shirts → each at ₹399 instead of ₹499',
+    description: 'Set a special price per unit when the customer buys exactly the minimum quantity. Extra units beyond that are at regular price.',
+    example: 'Min Qty 3, Offer Price ₹399 → buy 4 items, 3 at ₹399 each + 1 at regular price',
     fields: 'Set: Product(s), Min Qty, Offer Price per product',
   },
   QUANTITY_DISCOUNT: {
-    description: 'Give a percentage discount when the customer buys a minimum quantity.',
-    example: 'Buy 3 or more Jeans → get 10% off on each',
+    description: 'Give a percentage discount when the customer buys the minimum quantity. Extra units beyond that are at regular price.',
+    example: 'Min Qty 3, Discount 10% → buy 4 items, 3 at 10% off + 1 at regular price',
     fields: 'Set: Product(s), Min Qty, Discount % per product',
   },
   COMBO: {
     description: 'Offer a combined price when the customer buys specific products together.',
-    example: 'Shirt + Pant together for ₹999 (instead of ₹600 + ₹500 = ₹1100)',
+    example: 'Product A + Product B together for ₹999 (instead of ₹600 + ₹500 = ₹1100)',
     fields: 'Set: 2+ Products with Min Qty each, Combo Price',
   },
   BOGO: {
     description: 'For each eligible product, customer pays for the most expensive units and gets the cheapest ones free.',
-    example: 'Buy 2, get 1 free → customer buys 3 of a product, pays for 2 most expensive, cheapest is free',
+    example: 'Buy 2, Get 1 Free → customer buys 3 items, pays for the 2 most expensive, cheapest is free',
     fields: 'Set: Buy Qty, Free Qty, Eligible Products (each evaluated independently)',
   },
 };
