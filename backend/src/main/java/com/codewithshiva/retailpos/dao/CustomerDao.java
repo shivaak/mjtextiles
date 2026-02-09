@@ -25,7 +25,7 @@ public interface CustomerDao {
         SELECT id, phone, name, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
-               is_active as isActive, created_at as createdAt, updated_at as updatedAt
+               created_at as createdAt, updated_at as updatedAt
         FROM customers
         WHERE id = :id
         """)
@@ -35,7 +35,7 @@ public interface CustomerDao {
         SELECT id, phone, name, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
-               is_active as isActive, created_at as createdAt, updated_at as updatedAt
+               created_at as createdAt, updated_at as updatedAt
         FROM customers
         WHERE phone = :phone
         """)
@@ -45,7 +45,7 @@ public interface CustomerDao {
         SELECT id, phone, name, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
-               is_active as isActive, created_at as createdAt, updated_at as updatedAt
+               created_at as createdAt, updated_at as updatedAt
         FROM customers
         ORDER BY name ASC
         """)
@@ -55,7 +55,7 @@ public interface CustomerDao {
         SELECT id, phone, name, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
-               is_active as isActive, created_at as createdAt, updated_at as updatedAt
+               created_at as createdAt, updated_at as updatedAt
         FROM customers
         WHERE LOWER(name) LIKE LOWER('%' || :search || '%')
            OR phone LIKE '%' || :search || '%'
@@ -67,7 +67,7 @@ public interface CustomerDao {
         SELECT id, phone, name, loyalty_points as loyaltyPoints,
                total_points_earned as totalPointsEarned,
                total_points_redeemed as totalPointsRedeemed,
-               is_active as isActive, created_at as createdAt, updated_at as updatedAt
+               created_at as createdAt, updated_at as updatedAt
         FROM customers
         WHERE phone = :phone AND id != :excludeId
         """)
@@ -88,14 +88,12 @@ public interface CustomerDao {
         UPDATE customers
         SET phone = :phone,
             name = :name,
-            is_active = :isActive,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
         """)
     void update(@Bind("id") Long id,
                 @Bind("phone") String phone,
-                @Bind("name") String name,
-                @Bind("isActive") boolean isActive);
+                @Bind("name") String name);
 
     // ==========================================
     // Points Operations

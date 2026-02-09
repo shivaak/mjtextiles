@@ -227,6 +227,11 @@ export default function BillingPage() {
     }
   }, [matchedCustomer]);
 
+  // Reset redeemed points when cart/discount changes (finalAmount drives this)
+  useEffect(() => {
+    setPointsToRedeem(0);
+  }, [finalAmount]);
+
   const addToCart = useCallback((variant: VariantSearchResponse) => {
     setCart((prev) => {
       const existingIndex = prev.findIndex((item) => item.variantId === variant.id);

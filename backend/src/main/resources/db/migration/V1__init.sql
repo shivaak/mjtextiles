@@ -228,7 +228,6 @@ CREATE TABLE customers (
     loyalty_points          INTEGER NOT NULL DEFAULT 0,
     total_points_earned     INTEGER NOT NULL DEFAULT 0,
     total_points_redeemed   INTEGER NOT NULL DEFAULT 0,
-    is_active               BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -240,7 +239,6 @@ CREATE TABLE customers (
 
 CREATE INDEX idx_customers_phone ON customers(phone);
 CREATE INDEX idx_customers_name ON customers(name);
-CREATE INDEX idx_customers_is_active ON customers(is_active);
 
 -- ===========================================
 -- Sales table
@@ -249,8 +247,6 @@ CREATE TABLE sales (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     bill_no             VARCHAR(20) NOT NULL,
     sold_at             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    customer_name       VARCHAR(100),
-    customer_phone      VARCHAR(20),
     customer_id         BIGINT REFERENCES customers(id),
     payment_mode        VARCHAR(20) NOT NULL DEFAULT 'CASH',
     subtotal            DECIMAL(12, 2) NOT NULL DEFAULT 0,
@@ -284,7 +280,6 @@ CREATE TABLE sales (
 
 CREATE INDEX idx_sales_bill_no ON sales(bill_no);
 CREATE INDEX idx_sales_sold_at ON sales(sold_at);
-CREATE INDEX idx_sales_customer_phone ON sales(customer_phone);
 CREATE INDEX idx_sales_customer_id ON sales(customer_id);
 CREATE INDEX idx_sales_payment_mode ON sales(payment_mode);
 CREATE INDEX idx_sales_status ON sales(status);

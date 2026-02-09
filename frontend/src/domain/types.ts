@@ -209,7 +209,6 @@ export interface Customer {
   loyaltyPoints: number;
   totalPointsEarned: number;
   totalPointsRedeemed: number;
-  isActive?: boolean;
   createdAt?: string;
 }
 
@@ -221,7 +220,6 @@ export interface CreateCustomerRequest {
 export interface UpdateCustomerRequest {
   phone: string;
   name: string;
-  isActive?: boolean;
 }
 
 export interface CustomerPointsLog {

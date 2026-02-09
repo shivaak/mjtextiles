@@ -24,7 +24,6 @@ public class CustomerResponse {
     private Integer loyaltyPoints;
     private Integer totalPointsEarned;
     private Integer totalPointsRedeemed;
-    private Boolean isActive;
     private OffsetDateTime createdAt;
 
     /**
@@ -38,7 +37,6 @@ public class CustomerResponse {
                 .loyaltyPoints(customer.getLoyaltyPoints())
                 .totalPointsEarned(customer.getTotalPointsEarned())
                 .totalPointsRedeemed(customer.getTotalPointsRedeemed())
-                .isActive(customer.isActive())
                 .createdAt(customer.getCreatedAt())
                 .build();
     }

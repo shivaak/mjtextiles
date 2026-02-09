@@ -129,9 +129,7 @@ public class CustomerService {
             }
         }
 
-        boolean isActive = request.getIsActive() != null ? request.getIsActive() : existing.isActive();
-
-        customerDao.update(id, request.getPhone(), request.getName(), isActive);
+        customerDao.update(id, request.getPhone(), request.getName());
 
         log.info("Customer updated successfully: {}", id);
 

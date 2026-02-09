@@ -270,6 +270,7 @@ public class InvoiceService {
         Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
         Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
         Font grandTotalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+        Font pointsFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(0, 128, 0));
 
         PdfPTable table = new PdfPTable(2);
         table.setWidthPercentage(50);
@@ -292,10 +293,24 @@ public class InvoiceService {
             );
         }
 
-        // Round-off calculation (same as frontend: Math.round)
+        // Points redemption deduction
+        BigDecimal pointsRedemptionAmount = defaultZero(sale.getPointsRedemptionAmount());
+        if (pointsRedemptionAmount.compareTo(BigDecimal.ZERO) > 0) {
+            int pointsRedeemed = sale.getPointsRedeemed() != null ? sale.getPointsRedeemed() : 0;
+            addSummaryRow(
+                    table,
+                    "Points Redeemed (" + pointsRedeemed + " pts)",
+                    "-" + formatMoney(pointsRedemptionAmount, settings.getCurrency()),
+                    labelFont,
+                    valueFont
+            );
+        }
+
+        // Net payable = total - points redemption amount
         BigDecimal total = defaultZero(sale.getTotal());
-        BigDecimal roundedTotal = total.setScale(0, RoundingMode.HALF_UP);
-        BigDecimal roundOff = roundedTotal.subtract(total);
+        BigDecimal netPayable = total.subtract(pointsRedemptionAmount);
+        BigDecimal roundedTotal = netPayable.setScale(0, RoundingMode.HALF_UP);
+        BigDecimal roundOff = roundedTotal.subtract(netPayable);
 
         if (roundOff.compareTo(BigDecimal.ZERO) != 0) {
             String roundOffDisplay = (roundOff.compareTo(BigDecimal.ZERO) > 0 ? "+" : "")
@@ -303,7 +318,7 @@ public class InvoiceService {
             addSummaryRow(table, "Round Off", roundOffDisplay, labelFont, valueFont);
         }
 
-        PdfPCell spacerLeft = new PdfPCell(new Phrase("Final Amount", grandTotalFont));
+        PdfPCell spacerLeft = new PdfPCell(new Phrase("Net Payable", grandTotalFont));
         spacerLeft.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
         spacerLeft.setBorderWidth(1.5f);
         spacerLeft.setBorderColor(new Color(100, 100, 100));
@@ -325,7 +340,19 @@ public class InvoiceService {
 
         document.add(table);
 
-        // Amount in words (using rounded total)
+        // Points earned note
+        int pointsEarned = sale.getPointsEarned() != null ? sale.getPointsEarned() : 0;
+        if (pointsEarned > 0) {
+            document.add(new Paragraph(" "));
+            Paragraph pointsNote = new Paragraph(
+                    "You earned " + pointsEarned + " loyalty points on this purchase!",
+                    pointsFont
+            );
+            pointsNote.setAlignment(Element.ALIGN_RIGHT);
+            document.add(pointsNote);
+        }
+
+        // Amount in words (using rounded net payable)
         document.add(new Paragraph(" "));
         Font amountWordsFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
         Paragraph amountInWords = new Paragraph(

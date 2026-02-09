@@ -8,11 +8,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
-  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -43,7 +41,6 @@ import type { Customer, CustomerPointsLog } from '../../domain/types';
 const customerSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
   name: z.string().min(1, 'Customer name is required'),
-  isActive: z.boolean(),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -66,7 +63,6 @@ export default function CustomersPage() {
     defaultValues: {
       phone: '',
       name: '',
-      isActive: true,
     },
   });
 
@@ -94,14 +90,12 @@ export default function CustomersPage() {
       form.reset({
         phone: selected.phone,
         name: selected.name,
-        isActive: selected.isActive ?? true,
       });
     } else {
       setEditingCustomer(null);
       form.reset({
         phone: '',
         name: '',
-        isActive: true,
       });
     }
     setDialogOpen(true);
@@ -127,7 +121,6 @@ export default function CustomersPage() {
         await customerService.updateCustomer(editingCustomer.id, {
           phone: data.phone,
           name: data.name,
-          isActive: data.isActive,
         });
         showSuccess('Customer updated successfully');
       } else {
@@ -192,18 +185,6 @@ export default function CustomersPage() {
       field: 'totalPointsRedeemed',
       headerName: 'Total Redeemed',
       width: 130,
-    },
-    {
-      field: 'isActive',
-      headerName: 'Status',
-      width: 100,
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={params.value ? 'Active' : 'Inactive'}
-          size="small"
-          color={params.value ? 'success' : 'default'}
-        />
-      ),
     },
     {
       field: 'createdAt',
@@ -337,25 +318,6 @@ export default function CustomersPage() {
                   )}
                 />
               </Grid>
-              {editingCustomer && (
-                <Grid size={{ xs: 12 }}>
-                  <Controller
-                    name="isActive"
-                    control={form.control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={field.value}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                          />
-                        }
-                        label="Active"
-                      />
-                    )}
-                  />
-                </Grid>
-              )}
             </Grid>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>

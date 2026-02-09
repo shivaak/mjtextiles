@@ -51,10 +51,13 @@ DROP VIEW IF EXISTS v_sales_with_details;
 CREATE VIEW v_sales_with_details AS
 SELECT 
     s.*,
+    c.name AS customer_name,
+    c.phone AS customer_phone,
     u.full_name AS created_by_name,
     vu.full_name AS voided_by_name,
     (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS item_count
 FROM sales s
+LEFT JOIN customers c ON s.customer_id = c.id
 LEFT JOIN users u ON s.created_by = u.id
 LEFT JOIN users vu ON s.voided_by = vu.id;
 

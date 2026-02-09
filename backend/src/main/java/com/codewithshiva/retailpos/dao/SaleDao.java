@@ -145,18 +145,16 @@ public interface SaleDao {
     // ==========================================
 
     @SqlUpdate("""
-        INSERT INTO sales (bill_no, sold_at, customer_name, customer_phone, customer_id, payment_mode,
+        INSERT INTO sales (bill_no, sold_at, customer_id, payment_mode,
                           subtotal, discount_percent, discount_amount, tax_percent, tax_amount,
                           total, profit, points_earned, points_redeemed, points_redemption_amount, created_by)
-        VALUES (:billNo, :soldAt, :customerName, :customerPhone, :customerId, :paymentMode,
+        VALUES (:billNo, :soldAt, :customerId, :paymentMode,
                 :subtotal, :discountPercent, :discountAmount, :taxPercent, :taxAmount,
                 :total, :profit, :pointsEarned, :pointsRedeemed, :pointsRedemptionAmount, :createdBy)
         """)
     @GetGeneratedKeys("id")
     Long create(@Bind("billNo") String billNo,
                 @Bind("soldAt") OffsetDateTime soldAt,
-                @Bind("customerName") String customerName,
-                @Bind("customerPhone") String customerPhone,
                 @Bind("customerId") Long customerId,
                 @Bind("paymentMode") String paymentMode,
                 @Bind("subtotal") BigDecimal subtotal,

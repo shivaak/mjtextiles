@@ -21,6 +21,4 @@ public class UpdateCustomerRequest {
     @NotBlank(message = "Customer name is required")
     @Size(max = 100, message = "Customer name must not exceed 100 characters")
     private String name;
-
-    private Boolean isActive;
 }

@@ -178,7 +178,7 @@ public class SaleService {
                 customerId = customer.getId();
                 // Update name if provided and different
                 if (customerName != null && !customerName.trim().isEmpty() && !customerName.equals(customer.getName())) {
-                    customerDao.update(customerId, customerPhone.trim(), customerName.trim(), customer.isActive());
+                    customerDao.update(customerId, customerPhone.trim(), customerName.trim());
                 }
                 log.debug("Found existing customer ID: {} for phone: {}", customerId, customerPhone);
             } else if (customerName != null && !customerName.trim().isEmpty()) {
@@ -277,8 +277,6 @@ public class SaleService {
         Long saleId = saleDao.create(
                 billNo,
                 soldAt,
-                request.getCustomerName(),
-                request.getCustomerPhone(),
                 customerId,
                 request.getPaymentMode(),
                 subtotal,

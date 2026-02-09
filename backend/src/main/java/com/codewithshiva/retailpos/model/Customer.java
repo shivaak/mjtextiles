@@ -20,22 +20,20 @@ public class Customer {
     private Integer loyaltyPoints;
     private Integer totalPointsEarned;
     private Integer totalPointsRedeemed;
-    private boolean isActive;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
     @ConstructorProperties({"id", "phone", "name", "loyaltyPoints", "totalPointsEarned",
-                           "totalPointsRedeemed", "isActive", "createdAt", "updatedAt"})
+                           "totalPointsRedeemed", "createdAt", "updatedAt"})
     public Customer(Long id, String phone, String name, Integer loyaltyPoints,
                     Integer totalPointsEarned, Integer totalPointsRedeemed,
-                    boolean isActive, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+                    OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = id;
         this.phone = phone;
         this.name = name;
         this.loyaltyPoints = loyaltyPoints;
         this.totalPointsEarned = totalPointsEarned;
         this.totalPointsRedeemed = totalPointsRedeemed;
-        this.isActive = isActive;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
