@@ -416,6 +416,9 @@ export interface SaleList {
   taxAmount: number;
   total: number;
   profit?: number;
+  pointsEarned?: number;
+  pointsRedeemed?: number;
+  pointsRedemptionAmount?: number;
   itemCount?: number;
   status: SaleStatus;
   createdBy: number;

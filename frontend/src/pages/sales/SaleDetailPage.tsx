@@ -387,15 +387,25 @@ export default function SaleDetailPage() {
                     <Typography color="error.main">-<Money value={sale.discountAmount} /></Typography>
                   </Box>
                 )}
+                {(sale.pointsRedeemed ?? 0) > 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography color="text.secondary">
+                      Points Redeemed ({sale.pointsRedeemed} pts)
+                    </Typography>
+                    <Typography color="error.main">
+                      -<Money value={sale.pointsRedemptionAmount || 0} />
+                    </Typography>
+                  </Box>
+                )}
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="h6" fontWeight={600}>Final Amount</Typography>
+                  <Typography variant="h6" fontWeight={600}>Net Payable</Typography>
                   <Typography
                     variant="h6"
                     fontWeight={600}
                     sx={{ textDecoration: sale.status === 'VOIDED' ? 'line-through' : 'none' }}
                   >
-                    <Money value={sale.total} />
+                    <Money value={sale.total - (sale.pointsRedemptionAmount || 0)} />
                   </Typography>
                 </Box>
                 {isAdmin && sale.status === 'COMPLETED' && (
@@ -403,6 +413,16 @@ export default function SaleDetailPage() {
                     <Typography color="text.secondary">Total Profit</Typography>
                     <Typography color="success.main" fontWeight={600}>
                       <Money value={sale.profit || 0} />
+                    </Typography>
+                  </Box>
+                )}
+                {(sale.pointsEarned ?? 0) > 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                    <Typography color="success.main" fontWeight={500}>
+                      Points Earned
+                    </Typography>
+                    <Typography color="success.main" fontWeight={500}>
+                      +{sale.pointsEarned} pts
                     </Typography>
                   </Box>
                 )}
@@ -490,7 +510,7 @@ export default function SaleDetailPage() {
               <ol style={{ margin: 0, paddingLeft: 20 }}>
                 <li>Click <strong>Void Sale</strong> to cancel this bill</li>
                 <li>Stock will be automatically restored</li>
-                <li>Refund the customer: <strong><Money value={sale.total} /></strong></li>
+                <li>Refund the customer: <strong><Money value={sale.total - (sale.pointsRedemptionAmount || 0)} /></strong></li>
               </ol>
             </Typography>
           </Box>

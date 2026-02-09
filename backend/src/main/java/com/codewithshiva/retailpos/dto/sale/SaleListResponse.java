@@ -50,6 +50,12 @@ public class SaleListResponse {
     @JsonView(Views.Admin.class) // Only visible to ADMIN
     private BigDecimal profit;
     @JsonView(Views.Employee.class)
+    private Integer pointsEarned;
+    @JsonView(Views.Employee.class)
+    private Integer pointsRedeemed;
+    @JsonView(Views.Employee.class)
+    private BigDecimal pointsRedemptionAmount;
+    @JsonView(Views.Employee.class)
     private Integer itemCount;
     @JsonView(Views.Employee.class)
     private String status;
@@ -79,6 +85,9 @@ public class SaleListResponse {
                 .taxAmount(sale.getTaxAmount())
                 .total(sale.getTotal())
                 .profit(sale.getProfit())
+                .pointsEarned(sale.getPointsEarned())
+                .pointsRedeemed(sale.getPointsRedeemed())
+                .pointsRedemptionAmount(sale.getPointsRedemptionAmount())
                 .itemCount(sale.getItemCount())
                 .status(sale.getStatus())
                 .createdBy(sale.getCreatedBy())

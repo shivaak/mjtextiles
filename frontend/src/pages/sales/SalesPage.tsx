@@ -95,7 +95,7 @@ export default function SalesPage() {
 
   const stats = useMemo(() => {
     const completed = sales.filter((sale) => sale.status === 'COMPLETED');
-    const totalSales = completed.reduce((sum, sale) => sum + sale.total, 0);
+    const totalSales = completed.reduce((sum, sale) => sum + sale.total - (sale.pointsRedemptionAmount || 0), 0);
     const totalProfit = completed.reduce((sum, sale) => sum + (sale.profit || 0), 0);
     const totalTransactions = completed.length;
     const voidedCount = sales.filter((sale) => sale.status === 'VOIDED').length;
@@ -175,11 +175,12 @@ export default function SalesPage() {
     },
     {
       field: 'total',
-      headerName: 'Total',
+      headerName: 'Net Payable',
       flex: 0.8,
       minWidth: 110,
       align: 'right',
       headerAlign: 'right',
+      valueGetter: (_value: unknown, row: SaleList) => row.total - (row.pointsRedemptionAmount || 0),
       renderCell: (params: GridRenderCellParams<SaleList>) => (
         <Typography
           fontWeight={600}
@@ -188,6 +189,36 @@ export default function SalesPage() {
           <Money value={params.value as number} />
         </Typography>
       ),
+    },
+    {
+      field: 'pointsEarned',
+      headerName: 'Pts Earned',
+      width: 90,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params: GridRenderCellParams<SaleList>) => {
+        const val = params.value as number || 0;
+        return (
+          <Typography variant="body2" color={val > 0 ? 'success.main' : 'text.secondary'} fontWeight={val > 0 ? 500 : 400}>
+            {val}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'pointsRedeemed',
+      headerName: 'Pts Redeemed',
+      width: 100,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params: GridRenderCellParams<SaleList>) => {
+        const val = params.value as number || 0;
+        return (
+          <Typography variant="body2" color={val > 0 ? 'error.main' : 'text.secondary'} fontWeight={val > 0 ? 500 : 400}>
+            {val}
+          </Typography>
+        );
+      },
     },
     ...(isAdmin ? [{
       field: 'profit',
