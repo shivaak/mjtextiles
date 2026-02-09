@@ -1,5 +1,5 @@
 -- ===========================================
--- V1: Initial Schema for Retail POS
+-- V1: Complete Schema for Retail POS
 -- ===========================================
 
 -- Users table
@@ -27,12 +27,11 @@ CREATE TABLE refresh_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Indexes for refresh_tokens
 CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
 -- ===========================================
--- Products table (includes HSN from V3)
+-- Products table
 -- ===========================================
 CREATE TABLE products (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -58,7 +57,7 @@ CREATE INDEX idx_products_is_active ON products(is_active);
 CREATE INDEX idx_products_search ON products USING gin(to_tsvector('english', name || ' ' || brand || ' ' || category || ' ' || hsn));
 
 -- ===========================================
--- Variants table
+-- Variants table (includes fabric from V3)
 -- ===========================================
 CREATE TABLE variants (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -67,6 +66,7 @@ CREATE TABLE variants (
     barcode         VARCHAR(50),
     size            VARCHAR(20),
     color           VARCHAR(50),
+    fabric          VARCHAR(50),
     selling_price   DECIMAL(12, 2) NOT NULL DEFAULT 0,
     avg_cost        DECIMAL(12, 2) NOT NULL DEFAULT 0,
     stock_qty       INTEGER NOT NULL DEFAULT 0,
@@ -114,7 +114,7 @@ CREATE INDEX idx_suppliers_name ON suppliers(name);
 CREATE INDEX idx_suppliers_is_active ON suppliers(is_active);
 
 -- ===========================================
--- Purchases table (includes void fields from V4)
+-- Purchases table
 -- ===========================================
 CREATE TABLE purchases (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -162,6 +162,62 @@ CREATE INDEX idx_purchase_items_purchase_id ON purchase_items(purchase_id);
 CREATE INDEX idx_purchase_items_variant_id ON purchase_items(variant_id);
 
 -- ===========================================
+-- Offers table (includes buy_qty/free_qty from V5)
+-- ===========================================
+CREATE TABLE offers (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name            VARCHAR(200) NOT NULL,
+    offer_type      VARCHAR(20) NOT NULL,
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    start_date      DATE,
+    end_date        DATE,
+    combo_price     DECIMAL(12, 2),
+    buy_qty         INT,
+    free_qty        INT,
+    priority        INT NOT NULL DEFAULT 0,
+    created_by      BIGINT REFERENCES users(id),
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT offers_type_check CHECK (offer_type IN ('QUANTITY_PRICE', 'QUANTITY_DISCOUNT', 'COMBO', 'BOGO')),
+    CONSTRAINT offers_combo_price_positive CHECK (combo_price IS NULL OR combo_price >= 0),
+    CONSTRAINT offers_date_range_check CHECK (start_date IS NULL OR end_date IS NULL OR end_date >= start_date),
+    CONSTRAINT offers_buy_qty_positive CHECK (buy_qty IS NULL OR buy_qty >= 1),
+    CONSTRAINT offers_free_qty_positive CHECK (free_qty IS NULL OR free_qty >= 1)
+);
+
+CREATE INDEX idx_offers_is_active ON offers(is_active);
+CREATE INDEX idx_offers_type ON offers(offer_type);
+CREATE INDEX idx_offers_dates ON offers(start_date, end_date);
+
+-- ===========================================
+-- Offer Items table
+-- ===========================================
+CREATE TABLE offer_items (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    offer_id        BIGINT NOT NULL REFERENCES offers(id) ON DELETE CASCADE,
+    product_id      BIGINT REFERENCES products(id),
+    variant_id      BIGINT REFERENCES variants(id),
+    min_qty         INT NOT NULL DEFAULT 1,
+    offer_price     DECIMAL(12, 2),
+    discount_percent DECIMAL(5, 2),
+    free_qty        INT NOT NULL DEFAULT 0,
+
+    CONSTRAINT offer_items_scope CHECK (
+        (product_id IS NOT NULL AND variant_id IS NULL) OR
+        (product_id IS NULL AND variant_id IS NOT NULL)
+    ),
+    CONSTRAINT offer_items_min_qty_positive CHECK (min_qty >= 1),
+    CONSTRAINT offer_items_offer_price_positive CHECK (offer_price IS NULL OR offer_price >= 0),
+    CONSTRAINT offer_items_discount_range CHECK (discount_percent IS NULL OR (discount_percent >= 0 AND discount_percent <= 100)),
+    CONSTRAINT offer_items_free_qty_positive CHECK (free_qty >= 0)
+);
+
+CREATE INDEX idx_offer_items_offer_id ON offer_items(offer_id);
+CREATE INDEX idx_offer_items_product_id ON offer_items(product_id);
+CREATE INDEX idx_offer_items_variant_id ON offer_items(variant_id);
+
+-- ===========================================
 -- Sales table
 -- ===========================================
 CREATE TABLE sales (
@@ -207,7 +263,7 @@ CREATE INDEX idx_sales_created_at ON sales(created_at);
 CREATE INDEX idx_sales_sold_at_status ON sales(sold_at, status);
 
 -- ===========================================
--- Sale Items table
+-- Sale Items table (includes applied_offer_id from V2)
 -- ===========================================
 CREATE TABLE sale_items (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -217,6 +273,7 @@ CREATE TABLE sale_items (
     unit_price          DECIMAL(12, 2) NOT NULL,
     unit_cost_at_sale   DECIMAL(12, 2) NOT NULL,
     item_discount_percent DECIMAL(5, 2) NOT NULL DEFAULT 0,
+    applied_offer_id    BIGINT REFERENCES offers(id),
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     CONSTRAINT sale_items_qty_positive CHECK (qty > 0),
@@ -227,6 +284,7 @@ CREATE TABLE sale_items (
 
 CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
 CREATE INDEX idx_sale_items_variant_id ON sale_items(variant_id);
+CREATE INDEX idx_sale_items_applied_offer_id ON sale_items(applied_offer_id);
 
 -- ===========================================
 -- Stock Adjustments table
@@ -273,7 +331,7 @@ CREATE TABLE settings (
 );
 
 -- ===========================================
--- Audit Logs table (from V2)
+-- Audit Logs table
 -- ===========================================
 CREATE TABLE audit_logs (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -293,3 +351,20 @@ CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 CREATE INDEX idx_audit_logs_entity_created ON audit_logs(entity_type, created_at DESC);
 CREATE INDEX idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC);
+
+-- ===========================================
+-- Short Codes table (categories, brands, fabric, size, color)
+-- ===========================================
+CREATE TABLE short_codes (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    type            VARCHAR(20) NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    short_code      VARCHAR(10) NOT NULL,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT short_codes_type_check CHECK (type IN ('CATEGORY', 'BRAND', 'FABRIC', 'SIZE', 'COLOR')),
+    CONSTRAINT short_codes_type_name_unique UNIQUE (type, name),
+    CONSTRAINT short_codes_type_code_unique UNIQUE (type, short_code)
+);
+
+CREATE INDEX idx_short_codes_type ON short_codes(type);
