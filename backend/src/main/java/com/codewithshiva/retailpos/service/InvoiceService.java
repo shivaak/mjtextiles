@@ -277,12 +277,12 @@ public class InvoiceService {
         table.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.setWidths(new float[]{1.5f, 1f});
 
-        // Taxable value = subtotal - tax amount (since subtotal is tax-inclusive)
-        BigDecimal taxableValue = defaultZero(sale.getSubtotal()).subtract(defaultZero(sale.getTaxAmount()));
-        addSummaryRow(table, "Total Taxable Value", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
-        addSummaryRow(table, "Total GST (" + defaultZero(sale.getTaxPercent()).stripTrailingZeros().toPlainString() + "%)", 
-                     formatMoney(sale.getTaxAmount(), settings.getCurrency()), labelFont, valueFont);
-        addSummaryRow(table, "Subtotal", formatMoney(sale.getSubtotal(), settings.getCurrency()), labelFont, valueFont);
+        // Taxable value = discounted subtotal - tax amount (tax-inclusive pricing)
+        BigDecimal subtotal = defaultZero(sale.getSubtotal());
+        BigDecimal discountAmount = defaultZero(sale.getDiscountAmount());
+        BigDecimal discountedSubtotal = subtotal.subtract(discountAmount);
+        BigDecimal taxableValue = discountedSubtotal.subtract(defaultZero(sale.getTaxAmount()));
+        addSummaryRow(table, "Subtotal (after item discounts)", formatMoney(sale.getSubtotal(), settings.getCurrency()), labelFont, valueFont);
         if (defaultZero(sale.getDiscountAmount()).compareTo(BigDecimal.ZERO) > 0) {
             addSummaryRow(
                     table,
@@ -292,6 +292,11 @@ public class InvoiceService {
                     valueFont
             );
         }
+        addDividerRow(table);
+        addSummaryRow(table, "Taxable Value (after bill discount)", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
+        addSummaryRow(table, "GST (" + defaultZero(sale.getTaxPercent()).stripTrailingZeros().toPlainString() + "%)", 
+                     formatMoney(sale.getTaxAmount(), settings.getCurrency()), labelFont, valueFont);
+        addDividerRow(table);
 
         // Points redemption deduction
         BigDecimal pointsRedemptionAmount = defaultZero(sale.getPointsRedemptionAmount());
@@ -437,6 +442,27 @@ public class InvoiceService {
         PdfPCell right = new PdfPCell(new Phrase(value, valueFont));
         right.setBorder(Rectangle.NO_BORDER);
         right.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        table.addCell(left);
+        table.addCell(right);
+    }
+
+    private void addDividerRow(PdfPTable table) {
+        PdfPCell left = new PdfPCell(new Phrase(""));
+        left.setBorder(Rectangle.TOP);
+        left.setBorderWidthTop(0.8f);
+        left.setBorderColor(new Color(200, 200, 200));
+        left.setPaddingTop(6);
+        left.setPaddingBottom(4);
+        left.setPaddingLeft(0);
+
+        PdfPCell right = new PdfPCell(new Phrase(""));
+        right.setBorder(Rectangle.TOP);
+        right.setBorderWidthTop(0.8f);
+        right.setBorderColor(new Color(200, 200, 200));
+        right.setPaddingTop(6);
+        right.setPaddingBottom(4);
+        right.setPaddingRight(0);
+
         table.addCell(left);
         table.addCell(right);
     }

@@ -22,7 +22,7 @@ public interface DashboardDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT COALESCE(SUM(total), 0) 
+        SELECT COALESCE(SUM(total - points_redemption_amount), 0) 
         FROM sales 
         WHERE status = 'COMPLETED' 
           AND sold_at >= :startDate 
@@ -52,7 +52,7 @@ public interface DashboardDao {
                               @Bind("endDate") OffsetDateTime endDate);
 
     @SqlQuery("""
-        SELECT COALESCE(AVG(total), 0) 
+        SELECT COALESCE(AVG(total - points_redemption_amount), 0) 
         FROM sales 
         WHERE status = 'COMPLETED' 
           AND sold_at >= :startDate 
@@ -114,23 +114,49 @@ public interface DashboardDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT 
-            si.variant_id as variantId,
-            p.name as productName,
-            v.sku,
-            v.size,
-            v.color,
-            SUM(si.qty) as qtySold,
-            SUM(si.qty * si.unit_price) as revenue,
-            SUM((si.unit_price - si.unit_cost_at_sale) * si.qty) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        JOIN variants v ON si.variant_id = v.id
-        JOIN products p ON v.product_id = p.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-        GROUP BY si.variant_id, p.name, v.sku, v.size, v.color
+        WITH line_calc AS (
+            SELECT
+                si.variant_id,
+                p.name as productName,
+                v.sku,
+                v.size,
+                v.color,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            JOIN variants v ON si.variant_id = v.id
+            JOIN products p ON v.product_id = p.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        )
+        SELECT
+            variant_id as variantId,
+            productName,
+            sku,
+            size,
+            color,
+            SUM(qty) as qtySold,
+            SUM(line_taxable) as revenue,
+            SUM(line_taxable - line_cost - allocated_redemption) as profit
+        FROM (
+            SELECT
+                *,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        ) t
+        GROUP BY variant_id, productName, sku, size, color
         ORDER BY qtySold DESC
         LIMIT :limit
         """)
@@ -169,7 +195,7 @@ public interface DashboardDao {
             bill_no as billNo,
             sold_at as soldAt,
             customer_name as customerName,
-            total,
+            (total - points_redemption_amount) as total,
             item_count as itemCount,
             payment_mode as paymentMode,
             status

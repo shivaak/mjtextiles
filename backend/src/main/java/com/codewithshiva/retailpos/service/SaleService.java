@@ -154,16 +154,17 @@ public class SaleService {
             subtotal = subtotal.add(lineAmount);
         }
 
-        // 5. Extract GST from subtotal (since MRP is tax-inclusive)
-        BigDecimal taxableValue = subtotal.divide(taxDivisor, 2, RoundingMode.HALF_UP);
-        BigDecimal taxAmount = subtotal.subtract(taxableValue);
-
-        // 6. Calculate global (additional) discount on subtotal
+        // 5. Calculate global (additional) discount on subtotal
         BigDecimal discountPercent = request.getDiscountPercent() != null ? request.getDiscountPercent() : BigDecimal.ZERO;
         BigDecimal discountAmount = subtotal.multiply(discountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
+        // 6. Extract GST from discounted subtotal (since MRP is tax-inclusive)
+        BigDecimal discountedSubtotal = subtotal.subtract(discountAmount);
+        BigDecimal taxableValue = discountedSubtotal.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+        BigDecimal taxAmount = discountedSubtotal.subtract(taxableValue);
+
         // 7. Calculate total (before points redemption)
-        BigDecimal total = subtotal.subtract(discountAmount);
+        BigDecimal total = discountedSubtotal;
 
         // 8. Handle customer lookup/creation
         Long customerId = null;

@@ -117,8 +117,8 @@ WHERE v.status = 'ACTIVE'
 CREATE OR REPLACE VIEW v_daily_sales_summary AS
 SELECT 
     DATE(sold_at) AS sale_date,
-    COUNT(*) AS transaction_count,
-    SUM(CASE WHEN status = 'COMPLETED' THEN total ELSE 0 END) AS total_sales,
+    COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS transaction_count,
+    SUM(CASE WHEN status = 'COMPLETED' THEN (total - points_redemption_amount) ELSE 0 END) AS total_sales,
     SUM(CASE WHEN status = 'COMPLETED' THEN profit ELSE 0 END) AS total_profit,
     COUNT(CASE WHEN status = 'VOIDED' THEN 1 END) AS voided_count,
     COUNT(CASE WHEN payment_mode = 'CASH' AND status = 'COMPLETED' THEN 1 END) AS cash_count,

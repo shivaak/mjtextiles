@@ -42,6 +42,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PercentIcon from '@mui/icons-material/Percent';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 import PageHeader from '../../components/common/PageHeader';
 import Money from '../../components/common/Money';
@@ -163,13 +164,14 @@ export default function BillingPage() {
 
   // Subtotal = sum of line amounts (tax-inclusive, after item discounts)
   const subtotal = cart.reduce((sum, item) => sum + (getEffectiveUnitPrice(item) * item.qty), 0);
-  // Extract taxable value and GST from subtotal
-  const totalTaxableValue = taxPercent > 0 ? subtotal / taxDivisor : subtotal;
-  const totalGst = subtotal - totalTaxableValue;
   // Additional discount on subtotal (tax-inclusive)
   const discountAmount = discountType === 'percent'
     ? calculateDiscountAmount(subtotal, discountValue)
     : Math.min(discountValue, subtotal);
+  // Extract taxable value and GST after global discount (tax-inclusive pricing)
+  const discountedSubtotal = subtotal - discountAmount;
+  const totalTaxableValue = taxPercent > 0 ? discountedSubtotal / taxDivisor : discountedSubtotal;
+  const totalGst = discountedSubtotal - totalTaxableValue;
   const discountPercent = discountType === 'percent'
     ? Math.min(discountValue, 100)
     : subtotal > 0 ? Math.min((discountValue / subtotal) * 100, 100) : 0;
@@ -985,7 +987,7 @@ export default function BillingPage() {
 
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Additional Discount
+                  Bill-level Discount (affects GST)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <ToggleButtonGroup
@@ -1010,6 +1012,9 @@ export default function BillingPage() {
                     inputProps={{ min: 0, step: discountType === 'percent' ? 1 : 10 }}
                   />
                 </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  GST is recalculated after bill-level discount.
+                </Typography>
               </Box>
 
               <FormControl fullWidth size="small" sx={{ mb: 3 }}>
@@ -1031,16 +1036,7 @@ export default function BillingPage() {
 
               <Box sx={{ mb: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Total Taxable Value</Typography>
-                  <Typography><Money value={totalTaxableValue} symbol={currencySymbol} /></Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Total GST ({taxPercent}%)</Typography>
-                  <Typography><Money value={totalGst} symbol={currencySymbol} /></Typography>
-                </Box>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography fontWeight={500}>Subtotal</Typography>
+                  <Typography fontWeight={500}>Subtotal (after item discounts)</Typography>
                   <Typography fontWeight={500}><Money value={subtotal} symbol={currencySymbol} /></Typography>
                 </Box>
                 {discountAmount > 0 && (
@@ -1053,6 +1049,22 @@ export default function BillingPage() {
                     </Typography>
                   </Box>
                 )}
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="text.secondary">Taxable Value (after bill discount)</Typography>
+                  <Typography><Money value={totalTaxableValue} symbol={currencySymbol} /></Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography color="text.secondary">Total GST ({taxPercent}%)</Typography>
+                    <Tooltip title="GST is calculated after bill-level discount.">
+                      <Box component="span" sx={{ display: 'inline-flex' }}>
+                        <HelpOutlineIcon aria-label="GST is calculated after bill-level discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
+                      </Box>
+                    </Tooltip>
+                  </Box>
+                  <Typography><Money value={totalGst} symbol={currencySymbol} /></Typography>
+                </Box>
                 {pointsRedemptionAmount > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography color="text.secondary">

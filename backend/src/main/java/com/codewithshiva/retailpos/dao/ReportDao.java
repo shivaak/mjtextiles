@@ -19,7 +19,7 @@ public interface ReportDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT COALESCE(SUM(total), 0) 
+        SELECT COALESCE(SUM(total - points_redemption_amount), 0) 
         FROM sales 
         WHERE status = 'COMPLETED' 
           AND sold_at >= :startDate 
@@ -73,7 +73,7 @@ public interface ReportDao {
     @SqlQuery("""
         SELECT 
             TO_CHAR(DATE_TRUNC('week', sold_at), 'YYYY-MM-DD') as period,
-            COALESCE(SUM(total), 0) as sales,
+            COALESCE(SUM(total - points_redemption_amount), 0) as sales,
             COALESCE(SUM(profit), 0) as profit,
             COUNT(*) as transactions
         FROM sales
@@ -94,7 +94,7 @@ public interface ReportDao {
     @SqlQuery("""
         SELECT 
             TO_CHAR(DATE_TRUNC('month', sold_at), 'YYYY-MM') as period,
-            COALESCE(SUM(total), 0) as sales,
+            COALESCE(SUM(total - points_redemption_amount), 0) as sales,
             COALESCE(SUM(profit), 0) as profit,
             COUNT(*) as transactions
         FROM sales
@@ -115,7 +115,7 @@ public interface ReportDao {
     @SqlQuery("""
         SELECT 
             payment_mode as mode,
-            COALESCE(SUM(total), 0) as amount,
+            COALESCE(SUM(total - points_redemption_amount), 0) as amount,
             COUNT(*) as count
         FROM sales
         WHERE status = 'COMPLETED'
@@ -133,34 +133,61 @@ public interface ReportDao {
     // ==========================================
 
     @SqlQuery("""
+        WITH line_calc AS (
+            SELECT
+                si.variant_id,
+                p.name as productName,
+                v.sku,
+                p.category,
+                p.brand,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            JOIN variants v ON si.variant_id = v.id
+            JOIN products p ON v.product_id = p.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+              AND (:category IS NULL OR p.category = :category)
+              AND (:brand IS NULL OR p.brand = :brand)
+        ),
+        calc AS (
+            SELECT
+                *,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        )
         SELECT 
-            si.variant_id as variantId,
-            p.name as productName,
-            v.sku,
-            p.category,
-            p.brand,
-            SUM(si.qty) as qtySold,
-            SUM(si.qty * si.unit_price) as revenue,
-            SUM(si.qty * si.unit_cost_at_sale) as cost,
-            SUM((si.unit_price - si.unit_cost_at_sale) * si.qty) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        JOIN variants v ON si.variant_id = v.id
-        JOIN products p ON v.product_id = p.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-          AND (:category IS NULL OR p.category = :category)
-          AND (:brand IS NULL OR p.brand = :brand)
-        GROUP BY si.variant_id, p.name, v.sku, p.category, p.brand
+            variant_id as variantId,
+            productName,
+            sku,
+            category,
+            brand,
+            SUM(qty) as qtySold,
+            SUM(line_taxable) as revenue,
+            SUM(line_cost) as cost,
+            SUM(line_taxable - line_cost - allocated_redemption) as profit
+        FROM calc
+        GROUP BY variant_id, productName, sku, category, brand
         ORDER BY 
-            CASE WHEN :sortBy = 'qtySold' AND :sortOrder = 'DESC' THEN SUM(si.qty) END DESC,
-            CASE WHEN :sortBy = 'qtySold' AND :sortOrder = 'ASC' THEN SUM(si.qty) END ASC,
-            CASE WHEN :sortBy = 'revenue' AND :sortOrder = 'DESC' THEN SUM(si.qty * si.unit_price) END DESC,
-            CASE WHEN :sortBy = 'revenue' AND :sortOrder = 'ASC' THEN SUM(si.qty * si.unit_price) END ASC,
-            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'DESC' THEN SUM((si.unit_price - si.unit_cost_at_sale) * si.qty) END DESC,
-            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'ASC' THEN SUM((si.unit_price - si.unit_cost_at_sale) * si.qty) END ASC,
-            SUM(si.qty) DESC
+            CASE WHEN :sortBy = 'qtySold' AND :sortOrder = 'DESC' THEN SUM(qty) END DESC,
+            CASE WHEN :sortBy = 'qtySold' AND :sortOrder = 'ASC' THEN SUM(qty) END ASC,
+            CASE WHEN :sortBy = 'revenue' AND :sortOrder = 'DESC' THEN SUM(line_taxable) END DESC,
+            CASE WHEN :sortBy = 'revenue' AND :sortOrder = 'ASC' THEN SUM(line_taxable) END ASC,
+            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'DESC' THEN SUM(line_taxable - line_cost - allocated_redemption) END DESC,
+            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'ASC' THEN SUM(line_taxable - line_cost - allocated_redemption) END ASC,
+            SUM(qty) DESC
         LIMIT :limit
         """)
     @RegisterConstructorMapper(ProductSalesData.class)
@@ -208,20 +235,43 @@ public interface ReportDao {
     // ==========================================
 
     @SqlQuery("""
+        WITH line_calc AS (
+            SELECT
+                p.category,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            JOIN variants v ON si.variant_id = v.id
+            JOIN products p ON v.product_id = p.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        ),
+        calc AS (
+            SELECT
+                *,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        )
         SELECT 
-            p.category,
-            SUM(si.qty) as qtySold,
-            SUM(si.qty * si.unit_price) as revenue,
-            SUM(si.qty * si.unit_cost_at_sale) as cost,
-            SUM((si.unit_price - si.unit_cost_at_sale) * si.qty) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        JOIN variants v ON si.variant_id = v.id
-        JOIN products p ON v.product_id = p.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-        GROUP BY p.category
+            category,
+            SUM(qty) as qtySold,
+            SUM(line_taxable) as revenue,
+            SUM(line_cost) as cost,
+            SUM(line_taxable - line_cost - allocated_redemption) as profit
+        FROM calc
+        GROUP BY category
         ORDER BY revenue DESC
         """)
     @RegisterConstructorMapper(CategorySalesData.class)
@@ -233,12 +283,30 @@ public interface ReportDao {
     // ==========================================
 
     @SqlQuery("""
-        SELECT COALESCE(SUM(si.qty * si.unit_price), 0)
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
+        WITH line_calc AS (
+            SELECT
+                si.qty,
+                si.unit_price,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        )
+        SELECT COALESCE(SUM(line_taxable), 0)
+        FROM (
+            SELECT
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        ) t
         """)
     BigDecimal getProfitTotalRevenue(@Bind("startDate") OffsetDateTime startDate,
                                       @Bind("endDate") OffsetDateTime endDate);
@@ -259,17 +327,39 @@ public interface ReportDao {
     // ==========================================
 
     @SqlQuery("""
+        WITH line_calc AS (
+            SELECT
+                s.sold_at,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        )
         SELECT 
-            TO_CHAR(DATE(s.sold_at), 'YYYY-MM-DD') as period,
-            COALESCE(SUM(si.qty * si.unit_price), 0) as revenue,
-            COALESCE(SUM(si.qty * si.unit_cost_at_sale), 0) as cost,
-            COALESCE(SUM((si.unit_price - si.unit_cost_at_sale) * si.qty), 0) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-        GROUP BY DATE(s.sold_at)
+            TO_CHAR(DATE(sold_at), 'YYYY-MM-DD') as period,
+            COALESCE(SUM(line_taxable), 0) as revenue,
+            COALESCE(SUM(line_cost), 0) as cost,
+            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit
+        FROM (
+            SELECT
+                sold_at,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        ) t
+        GROUP BY DATE(sold_at)
         ORDER BY period
         """)
     @RegisterConstructorMapper(ProfitPeriodData.class)
@@ -277,17 +367,39 @@ public interface ReportDao {
                                                 @Bind("endDate") OffsetDateTime endDate);
 
     @SqlQuery("""
+        WITH line_calc AS (
+            SELECT
+                s.sold_at,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        )
         SELECT 
-            TO_CHAR(DATE_TRUNC('week', s.sold_at), 'YYYY-MM-DD') as period,
-            COALESCE(SUM(si.qty * si.unit_price), 0) as revenue,
-            COALESCE(SUM(si.qty * si.unit_cost_at_sale), 0) as cost,
-            COALESCE(SUM((si.unit_price - si.unit_cost_at_sale) * si.qty), 0) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-        GROUP BY DATE_TRUNC('week', s.sold_at)
+            TO_CHAR(DATE_TRUNC('week', sold_at), 'YYYY-MM-DD') as period,
+            COALESCE(SUM(line_taxable), 0) as revenue,
+            COALESCE(SUM(line_cost), 0) as cost,
+            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit
+        FROM (
+            SELECT
+                sold_at,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        ) t
+        GROUP BY DATE_TRUNC('week', sold_at)
         ORDER BY period
         """)
     @RegisterConstructorMapper(ProfitPeriodData.class)
@@ -295,17 +407,39 @@ public interface ReportDao {
                                                  @Bind("endDate") OffsetDateTime endDate);
 
     @SqlQuery("""
+        WITH line_calc AS (
+            SELECT
+                s.sold_at,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        )
         SELECT 
-            TO_CHAR(DATE_TRUNC('month', s.sold_at), 'YYYY-MM') as period,
-            COALESCE(SUM(si.qty * si.unit_price), 0) as revenue,
-            COALESCE(SUM(si.qty * si.unit_cost_at_sale), 0) as cost,
-            COALESCE(SUM((si.unit_price - si.unit_cost_at_sale) * si.qty), 0) as profit
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-        GROUP BY DATE_TRUNC('month', s.sold_at)
+            TO_CHAR(DATE_TRUNC('month', sold_at), 'YYYY-MM') as period,
+            COALESCE(SUM(line_taxable), 0) as revenue,
+            COALESCE(SUM(line_cost), 0) as cost,
+            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit
+        FROM (
+            SELECT
+                sold_at,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        ) t
+        GROUP BY DATE_TRUNC('month', sold_at)
         ORDER BY period
         """)
     @RegisterConstructorMapper(ProfitPeriodData.class)
@@ -317,17 +451,44 @@ public interface ReportDao {
     // ==========================================
 
     @SqlQuery("""
+        WITH line_calc AS (
+            SELECT
+                s.id as saleId,
+                s.created_by as userId,
+                u.full_name as userName,
+                si.qty,
+                si.unit_price,
+                si.unit_cost_at_sale,
+                COALESCE(si.item_discount_percent, 0) as item_discount_percent,
+                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.tax_percent, 0) as tax_percent,
+                COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
+                s.total,
+                (si.unit_price * (1 - COALESCE(si.item_discount_percent, 0) / 100.0) * si.qty) as line_amount
+            FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
+            JOIN users u ON s.created_by = u.id
+            WHERE s.status = 'COMPLETED'
+              AND s.sold_at >= :startDate
+              AND s.sold_at < :endDate
+        ),
+        calc AS (
+            SELECT
+                *,
+                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
+                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                (unit_cost_at_sale * qty) as line_cost,
+                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+            FROM line_calc
+        )
         SELECT 
-            s.created_by as userId,
-            s.created_by_name as userName,
-            COALESCE(SUM(s.total), 0) as revenue,
-            COALESCE(SUM(s.profit), 0) as profit,
-            COUNT(*) as transactions
-        FROM v_sales_with_details s
-        WHERE s.status = 'COMPLETED'
-          AND s.sold_at >= :startDate
-          AND s.sold_at < :endDate
-        GROUP BY s.created_by, s.created_by_name
+            userId,
+            userName,
+            COALESCE(SUM(line_taxable), 0) as revenue,
+            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit,
+            COUNT(DISTINCT saleId) as transactions
+        FROM calc
+        GROUP BY userId, userName
         ORDER BY revenue DESC
         """)
     @RegisterConstructorMapper(CashierSalesData.class)

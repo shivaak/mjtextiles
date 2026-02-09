@@ -20,12 +20,14 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PrintIcon from '@mui/icons-material/Print';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import dayjs from 'dayjs';
 
 import { useAuth } from '../../app/context/AuthContext';
@@ -51,6 +53,8 @@ export default function SaleDetailPage() {
   const [voiding, setVoiding] = useState(false);
 
   const saleId = useMemo(() => (id ? Number(id) : NaN), [id]);
+  const summaryRowSx = { display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 2 };
+  const summaryAmountSx = { textAlign: 'right', minWidth: 96 };
 
   useEffect(() => {
     if (!id) {
@@ -312,8 +316,16 @@ export default function SaleDetailPage() {
                       const lineAmount = item.qty * effectiveUnitPrice;
                       const lineTaxableValue = sale.taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
                       const lineGst = lineAmount - lineTaxableValue;
-                      const lineRevenue = lineAmount / taxDivisor;
-                      const itemProfit = (lineRevenue - (item.unitCostAtSale || 0) * item.qty);
+
+                      const globalDiscountFactor = 1 - (sale.discountPercent || 0) / 100;
+                      const lineAfterGlobal = lineAmount * globalDiscountFactor;
+                      const profitTaxableValue = sale.taxPercent > 0 ? lineAfterGlobal / taxDivisor : lineAfterGlobal;
+                      const lineCost = (item.unitCostAtSale || 0) * item.qty;
+                      const pointsRedemptionAmount = sale.pointsRedemptionAmount || 0;
+                      const redemptionShare = (pointsRedemptionAmount > 0 && sale.total > 0)
+                        ? pointsRedemptionAmount * (lineAfterGlobal / sale.total)
+                        : 0;
+                      const itemProfit = profitTaxableValue - lineCost - redemptionShare;
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
@@ -366,66 +378,88 @@ export default function SaleDetailPage() {
               </TableContainer>
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Total Taxable Value</Typography>
-                  <Typography><Money value={sale.subtotal - sale.taxAmount} /></Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Total GST ({sale.taxPercent}%)</Typography>
-                  <Typography><Money value={sale.taxAmount} /></Typography>
-                </Box>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography fontWeight={500}>Subtotal</Typography>
-                  <Typography fontWeight={500}><Money value={sale.subtotal} /></Typography>
+                {(() => {
+                  const discountedSubtotal = sale.subtotal - sale.discountAmount;
+                  const taxableValue = discountedSubtotal - sale.taxAmount;
+                  return (
+                    <>
+                <Box sx={{ ...summaryRowSx, mb: 1 }}>
+                  <Typography fontWeight={500}>Subtotal (after item discounts)</Typography>
+                  <Typography fontWeight={500} sx={summaryAmountSx}><Money value={sale.subtotal} /></Typography>
                 </Box>
                 {sale.discountAmount > 0 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ ...summaryRowSx, mb: 1 }}>
                     <Typography color="text.secondary">
-                      Addl. Discount ({sale.discountPercent.toFixed(1)}%)
+                      Bill-level Discount (affects GST) ({sale.discountPercent.toFixed(1)}%)
                     </Typography>
-                    <Typography color="error.main">-<Money value={sale.discountAmount} /></Typography>
+                    <Typography color="error.main" sx={summaryAmountSx}>-<Money value={sale.discountAmount} /></Typography>
                   </Box>
                 )}
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ ...summaryRowSx, mb: 1 }}>
+                  <Typography color="text.secondary">Taxable Value (after bill discount)</Typography>
+                  <Typography sx={summaryAmountSx}><Money value={taxableValue} /></Typography>
+                </Box>
+                <Box sx={{ ...summaryRowSx, mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography color="text.secondary">Total GST ({sale.taxPercent}%)</Typography>
+                    <Tooltip title="GST is calculated after bill-level discount.">
+                      <Box component="span" sx={{ display: 'inline-flex' }}>
+                        <HelpOutlineIcon aria-label="GST is calculated after bill-level discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
+                      </Box>
+                    </Tooltip>
+                  </Box>
+                  <Typography sx={summaryAmountSx}><Money value={sale.taxAmount} /></Typography>
+                </Box>
                 {(sale.pointsRedeemed ?? 0) > 0 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography color="text.secondary">
-                      Points Redeemed ({sale.pointsRedeemed} pts)
-                    </Typography>
-                    <Typography color="error.main">
+                  <Box sx={{ ...summaryRowSx, mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography color="text.secondary">
+                        Points Redeemed ({sale.pointsRedeemed} pts)
+                      </Typography>
+                      <Tooltip title="Points are applied after GST.">
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
+                          <HelpOutlineIcon aria-label="Points are applied after GST" sx={{ fontSize: 14, color: 'text.disabled' }} />
+                        </Box>
+                      </Tooltip>
+                    </Box>
+                    <Typography color="error.main" sx={summaryAmountSx}>
                       -<Money value={sale.pointsRedemptionAmount || 0} />
                     </Typography>
                   </Box>
                 )}
                 <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="h6" fontWeight={600}>Net Payable</Typography>
+                <Box sx={{ ...summaryRowSx, mt: 1.5 }}>
+                  <Typography variant="h6" fontWeight={700}>Net Payable</Typography>
                   <Typography
-                    variant="h6"
-                    fontWeight={600}
-                    sx={{ textDecoration: sale.status === 'VOIDED' ? 'line-through' : 'none' }}
+                    variant="h5"
+                    fontWeight={700}
+                    sx={{ ...summaryAmountSx, textDecoration: sale.status === 'VOIDED' ? 'line-through' : 'none' }}
                   >
                     <Money value={sale.total - (sale.pointsRedemptionAmount || 0)} />
                   </Typography>
                 </Box>
                 {isAdmin && sale.status === 'COMPLETED' && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                    <Typography color="text.secondary">Total Profit</Typography>
-                    <Typography color="success.main" fontWeight={600}>
+                  <Box sx={{ ...summaryRowSx, mt: 1 }}>
+                    <Typography color="text.secondary">Product Profit (before bill discounts & points)</Typography>
+                    <Typography color="text.secondary" fontWeight={500} sx={summaryAmountSx}>
                       <Money value={sale.profit || 0} />
                     </Typography>
                   </Box>
                 )}
                 {(sale.pointsEarned ?? 0) > 0 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                  <Box sx={{ ...summaryRowSx, mt: 1 }}>
                     <Typography color="success.main" fontWeight={500}>
                       Points Earned
                     </Typography>
-                    <Typography color="success.main" fontWeight={500}>
+                    <Typography color="success.main" fontWeight={500} sx={summaryAmountSx}>
                       +{sale.pointsEarned} pts
                     </Typography>
                   </Box>
                 )}
+                    </>
+                  );
+                })()}
               </Box>
             </CardContent>
           </Card>
