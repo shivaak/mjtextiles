@@ -95,81 +95,89 @@ function getMatchingQty(
  * Only complete groups of minQty qualify.
  * E.g., minQty=3, offerPrice=999, qty=4 -> 3 at 999, 1 at regular.
  * Computes blended discount across all units for correct total.
+ * Supports multiple offer items: each rule is evaluated independently.
  */
 function evaluateQuantityPrice(cart: CartItem[], offer: Offer): OfferApplication[] {
-  const rule = offer.items[0];
-  if (!rule || rule.offerPrice == null) return [];
-
-  const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
-  if (totalQty < rule.minQty) return [];
-
   const results: OfferApplication[] = [];
-  for (const item of cart) {
-    if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
 
-    // Calculate how many of THIS item's units qualify for the offer
-    // Distribute qualifying qty proportionally if multiple variants match
-    const offerQty = Math.min(
-      item.qty,
-      Math.floor(totalQty / rule.minQty) * rule.minQty
-    );
-    const regularQty = item.qty - offerQty;
+  for (const rule of offer.items) {
+    if (rule.offerPrice == null) continue;
 
-    if (offerQty <= 0) continue;
+    const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
+    if (totalQty < rule.minQty) continue;
 
-    // Blended discount: total with offer vs total without
-    const totalWithOffer = offerQty * rule.offerPrice + regularQty * item.unitPrice;
-    const totalWithout = item.qty * item.unitPrice;
-    const blendedDiscPct = totalWithout > 0
-      ? ((totalWithout - totalWithOffer) / totalWithout) * 100
-      : 0;
+    for (const item of cart) {
+      if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
 
-    if (blendedDiscPct <= 0) continue;
+      // Calculate how many of THIS item's units qualify for the offer
+      // Distribute qualifying qty proportionally if multiple variants match
+      const offerQty = Math.min(
+        item.qty,
+        Math.floor(totalQty / rule.minQty) * rule.minQty
+      );
+      const regularQty = item.qty - offerQty;
 
-    results.push({
-      variantId: item.variantId,
-      offerId: offer.id,
-      offerName: offer.name,
-      discountPercent: blendedDiscPct,
-    });
+      if (offerQty <= 0) continue;
+
+      // Blended discount: total with offer vs total without
+      const totalWithOffer = offerQty * rule.offerPrice + regularQty * item.unitPrice;
+      const totalWithout = item.qty * item.unitPrice;
+      const blendedDiscPct = totalWithout > 0
+        ? ((totalWithout - totalWithOffer) / totalWithout) * 100
+        : 0;
+
+      if (blendedDiscPct <= 0) continue;
+
+      results.push({
+        variantId: item.variantId,
+        offerId: offer.id,
+        offerName: offer.name,
+        discountPercent: blendedDiscPct,
+      });
+    }
   }
+
   return results;
 }
 
 /**
  * QUANTITY_DISCOUNT: Buy >= minQty -> get X% off each.
  * Only complete groups of minQty qualify.
+ * Supports multiple offer items: each rule is evaluated independently.
  */
 function evaluateQuantityDiscount(cart: CartItem[], offer: Offer): OfferApplication[] {
-  const rule = offer.items[0];
-  if (!rule || rule.discountPercent == null) return [];
-
-  const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
-  if (totalQty < rule.minQty) return [];
-
   const results: OfferApplication[] = [];
-  for (const item of cart) {
-    if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
 
-    const offerQty = Math.min(
-      item.qty,
-      Math.floor(totalQty / rule.minQty) * rule.minQty
-    );
+  for (const rule of offer.items) {
+    if (rule.discountPercent == null) continue;
 
-    if (offerQty <= 0) continue;
+    const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
+    if (totalQty < rule.minQty) continue;
 
-    // Blended discount
-    const blendedDiscPct = (offerQty * rule.discountPercent) / item.qty;
+    for (const item of cart) {
+      if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
 
-    if (blendedDiscPct <= 0) continue;
+      const offerQty = Math.min(
+        item.qty,
+        Math.floor(totalQty / rule.minQty) * rule.minQty
+      );
 
-    results.push({
-      variantId: item.variantId,
-      offerId: offer.id,
-      offerName: offer.name,
-      discountPercent: blendedDiscPct,
-    });
+      if (offerQty <= 0) continue;
+
+      // Blended discount
+      const blendedDiscPct = (offerQty * rule.discountPercent) / item.qty;
+
+      if (blendedDiscPct <= 0) continue;
+
+      results.push({
+        variantId: item.variantId,
+        offerId: offer.id,
+        offerName: offer.name,
+        discountPercent: blendedDiscPct,
+      });
+    }
   }
+
   return results;
 }
 
@@ -228,36 +236,70 @@ function evaluateCombo(cart: CartItem[], offer: Offer): OfferApplication[] {
 }
 
 /**
- * BOGO: Buy minQty, get freeQty free.
- * For every (minQty + freeQty) items, freeQty items are free.
- * Blended as effective discount across all units.
+ * BOGO: "Buy X Get Y Free" — each product evaluated independently.
+ * - offer.buyQty (X) = number of items the customer pays for
+ * - offer.freeQty (Y) = number of cheapest items that are free
+ * - offer.items defines which products/variants are eligible
+ *
+ * Each product rule is evaluated independently against its matching cart items.
+ * Within a product, the customer needs X+Y units; they pay for the X most
+ * expensive (e.g. different variant prices) and the Y cheapest are free.
+ * Products are NOT combined across rules.
  */
 function evaluateBogo(cart: CartItem[], offer: Offer): OfferApplication[] {
-  const rule = offer.items[0];
-  if (!rule || !rule.freeQty || rule.freeQty <= 0) return [];
+  const buyQty = offer.buyQty;
+  const offerFreeQty = offer.freeQty;
+  if (!buyQty || buyQty <= 0 || !offerFreeQty || offerFreeQty <= 0) return [];
 
-  const totalQty = getMatchingQty(cart, rule.productId, rule.variantId);
-  const groupSize = rule.minQty + rule.freeQty;
-  if (totalQty < groupSize) return [];
-
-  // Number of complete groups
-  const completeGroups = Math.floor(totalQty / groupSize);
-  const freeItems = completeGroups * rule.freeQty;
-
-  if (freeItems <= 0) return [];
-
-  // Effective discount = (freeItems / totalQty) * 100
-  const effectiveDiscPct = (freeItems / totalQty) * 100;
-
+  const groupSize = buyQty + offerFreeQty;
   const results: OfferApplication[] = [];
-  for (const item of cart) {
-    if (!itemMatchesRule(item, rule.productId, rule.variantId)) continue;
-    results.push({
-      variantId: item.variantId,
-      offerId: offer.id,
-      offerName: offer.name,
-      discountPercent: effectiveDiscPct,
-    });
+
+  // Evaluate each offer item (product/variant rule) independently
+  for (const rule of offer.items) {
+    // Find cart items matching this specific rule
+    const matchingItems = cart.filter((ci) => itemMatchesRule(ci, rule.productId, rule.variantId));
+    if (matchingItems.length === 0) continue;
+
+    const totalQty = matchingItems.reduce((sum, item) => sum + item.qty, 0);
+    if (totalQty < groupSize) continue;
+
+    // How many complete groups and total free units
+    const completeGroups = Math.floor(totalQty / groupSize);
+    const totalFreeUnits = completeGroups * offerFreeQty;
+    if (totalFreeUnits <= 0) continue;
+
+    // Expand into individual units sorted by price ascending (cheapest first)
+    const units: { variantId: number; unitPrice: number }[] = [];
+    for (const item of matchingItems) {
+      for (let i = 0; i < item.qty; i++) {
+        units.push({ variantId: item.variantId, unitPrice: item.unitPrice });
+      }
+    }
+    units.sort((a, b) => a.unitPrice - b.unitPrice);
+
+    // The cheapest totalFreeUnits units are free
+    const freeCountPerVariant = new Map<number, number>();
+    for (let i = 0; i < totalFreeUnits && i < units.length; i++) {
+      const vid = units[i].variantId;
+      freeCountPerVariant.set(vid, (freeCountPerVariant.get(vid) || 0) + 1);
+    }
+
+    // Calculate discount per cart item based on how many of its units are free
+    for (const item of matchingItems) {
+      const freeUnits = freeCountPerVariant.get(item.variantId) || 0;
+      if (freeUnits <= 0) continue;
+
+      // Effective discount: value of free units / total value of this item
+      const discountPercent = (freeUnits / item.qty) * 100;
+
+      results.push({
+        variantId: item.variantId,
+        offerId: offer.id,
+        offerName: offer.name,
+        discountPercent,
+      });
+    }
   }
+
   return results;
 }

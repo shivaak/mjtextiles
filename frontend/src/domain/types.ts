@@ -274,6 +274,7 @@ export interface OfferItem {
   freeQty?: number;
   productName?: string;
   variantSku?: string;
+  variantProductId?: number;
 }
 
 export interface Offer {
@@ -284,6 +285,8 @@ export interface Offer {
   startDate?: string;
   endDate?: string;
   comboPrice?: number;
+  buyQty?: number;
+  freeQty?: number;
   priority: number;
   createdAt?: string;
   items: OfferItem[];
@@ -296,6 +299,8 @@ export interface CreateOfferRequest {
   startDate?: string;
   endDate?: string;
   comboPrice?: number;
+  buyQty?: number;
+  freeQty?: number;
   priority?: number;
   items: OfferItem[];
 }

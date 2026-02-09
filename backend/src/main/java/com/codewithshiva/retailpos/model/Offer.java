@@ -23,15 +23,18 @@ public class Offer {
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal comboPrice;
+    private Integer buyQty;
+    private Integer freeQty;
     private Integer priority;
     private Long createdBy;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
     @ConstructorProperties({"id", "name", "offerType", "isActive", "startDate", "endDate",
-                           "comboPrice", "priority", "createdBy", "createdAt", "updatedAt"})
+                           "comboPrice", "buyQty", "freeQty", "priority", "createdBy", "createdAt", "updatedAt"})
     public Offer(Long id, String name, String offerType, boolean isActive, LocalDate startDate,
-                 LocalDate endDate, BigDecimal comboPrice, Integer priority, Long createdBy,
+                 LocalDate endDate, BigDecimal comboPrice, Integer buyQty, Integer freeQty,
+                 Integer priority, Long createdBy,
                  OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = id;
         this.name = name;
@@ -40,6 +43,8 @@ public class Offer {
         this.startDate = startDate;
         this.endDate = endDate;
         this.comboPrice = comboPrice;
+        this.buyQty = buyQty;
+        this.freeQty = freeQty;
         this.priority = priority;
         this.createdBy = createdBy;
         this.createdAt = createdAt;

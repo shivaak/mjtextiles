@@ -30,6 +30,8 @@ public class OfferResponse {
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal comboPrice;
+    private Integer buyQty;
+    private Integer freeQty;
     private Integer priority;
     private OffsetDateTime createdAt;
     private List<OfferItemResponse> items;
@@ -43,6 +45,8 @@ public class OfferResponse {
                 .startDate(offer.getStartDate())
                 .endDate(offer.getEndDate())
                 .comboPrice(offer.getComboPrice())
+                .buyQty(offer.getBuyQty())
+                .freeQty(offer.getFreeQty())
                 .priority(offer.getPriority())
                 .createdAt(offer.getCreatedAt())
                 .items(items.stream()

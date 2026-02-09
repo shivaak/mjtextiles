@@ -26,12 +26,14 @@ public class OfferItem {
     // Additional fields from joins (for display)
     private String productName;
     private String variantSku;
+    private Long variantProductId;
 
     @ConstructorProperties({"id", "offerId", "productId", "variantId", "minQty",
-                           "offerPrice", "discountPercent", "freeQty", "productName", "variantSku"})
+                           "offerPrice", "discountPercent", "freeQty", "productName", "variantSku",
+                           "variantProductId"})
     public OfferItem(Long id, Long offerId, Long productId, Long variantId, Integer minQty,
                      BigDecimal offerPrice, BigDecimal discountPercent, Integer freeQty,
-                     String productName, String variantSku) {
+                     String productName, String variantSku, Long variantProductId) {
         this.id = id;
         this.offerId = offerId;
         this.productId = productId;
@@ -42,5 +44,6 @@ public class OfferItem {
         this.freeQty = freeQty;
         this.productName = productName;
         this.variantSku = variantSku;
+        this.variantProductId = variantProductId;
     }
 }

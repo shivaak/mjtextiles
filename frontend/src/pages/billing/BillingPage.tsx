@@ -362,93 +362,108 @@ export default function BillingPage() {
     const map = new Map<number, OfferHint[]>();
     if (activeOffers.length === 0 || cart.length === 0) return map;
 
+    const addHint = (variantId: number, hint: OfferHint) => {
+      const existing = map.get(variantId) || [];
+      existing.push(hint);
+      map.set(variantId, existing);
+    };
+
     for (const offer of activeOffers) {
-      const rule = offer.items[0];
-      if (!rule) continue;
+      if (offer.items.length === 0) continue;
 
-      // Find cart items that match this offer
-      const matchingCartItems = cart.filter((ci) => {
-        for (const oi of offer.items) {
-          if (oi.variantId != null && Number(ci.variantId) === Number(oi.variantId)) return true;
-          if (oi.productId != null && Number(ci.variant.productId) === Number(oi.productId)) return true;
-        }
-        return false;
-      });
-      if (matchingCartItems.length === 0) continue;
-
-      const isApplied = cart.some((ci) => ci.appliedOfferId === offer.id);
-
-      let desc = '';
-      let status: 'applied' | 'eligible' | 'needs_more' = 'eligible';
-      let statusLabel = '';
-
-      switch (offer.offerType) {
-        case 'QUANTITY_PRICE': {
-          const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
-          desc = `Buy ${rule.minQty}+ @ ${formatCurrency(rule.offerPrice!, currencySymbol)} each`;
-          if (isApplied) {
-            status = 'applied'; statusLabel = 'Applied';
-          } else if (totalQty >= rule.minQty) {
-            status = 'eligible'; statusLabel = 'Eligible';
-          } else {
-            status = 'needs_more'; statusLabel = `Add ${rule.minQty - totalQty} more`;
+      if (offer.offerType === 'COMBO') {
+        // COMBO: all items evaluated together
+        const matchingCartItems = cart.filter((ci) => {
+          for (const oi of offer.items) {
+            if (oi.variantId != null && Number(ci.variantId) === Number(oi.variantId)) return true;
+            if (oi.productId != null && Number(ci.variant.productId) === Number(oi.productId)) return true;
           }
-          break;
-        }
-        case 'QUANTITY_DISCOUNT': {
-          const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
-          desc = `Buy ${rule.minQty}+, get ${rule.discountPercent}% off`;
-          if (isApplied) {
-            status = 'applied'; statusLabel = 'Applied';
-          } else if (totalQty >= rule.minQty) {
-            status = 'eligible'; statusLabel = 'Eligible';
-          } else {
-            status = 'needs_more'; statusLabel = `Add ${rule.minQty - totalQty} more`;
+          return false;
+        });
+        if (matchingCartItems.length === 0) continue;
+
+        const isApplied = cart.some((ci) => ci.appliedOfferId === offer.id);
+        let status: 'applied' | 'eligible' | 'needs_more' = 'eligible';
+        let statusLabel = '';
+        const desc = `Combo with ${offer.items.filter(i => i.productName).map(i => i.productName).join(' + ')} for ${formatCurrency(offer.comboPrice!, currencySymbol)}`;
+
+        if (isApplied) {
+          status = 'applied'; statusLabel = 'Applied';
+        } else {
+          const missing: string[] = [];
+          let allPresent = true;
+          for (const oi of offer.items) {
+            const qty = cart.filter((ci) => {
+              if (oi.variantId != null) return Number(ci.variantId) === Number(oi.variantId);
+              if (oi.productId != null) return Number(ci.variant.productId) === Number(oi.productId);
+              return false;
+            }).reduce((s, c) => s + c.qty, 0);
+            if (qty < oi.minQty) { allPresent = false; missing.push(oi.productName || 'item'); }
           }
-          break;
+          if (allPresent) { status = 'eligible'; statusLabel = 'Eligible'; }
+          else { status = 'needs_more'; statusLabel = `Need ${missing.join(', ')}`; }
         }
-        case 'COMBO': {
-          desc = `Combo with ${offer.items.filter(i => i.productName).map(i => i.productName).join(' + ')} for ${formatCurrency(offer.comboPrice!, currencySymbol)}`;
-          if (isApplied) {
-            status = 'applied'; statusLabel = 'Applied';
-          } else {
-            const missing: string[] = [];
-            let allPresent = true;
-            for (const oi of offer.items) {
-              const qty = cart.filter((ci) => {
-                if (oi.variantId != null) return Number(ci.variantId) === Number(oi.variantId);
-                if (oi.productId != null) return Number(ci.variant.productId) === Number(oi.productId);
-                return false;
-              }).reduce((s, c) => s + c.qty, 0);
-              if (qty < oi.minQty) { allPresent = false; missing.push(oi.productName || 'item'); }
+
+        const hint: OfferHint = { offerId: offer.id, offerName: offer.name, description: desc, status, statusLabel };
+        for (const ci of matchingCartItems) addHint(ci.variantId, hint);
+      } else {
+        // QUANTITY_PRICE, QUANTITY_DISCOUNT, BOGO: each rule evaluated independently per product
+        for (const rule of offer.items) {
+          const matchingCartItems = cart.filter((ci) => {
+            if (rule.variantId != null && Number(ci.variantId) === Number(rule.variantId)) return true;
+            if (rule.productId != null && Number(ci.variant.productId) === Number(rule.productId)) return true;
+            return false;
+          });
+          if (matchingCartItems.length === 0) continue;
+
+          const isApplied = matchingCartItems.some((ci) => ci.appliedOfferId === offer.id);
+          let desc = '';
+          let status: 'applied' | 'eligible' | 'needs_more' = 'eligible';
+          let statusLabel = '';
+
+          switch (offer.offerType) {
+            case 'QUANTITY_PRICE': {
+              const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
+              desc = `Buy ${rule.minQty}+ @ ${formatCurrency(rule.offerPrice!, currencySymbol)} each`;
+              if (isApplied) {
+                status = 'applied'; statusLabel = 'Applied';
+              } else if (totalQty >= rule.minQty) {
+                status = 'eligible'; statusLabel = 'Eligible';
+              } else {
+                status = 'needs_more'; statusLabel = `Add ${rule.minQty - totalQty} more`;
+              }
+              break;
             }
-            if (allPresent) { status = 'eligible'; statusLabel = 'Eligible'; }
-            else { status = 'needs_more'; statusLabel = `Need ${missing.join(', ')}`; }
+            case 'QUANTITY_DISCOUNT': {
+              const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
+              desc = `Buy ${rule.minQty}+, get ${rule.discountPercent}% off`;
+              if (isApplied) {
+                status = 'applied'; statusLabel = 'Applied';
+              } else if (totalQty >= rule.minQty) {
+                status = 'eligible'; statusLabel = 'Eligible';
+              } else {
+                status = 'needs_more'; statusLabel = `Add ${rule.minQty - totalQty} more`;
+              }
+              break;
+            }
+            case 'BOGO': {
+              const bogoGroupSize = (offer.buyQty || 0) + (offer.freeQty || 0);
+              const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
+              desc = `Buy ${offer.buyQty}, get ${offer.freeQty} free (cheapest free)`;
+              if (isApplied) {
+                status = 'applied'; statusLabel = 'Applied';
+              } else if (totalQty >= bogoGroupSize) {
+                status = 'eligible'; statusLabel = 'Eligible';
+              } else {
+                status = 'needs_more'; statusLabel = `Add ${bogoGroupSize - totalQty} more`;
+              }
+              break;
+            }
           }
-          break;
-        }
-        case 'BOGO': {
-          const totalQty = matchingCartItems.reduce((s, c) => s + c.qty, 0);
-          const groupSize = rule.minQty + (rule.freeQty || 0);
-          desc = `Buy ${rule.minQty}, get ${rule.freeQty} free`;
-          if (isApplied) {
-            status = 'applied'; statusLabel = 'Applied';
-          } else if (totalQty >= groupSize) {
-            status = 'eligible'; statusLabel = 'Eligible';
-          } else {
-            status = 'needs_more'; statusLabel = `Add ${groupSize - totalQty} more`;
-          }
-          break;
-        }
-      }
 
-      const hint: OfferHint = { offerId: offer.id, offerName: offer.name, description: desc, status, statusLabel };
-
-      // Add hint to each matching cart item
-      for (const ci of matchingCartItems) {
-        const existing = map.get(ci.variantId) || [];
-        existing.push(hint);
-        map.set(ci.variantId, existing);
+          const hint: OfferHint = { offerId: offer.id, offerName: offer.name, description: desc, status, statusLabel };
+          for (const ci of matchingCartItems) addHint(ci.variantId, hint);
+        }
       }
     }
 

@@ -80,7 +80,8 @@ public class OfferService {
         log.info("Creating offer: {} (type: {})", request.getName(), request.getOfferType());
 
         validateOfferType(request.getOfferType());
-        validateOfferItems(request.getOfferType(), request.getItems(), request.getComboPrice());
+        validateOfferRequest(request.getOfferType(), request.getItems(), request.getComboPrice(),
+                request.getBuyQty(), request.getFreeQty());
 
         boolean isActive = request.getIsActive() != null ? request.getIsActive() : true;
 
@@ -91,6 +92,8 @@ public class OfferService {
                 request.getStartDate(),
                 request.getEndDate(),
                 request.getComboPrice(),
+                request.getBuyQty(),
+                request.getFreeQty(),
                 request.getPriority() != null ? request.getPriority() : 0,
                 createdBy
         );
@@ -124,7 +127,8 @@ public class OfferService {
                         "OFFER_NOT_FOUND", "Offer not found with ID: " + id));
 
         validateOfferType(request.getOfferType());
-        validateOfferItems(request.getOfferType(), request.getItems(), request.getComboPrice());
+        validateOfferRequest(request.getOfferType(), request.getItems(), request.getComboPrice(),
+                request.getBuyQty(), request.getFreeQty());
 
         boolean isActive = request.getIsActive() != null ? request.getIsActive() : existing.isActive();
 
@@ -136,6 +140,8 @@ public class OfferService {
                 request.getStartDate(),
                 request.getEndDate(),
                 request.getComboPrice(),
+                request.getBuyQty(),
+                request.getFreeQty(),
                 request.getPriority() != null ? request.getPriority() : existing.getPriority()
         );
 
@@ -196,7 +202,8 @@ public class OfferService {
         }
     }
 
-    private void validateOfferItems(String offerType, List<OfferItemRequest> items, java.math.BigDecimal comboPrice) {
+    private void validateOfferRequest(String offerType, List<OfferItemRequest> items,
+                                       java.math.BigDecimal comboPrice, Integer buyQty, Integer freeQty) {
         if (items == null || items.isEmpty()) {
             throw new BadRequestException("MISSING_OFFER_ITEMS", "At least one offer item is required");
         }
@@ -215,24 +222,20 @@ public class OfferService {
 
         switch (offerType) {
             case "QUANTITY_PRICE":
-                if (items.size() != 1) {
-                    throw new BadRequestException("INVALID_OFFER_ITEMS",
-                            "QUANTITY_PRICE offer must have exactly one item");
-                }
-                if (items.get(0).getOfferPrice() == null) {
-                    throw new BadRequestException("MISSING_OFFER_PRICE",
-                            "QUANTITY_PRICE offer item must have an offer price");
+                for (OfferItemRequest item : items) {
+                    if (item.getOfferPrice() == null) {
+                        throw new BadRequestException("MISSING_OFFER_PRICE",
+                                "Each QUANTITY_PRICE offer item must have an offer price");
+                    }
                 }
                 break;
 
             case "QUANTITY_DISCOUNT":
-                if (items.size() != 1) {
-                    throw new BadRequestException("INVALID_OFFER_ITEMS",
-                            "QUANTITY_DISCOUNT offer must have exactly one item");
-                }
-                if (items.get(0).getDiscountPercent() == null) {
-                    throw new BadRequestException("MISSING_DISCOUNT_PERCENT",
-                            "QUANTITY_DISCOUNT offer item must have a discount percent");
+                for (OfferItemRequest item : items) {
+                    if (item.getDiscountPercent() == null) {
+                        throw new BadRequestException("MISSING_DISCOUNT_PERCENT",
+                                "Each QUANTITY_DISCOUNT offer item must have a discount percent");
+                    }
                 }
                 break;
 
@@ -248,13 +251,14 @@ public class OfferService {
                 break;
 
             case "BOGO":
-                if (items.size() != 1) {
-                    throw new BadRequestException("INVALID_OFFER_ITEMS",
-                            "BOGO offer must have exactly one item");
+                // BOGO uses offer-level buyQty and freeQty; items define the eligible product pool
+                if (buyQty == null || buyQty <= 0) {
+                    throw new BadRequestException("MISSING_BUY_QTY",
+                            "BOGO offer must have a buy quantity greater than 0");
                 }
-                if (items.get(0).getFreeQty() == null || items.get(0).getFreeQty() <= 0) {
+                if (freeQty == null || freeQty <= 0) {
                     throw new BadRequestException("MISSING_FREE_QTY",
-                            "BOGO offer item must have a free quantity greater than 0");
+                            "BOGO offer must have a free quantity greater than 0");
                 }
                 break;
         }

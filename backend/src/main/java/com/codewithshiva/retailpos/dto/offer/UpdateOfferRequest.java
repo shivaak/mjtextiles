@@ -35,6 +35,10 @@ public class UpdateOfferRequest {
 
     private BigDecimal comboPrice;
 
+    private Integer buyQty;
+
+    private Integer freeQty;
+
     private Integer priority;
 
     @NotEmpty(message = "At least one offer item is required")

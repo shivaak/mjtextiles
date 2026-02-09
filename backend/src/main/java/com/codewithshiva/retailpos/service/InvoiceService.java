@@ -212,7 +212,7 @@ public class InvoiceService {
         if (hasAnyDiscount) {
             table = new PdfPTable(9);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{0.4f, 2.3f, 0.7f, 0.5f, 0.8f, 0.6f, 1.0f, 0.8f, 1.0f});
+            table.setWidths(new float[]{0.4f, 2.3f, 0.7f, 0.5f, 0.8f, 0.8f, 0.8f, 0.8f, 1.0f});
         } else {
             table = new PdfPTable(8);
             table.setWidthPercentage(100);

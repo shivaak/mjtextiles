@@ -27,6 +27,7 @@ public class OfferItemResponse {
     private Integer freeQty;
     private String productName;
     private String variantSku;
+    private Long variantProductId;
 
     public static OfferItemResponse fromOfferItem(OfferItem item) {
         return OfferItemResponse.builder()
@@ -39,6 +40,7 @@ public class OfferItemResponse {
                 .freeQty(item.getFreeQty())
                 .productName(item.getProductName())
                 .variantSku(item.getVariantSku())
+                .variantProductId(item.getVariantProductId())
                 .build();
     }
 }

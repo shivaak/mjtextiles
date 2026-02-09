@@ -36,6 +36,10 @@ public class CreateOfferRequest {
 
     private BigDecimal comboPrice;
 
+    private Integer buyQty;
+
+    private Integer freeQty;
+
     private Integer priority = 0;
 
     @NotEmpty(message = "At least one offer item is required")
