@@ -127,15 +127,15 @@ function generateSku(
   categoryCode: string,
   brandCode: string,
   fabricCode: string,
-  color: string,
-  size: string
+  colorCode: string,
+  sizeCode: string
 ): string {
   const parts: string[] = [];
   if (categoryCode) parts.push(categoryCode.toUpperCase());
   if (brandCode) parts.push(brandCode.toUpperCase());
   if (fabricCode) parts.push(fabricCode.toUpperCase());
-  if (color) parts.push(color.substring(0, 3).toUpperCase());
-  if (size) parts.push(size.toUpperCase());
+  if (colorCode) parts.push(colorCode.toUpperCase());
+  if (sizeCode) parts.push(sizeCode.toUpperCase());
   return parts.join('-');
 }
 
@@ -180,6 +180,8 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [fabrics, setFabrics] = useState<string[]>([]);
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [colors, setColors] = useState<string[]>([]);
   const [shortCodes, setShortCodes] = useState<ShortCode[]>([]);
   const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
 
@@ -209,7 +211,7 @@ export default function ProductsPage() {
 
   // Short code dialog state
   const [shortCodeDialogOpen, setShortCodeDialogOpen] = useState(false);
-  const [newShortCodeType, setNewShortCodeType] = useState<'CATEGORY' | 'BRAND' | 'FABRIC'>('CATEGORY');
+  const [newShortCodeType, setNewShortCodeType] = useState<'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR'>('CATEGORY');
   const [newShortCodeName, setNewShortCodeName] = useState('');
   const [newShortCodeValue, setNewShortCodeValue] = useState('');
   const [shortCodeCallback, setShortCodeCallback] = useState<((name: string) => void) | null>(null);
@@ -288,6 +290,8 @@ export default function ProductsPage() {
       setCategories(lookups.categories || []);
       setBrands(lookups.brands || []);
       setFabrics(lookups.fabrics || []);
+      setSizes(lookups.sizes || []);
+      setColors(lookups.colors || []);
       setShortCodes(lookups.shortCodes || []);
       setProducts(productsData.content);
     } catch (error) {
@@ -363,7 +367,9 @@ export default function ProductsPage() {
       prev.map((row) => {
         if (row.skuEdited) return row;
         const fabCode = getShortCodeForName(shortCodes, 'FABRIC', row.fabric);
-        const newSku = generateSku(catCode, braCode, fabCode, row.color, row.size);
+        const colCode = getShortCodeForName(shortCodes, 'COLOR', row.color);
+        const szCode = getShortCodeForName(shortCodes, 'SIZE', row.size);
+        const newSku = generateSku(catCode, braCode, fabCode, colCode, szCode);
         const newBarcode = row.barcodeEdited ? row.barcode : newSku;
         return { ...row, sku: newSku, barcode: newBarcode };
       })
@@ -393,7 +399,9 @@ export default function ProductsPage() {
             const catCode = getShortCodeForName(shortCodes, 'CATEGORY', cat);
             const braCode = getShortCodeForName(shortCodes, 'BRAND', bra);
             const fabCode = getShortCodeForName(shortCodes, 'FABRIC', updated.fabric);
-            updated.sku = generateSku(catCode, braCode, fabCode, updated.color, updated.size);
+            const colCode = getShortCodeForName(shortCodes, 'COLOR', updated.color);
+            const szCode = getShortCodeForName(shortCodes, 'SIZE', updated.size);
+            updated.sku = generateSku(catCode, braCode, fabCode, colCode, szCode);
           }
           // Sync barcode with SKU if not manually edited
           if (!updated.barcodeEdited) {
@@ -407,7 +415,7 @@ export default function ProductsPage() {
   );
 
   // Short code dialog
-  const openShortCodeDialog = (type: 'CATEGORY' | 'BRAND' | 'FABRIC', name: string, callback: (name: string) => void) => {
+  const openShortCodeDialog = (type: 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR', name: string, callback: (name: string) => void) => {
     setNewShortCodeType(type);
     setNewShortCodeName(name);
     setNewShortCodeValue(name.substring(0, 3).toUpperCase());
@@ -429,6 +437,8 @@ export default function ProductsPage() {
       setCategories(lookups.categories || []);
       setBrands(lookups.brands || []);
       setFabrics(lookups.fabrics || []);
+      setSizes(lookups.sizes || []);
+      setColors(lookups.colors || []);
       setShortCodes(lookups.shortCodes || []);
       if (shortCodeCallback) shortCodeCallback(newShortCodeName);
     } catch (error: unknown) {
@@ -823,21 +833,79 @@ export default function ProductsPage() {
               />
             </Grid>
             <Grid size={{ xs: 4 }}>
-              <TextField
+              <Autocomplete
+                freeSolo
                 size="small"
-                fullWidth
-                label="Color (Optional)"
+                options={colors}
                 value={row.color}
-                onChange={(e) => updateVariantRow(rows, setRows, row.key, 'color', e.target.value, catName, brandName)}
+                inputValue={row.color || ''}
+                onChange={(_, value) => {
+                  if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                    const name = value.slice(7, -1);
+                    openShortCodeDialog('COLOR', name, (savedName) => {
+                      updateVariantRow(rows, setRows, row.key, 'color', savedName, catName, brandName);
+                    });
+                    updateVariantRow(rows, setRows, row.key, 'color', name, catName, brandName);
+                  } else {
+                    updateVariantRow(rows, setRows, row.key, 'color', typeof value === 'string' ? value : value || '', catName, brandName);
+                  }
+                }}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'input' || reason === 'reset') {
+                    updateVariantRow(rows, setRows, row.key, 'color', stripAddPrefix(value), catName, brandName);
+                  }
+                }}
+                filterOptions={(opts, state) => {
+                  const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                  if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                    filtered.push(`+ Add "${state.inputValue}"`);
+                  }
+                  return filtered;
+                }}
+                onBlur={() => {
+                  if (row.color && !colors.some((c) => c.toLowerCase() === row.color.toLowerCase())) {
+                    updateVariantRow(rows, setRows, row.key, 'color', '', catName, brandName);
+                  }
+                }}
+                renderInput={(params) => <TextField {...params} label="Color (Optional)" />}
               />
             </Grid>
             <Grid size={{ xs: 4 }}>
-              <TextField
+              <Autocomplete
+                freeSolo
                 size="small"
-                fullWidth
-                label="Size"
+                options={sizes}
                 value={row.size}
-                onChange={(e) => updateVariantRow(rows, setRows, row.key, 'size', e.target.value, catName, brandName)}
+                inputValue={row.size || ''}
+                onChange={(_, value) => {
+                  if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                    const name = value.slice(7, -1);
+                    openShortCodeDialog('SIZE', name, (savedName) => {
+                      updateVariantRow(rows, setRows, row.key, 'size', savedName, catName, brandName);
+                    });
+                    updateVariantRow(rows, setRows, row.key, 'size', name, catName, brandName);
+                  } else {
+                    updateVariantRow(rows, setRows, row.key, 'size', typeof value === 'string' ? value : value || '', catName, brandName);
+                  }
+                }}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'input' || reason === 'reset') {
+                    updateVariantRow(rows, setRows, row.key, 'size', stripAddPrefix(value), catName, brandName);
+                  }
+                }}
+                filterOptions={(opts, state) => {
+                  const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                  if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                    filtered.push(`+ Add "${state.inputValue}"`);
+                  }
+                  return filtered;
+                }}
+                onBlur={() => {
+                  if (row.size && !sizes.some((s) => s.toLowerCase() === row.size.toLowerCase())) {
+                    updateVariantRow(rows, setRows, row.key, 'size', '', catName, brandName);
+                  }
+                }}
+                renderInput={(params) => <TextField {...params} label="Size" />}
               />
             </Grid>
             <Grid size={{ xs: 4 }}>
@@ -1664,8 +1732,35 @@ export default function ProductsPage() {
                       freeSolo
                       options={fabrics}
                       value={field.value || ''}
-                      onChange={(_, value) => field.onChange(value || '')}
-                      onInputChange={(_, value, reason) => { if (reason === 'input') field.onChange(value); }}
+                      inputValue={field.value || ''}
+                      onChange={(_, value) => {
+                        if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                          const name = value.slice(7, -1);
+                          openShortCodeDialog('FABRIC', name, (savedName) => {
+                            field.onChange(savedName);
+                          });
+                          field.onChange(name);
+                        } else {
+                          field.onChange(typeof value === 'string' ? value : value || '');
+                        }
+                      }}
+                      onInputChange={(_, value, reason) => {
+                        if (reason === 'input' || reason === 'reset') {
+                          field.onChange(stripAddPrefix(value));
+                        }
+                      }}
+                      filterOptions={(opts, state) => {
+                        const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                        if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                          filtered.push(`+ Add "${state.inputValue}"`);
+                        }
+                        return filtered;
+                      }}
+                      onBlur={() => {
+                        if (field.value && !fabrics.some((f) => f.toLowerCase() === (field.value || '').toLowerCase())) {
+                          field.onChange('');
+                        }
+                      }}
                       renderInput={(params) => <TextField {...params} label="Fabric" />}
                     />
                   )}
@@ -1676,7 +1771,41 @@ export default function ProductsPage() {
                   name="color"
                   control={editVariantForm.control}
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="Color (Optional)" />
+                    <Autocomplete
+                      freeSolo
+                      options={colors}
+                      value={field.value || ''}
+                      inputValue={field.value || ''}
+                      onChange={(_, value) => {
+                        if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                          const name = value.slice(7, -1);
+                          openShortCodeDialog('COLOR', name, (savedName) => {
+                            field.onChange(savedName);
+                          });
+                          field.onChange(name);
+                        } else {
+                          field.onChange(typeof value === 'string' ? value : value || '');
+                        }
+                      }}
+                      onInputChange={(_, value, reason) => {
+                        if (reason === 'input' || reason === 'reset') {
+                          field.onChange(stripAddPrefix(value));
+                        }
+                      }}
+                      filterOptions={(opts, state) => {
+                        const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                        if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                          filtered.push(`+ Add "${state.inputValue}"`);
+                        }
+                        return filtered;
+                      }}
+                      onBlur={() => {
+                        if (field.value && !colors.some((c) => c.toLowerCase() === (field.value || '').toLowerCase())) {
+                          field.onChange('');
+                        }
+                      }}
+                      renderInput={(params) => <TextField {...params} label="Color (Optional)" />}
+                    />
                   )}
                 />
               </Grid>
@@ -1685,7 +1814,41 @@ export default function ProductsPage() {
                   name="size"
                   control={editVariantForm.control}
                   render={({ field }) => (
-                    <TextField {...field} fullWidth label="Size" />
+                    <Autocomplete
+                      freeSolo
+                      options={sizes}
+                      value={field.value || ''}
+                      inputValue={field.value || ''}
+                      onChange={(_, value) => {
+                        if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                          const name = value.slice(7, -1);
+                          openShortCodeDialog('SIZE', name, (savedName) => {
+                            field.onChange(savedName);
+                          });
+                          field.onChange(name);
+                        } else {
+                          field.onChange(typeof value === 'string' ? value : value || '');
+                        }
+                      }}
+                      onInputChange={(_, value, reason) => {
+                        if (reason === 'input' || reason === 'reset') {
+                          field.onChange(stripAddPrefix(value));
+                        }
+                      }}
+                      filterOptions={(opts, state) => {
+                        const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                        if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                          filtered.push(`+ Add "${state.inputValue}"`);
+                        }
+                        return filtered;
+                      }}
+                      onBlur={() => {
+                        if (field.value && !sizes.some((s) => s.toLowerCase() === (field.value || '').toLowerCase())) {
+                          field.onChange('');
+                        }
+                      }}
+                      renderInput={(params) => <TextField {...params} label="Size" />}
+                    />
                   )}
                 />
               </Grid>
@@ -1765,7 +1928,7 @@ export default function ProductsPage() {
         fullWidth
       >
         <DialogTitle>
-          Add {newShortCodeType === 'CATEGORY' ? 'Category' : newShortCodeType === 'BRAND' ? 'Brand' : 'Fabric'} Short Code
+          Add {newShortCodeType.charAt(0) + newShortCodeType.slice(1).toLowerCase()} Short Code
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
