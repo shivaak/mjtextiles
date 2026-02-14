@@ -22,4 +22,10 @@ public class AuthenticationException extends RuntimeException {
     public static final String TOKEN_EXPIRED = "TOKEN_EXPIRED";
     public static final String INVALID_TOKEN = "INVALID_TOKEN";
     public static final String SESSION_EXPIRED = "SESSION_EXPIRED";
+    public static final String LICENSE_MISSING = "LICENSE_MISSING";
+    public static final String LICENSE_EXPIRED = "LICENSE_EXPIRED";
+    public static final String LICENSE_INVALID = "LICENSE_INVALID";
+    public static final String LICENSE_MACHINE_MISMATCH = "LICENSE_MACHINE_MISMATCH";
+    public static final String LICENSE_INSTALLATION_MISMATCH = "LICENSE_INSTALLATION_MISMATCH";
+    public static final String LICENSE_CLOCK_TAMPERED = "LICENSE_CLOCK_TAMPERED";
 }

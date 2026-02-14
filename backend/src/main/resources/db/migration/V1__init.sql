@@ -382,6 +382,42 @@ CREATE TABLE settings (
 );
 
 -- ===========================================
+-- License State table (single row)
+-- ===========================================
+CREATE TABLE app_license_state (
+    id                      INTEGER PRIMARY KEY DEFAULT 1,
+    installation_id         VARCHAR(64) UNIQUE,
+    status                  VARCHAR(40) NOT NULL DEFAULT 'MISSING',
+    status_reason           TEXT,
+    license_payload         JSONB,
+    issued_at               TIMESTAMP WITH TIME ZONE,
+    expires_at              TIMESTAMP WITH TIME ZONE,
+    machine_hash            VARCHAR(128),
+    last_validated_at_utc   TIMESTAMP WITH TIME ZONE,
+    max_seen_time_utc       TIMESTAMP WITH TIME ZONE,
+    updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT app_license_state_single_row CHECK (id = 1)
+);
+
+-- ===========================================
+-- License Audit Log
+-- ===========================================
+CREATE TABLE license_audit_log (
+    id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    action                  VARCHAR(50) NOT NULL,
+    status                  VARCHAR(40) NOT NULL,
+    message                 TEXT,
+    installation_id         VARCHAR(64),
+    machine_hash            VARCHAR(128),
+    created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_license_audit_log_created_at ON license_audit_log(created_at DESC);
+CREATE INDEX idx_license_audit_log_status ON license_audit_log(status);
+
+-- ===========================================
 -- Audit Logs table
 -- ===========================================
 CREATE TABLE audit_logs (

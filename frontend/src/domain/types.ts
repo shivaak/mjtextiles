@@ -59,6 +59,39 @@ export interface AuthSession {
   expiresAt: number;
 }
 
+export type LicenseStatus =
+  | 'VALID'
+  | 'MISSING'
+  | 'EXPIRED'
+  | 'INVALID_FORMAT'
+  | 'INVALID_SIGNATURE'
+  | 'MACHINE_MISMATCH'
+  | 'INSTALLATION_MISMATCH'
+  | 'CLOCK_TAMPERED'
+  | 'CONFIG_ERROR';
+
+export interface LicenseInstallationInfo {
+  installationId: string;
+  machineHash: string;
+  machineFactors: Record<string, string>;
+}
+
+export interface LicenseStatusInfo {
+  status: LicenseStatus;
+  message: string;
+  installationId: string;
+  machineHash?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  daysRemaining?: number;
+  lastValidatedAtUtc?: string;
+  maxSeenTimeUtc?: string;
+}
+
+export interface ActivateLicenseRequest {
+  licenseDocument: string;
+}
+
 // Product types
 export interface Product {
   id: number;

@@ -55,7 +55,11 @@ public class SecurityConfig {
                 // Public API endpoints
                 .requestMatchers(
                     "/api/v1/auth/login",
-                    "/api/v1/auth/refresh"
+                    "/api/v1/auth/refresh",
+                    "/api/v1/license",
+                    "/api/v1/license/status",
+                    "/api/v1/license/installation-id",
+                    "/api/v1/license/activate"
                 ).permitAll()
                 
                 // All other API endpoints require authentication

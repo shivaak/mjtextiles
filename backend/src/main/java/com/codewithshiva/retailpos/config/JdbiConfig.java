@@ -4,6 +4,7 @@ import com.codewithshiva.retailpos.audit.AuditDao;
 import com.codewithshiva.retailpos.dao.CustomerAnalyticsDao;
 import com.codewithshiva.retailpos.dao.DashboardDao;
 import com.codewithshiva.retailpos.dao.InventoryDao;
+import com.codewithshiva.retailpos.dao.LicenseDao;
 import com.codewithshiva.retailpos.dao.LookupDao;
 import com.codewithshiva.retailpos.dao.OfferDao;
 import com.codewithshiva.retailpos.dao.ProductDao;
@@ -128,6 +129,11 @@ public class JdbiConfig {
     @Bean
     public LookupDao lookupDao(Jdbi jdbi) {
         return jdbi.onDemand(LookupDao.class);
+    }
+
+    @Bean
+    public LicenseDao licenseDao(Jdbi jdbi) {
+        return jdbi.onDemand(LicenseDao.class);
     }
 
     @Bean

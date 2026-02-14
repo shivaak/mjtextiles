@@ -25,7 +25,8 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../app/context/AuthContext';
 import { useNotification } from '../../app/context/NotificationContext';
-import { formatApiError } from '../../services/api';
+import { ApiError, formatApiError } from '../../services/api';
+import { licenseService } from '../../services/licenseService';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -56,10 +57,27 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
+      const licenseStatus = await licenseService.getStatus();
+      if (licenseStatus.status !== 'VALID') {
+        notification.warning(
+          licenseStatus.message || 'Valid license required before login'
+        );
+        navigate('/license');
+        return;
+      }
+
       await login(data);
       notification.success('Login successful!');
       navigate('/dashboard');
     } catch (error: unknown) {
+      if (
+        error instanceof ApiError &&
+        error.code.startsWith('LICENSE_')
+      ) {
+        notification.warning(error.message);
+        navigate('/license');
+        return;
+      }
       notification.error(formatApiError(error, 'Login failed'));
     } finally {
       setIsLoading(false);

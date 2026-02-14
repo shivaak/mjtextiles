@@ -5,10 +5,12 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Divider,
   FormControlLabel,
   Grid,
   InputAdornment,
+  Stack,
   Switch,
   TextField,
   Typography,
@@ -22,7 +24,8 @@ import PageHeader from '../../components/common/PageHeader';
 import { useNotification } from '../../app/context/NotificationContext';
 import { settingsService } from '../../services/settingsService';
 import { formatApiError } from '../../services/api';
-import type { UpdateSettingsRequest } from '../../domain/types';
+import { licenseService } from '../../services/licenseService';
+import type { LicenseStatusInfo, UpdateSettingsRequest } from '../../domain/types';
 
 const settingsSchema = z.object({
   shopName: z.string().min(1, 'Shop name is required'),
@@ -43,9 +46,17 @@ const settingsSchema = z.object({
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
+const formatLocaleDisplay = (isoDate?: string) => {
+  if (!isoDate) {
+    return 'N/A';
+  }
+  return new Date(isoDate).toLocaleString();
+};
+
 export default function SettingsPage() {
   const { success: showSuccess, error: showError } = useNotification();
   const [loading, setLoading] = useState(true);
+  const [licenseStatus, setLicenseStatus] = useState<LicenseStatusInfo | null>(null);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -71,7 +82,10 @@ export default function SettingsPage() {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        const data = await settingsService.getSettings();
+        const [data, licenseData] = await Promise.all([
+          settingsService.getSettings(),
+          licenseService.getStatus(),
+        ]);
         form.reset({
           shopName: data.shopName,
           address: data.address || '',
@@ -88,6 +102,7 @@ export default function SettingsPage() {
           pointValue: data.pointValue ?? 1,
           maxPointsRedemptionPercent: data.maxPointsRedemptionPercent ?? 50,
         });
+        setLicenseStatus(licenseData);
       } catch (error) {
         showError(formatApiError(error, 'Failed to load settings'));
       } finally {
@@ -122,6 +137,19 @@ export default function SettingsPage() {
     } catch (error: unknown) {
       showError(formatApiError(error, 'Failed to save settings'));
     }
+  };
+
+  const getLicenseColor = (status?: string): 'success' | 'warning' | 'error' | 'default' => {
+    if (!status) {
+      return 'default';
+    }
+    if (status === 'VALID') {
+      return 'success';
+    }
+    if (status === 'EXPIRED' || status === 'MISSING') {
+      return 'warning';
+    }
+    return 'error';
   };
 
   return (
@@ -458,6 +486,70 @@ export default function SettingsPage() {
                   <Typography variant="body2">1.0.0</Typography>
                 </Box>
               </Box>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                License Information
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                License controls access to login and system usage. Timestamps are shown in local system format.
+              </Typography>
+
+              {licenseStatus ? (
+                <Stack spacing={1.5}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">Status</Typography>
+                    <Chip size="small" color={getLicenseColor(licenseStatus.status)} label={licenseStatus.status} />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Issued On</Typography>
+                    <Typography variant="body2">
+                      {formatLocaleDisplay(licenseStatus.issuedAt)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Expires On</Typography>
+                    <Typography variant="body2">
+                      {formatLocaleDisplay(licenseStatus.expiresAt)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Days Remaining</Typography>
+                    <Typography variant="body2">{licenseStatus.daysRemaining ?? 'N/A'}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Installation ID</Typography>
+                    <Typography variant="body2" sx={{ maxWidth: 170 }} noWrap title={licenseStatus.installationId}>
+                      {licenseStatus.installationId || 'N/A'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Machine Hash</Typography>
+                    <Typography variant="body2" sx={{ maxWidth: 170 }} noWrap title={licenseStatus.machineHash}>
+                      {licenseStatus.machineHash || 'N/A'}
+                    </Typography>
+                  </Box>
+                  <Alert severity={licenseStatus.status === 'VALID' ? 'success' : 'warning'}>
+                    {licenseStatus.message}
+                  </Alert>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => window.open('/license', '_blank')}
+                    >
+                      Upload New License
+                    </Button>
+                  </Stack>
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  License details unavailable.
+                </Typography>
+              )}
             </CardContent>
           </Card>
 

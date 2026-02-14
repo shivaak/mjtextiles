@@ -7,6 +7,9 @@ import com.codewithshiva.retailpos.dao.UserDao;
 import com.codewithshiva.retailpos.dto.auth.*;
 import com.codewithshiva.retailpos.exception.AuthenticationException;
 import com.codewithshiva.retailpos.exception.BadRequestException;
+import com.codewithshiva.retailpos.license.LicenseStatus;
+import com.codewithshiva.retailpos.license.LicenseValidationResult;
+import com.codewithshiva.retailpos.license.LicenseValidationService;
 import com.codewithshiva.retailpos.model.RefreshToken;
 import com.codewithshiva.retailpos.model.User;
 import com.codewithshiva.retailpos.security.CustomUserDetails;
@@ -34,6 +37,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final LicenseValidationService licenseValidationService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
@@ -46,6 +50,7 @@ public class AuthService {
      */
     public LoginResponse login(LoginRequest request) {
         log.info("Login attempt for user: {}", request.getUsername());
+        enforceValidLicenseForAuth();
 
         // Find user by username
         User user = userDao.findByUsername(request.getUsername())
@@ -116,6 +121,7 @@ public class AuthService {
      */
     public TokenResponse refresh(RefreshTokenRequest request) {
         log.debug("Token refresh attempt");
+        enforceValidLicenseForAuth();
 
         // Find refresh token
         RefreshToken storedToken = refreshTokenDao.findByToken(request.getRefreshToken())
@@ -238,5 +244,39 @@ public class AuthService {
                 "Password changed successfully");
 
         log.info("Password changed successfully for user: {}", user.getUsername());
+    }
+
+    private void enforceValidLicenseForAuth() {
+        LicenseValidationResult result = licenseValidationService.validateCurrentLicense();
+        if (result.getStatus() == LicenseStatus.VALID) {
+            return;
+        }
+
+        throw switch (result.getStatus()) {
+            case MISSING -> new AuthenticationException(
+                    AuthenticationException.LICENSE_MISSING,
+                    "License not installed. Please activate license."
+            );
+            case EXPIRED -> new AuthenticationException(
+                    AuthenticationException.LICENSE_EXPIRED,
+                    "License has expired. Please renew license."
+            );
+            case MACHINE_MISMATCH -> new AuthenticationException(
+                    AuthenticationException.LICENSE_MACHINE_MISMATCH,
+                    "License is not valid for this machine."
+            );
+            case INSTALLATION_MISMATCH -> new AuthenticationException(
+                    AuthenticationException.LICENSE_INSTALLATION_MISMATCH,
+                    "License belongs to another installation."
+            );
+            case CLOCK_TAMPERED -> new AuthenticationException(
+                    AuthenticationException.LICENSE_CLOCK_TAMPERED,
+                    "Clock rollback detected. Please contact administrator."
+            );
+            default -> new AuthenticationException(
+                    AuthenticationException.LICENSE_INVALID,
+                    result.getMessage() != null ? result.getMessage() : "License validation failed"
+            );
+        };
     }
 }

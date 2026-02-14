@@ -6,6 +6,7 @@ import AppShell from '../layout/AppShell';
 
 // Lazy load pages for code splitting
 const LoginPage = lazy(() => import('../../pages/auth/LoginPage'));
+const LicenseActivationPage = lazy(() => import('../../pages/auth/LicenseActivationPage'));
 const DashboardPage = lazy(() => import('../../pages/dashboard/DashboardPage'));
 const BillingPage = lazy(() => import('../../pages/billing/BillingPage'));
 const ProductsPage = lazy(() => import('../../pages/products/ProductsPage'));
@@ -42,6 +43,7 @@ export default function AppRoutes() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/license" element={<LicenseActivationPage />} />
 
         {/* Protected routes with layout */}
         <Route
