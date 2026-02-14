@@ -249,7 +249,7 @@ export default function CustomerAnalyticsTab() {
                         dataKey="value"
                         nameKey="name"
                         label={({ name, percent }) =>
-                          `${name} (${(percent * 100).toFixed(0)}%)`
+                          `${name} (${(((percent ?? 0) as number) * 100).toFixed(0)}%)`
                         }
                         labelLine={true}
                       >
@@ -261,7 +261,10 @@ export default function CustomerAnalyticsTab() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) => [`${value} customers`, 'Count']}
+                        formatter={(value: number | string | undefined) => {
+                          const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                          return [`${numericValue} customers`, 'Count'];
+                        }}
                         contentStyle={{ borderRadius: 8 }}
                       />
                     </PieChart>
@@ -305,7 +308,10 @@ export default function CustomerAnalyticsTab() {
                         tickLine={false}
                       />
                       <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                        formatter={(value: number | string | undefined) => {
+                          const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                          return [formatCurrency(numericValue), 'Revenue'];
+                        }}
                         contentStyle={{ borderRadius: 8 }}
                       />
                       <Bar dataKey="revenue" fill="#2e7d32" radius={[0, 4, 4, 0]} />
@@ -346,7 +352,10 @@ export default function CustomerAnalyticsTab() {
                         allowDecimals={false}
                       />
                       <Tooltip
-                        formatter={(value: number) => [`${value} customers`, 'Count']}
+                        formatter={(value: number | string | undefined) => {
+                          const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                          return [`${numericValue} customers`, 'Count'];
+                        }}
                         contentStyle={{ borderRadius: 8 }}
                       />
                       <Bar dataKey="customerCount" name="Customers" fill="#1976d2" radius={[4, 4, 0, 0]} />
