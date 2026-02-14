@@ -20,6 +20,8 @@ import {
   useMediaQuery,
   useTheme as useMuiTheme,
   Badge,
+  Alert,
+  Button,
   Autocomplete,
   CircularProgress,
   InputAdornment,
@@ -50,6 +52,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotification } from '../context/NotificationContext';
+import { useLicense } from '../context/LicenseContext';
 import { productService } from '../../services/productService';
 import type { Product, VariantSearchResponse } from '../../domain/types';
 
@@ -487,7 +490,14 @@ const TopBar = memo(function TopBar({
 });
 
 // Memoized main content area
-const MainContent = memo(function MainContent() {
+interface MainContentProps {
+  banner?: {
+    severity: 'warning' | 'error';
+    message: string;
+  } | null;
+}
+
+const MainContent = memo(function MainContent({ banner }: MainContentProps) {
   return (
     <Box
       component="main"
@@ -500,6 +510,19 @@ const MainContent = memo(function MainContent() {
     >
       <Toolbar />
       <Box sx={{ p: 3 }}>
+        {banner?.message && (
+          <Alert
+            severity={banner.severity}
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" component={RouterLink} to="/license">
+                Open License Page
+              </Button>
+            }
+          >
+            {banner.message}
+          </Alert>
+        )}
         <Outlet />
       </Box>
     </Box>
@@ -511,6 +534,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAdmin } = useAuth();
+  const { banner } = useLicense();
   const { mode, toggleTheme } = useTheme();
   const notification = useNotification();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -645,7 +669,7 @@ export default function AppShell() {
       </Box>
 
       {/* Main content */}
-      <MainContent />
+      <MainContent banner={banner} />
     </Box>
   );
 }

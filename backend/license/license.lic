@@ -1,0 +1,19 @@
+{
+  "payload" : {
+    "customerName" : "Shop Name",
+    "installationId" : "9066e67a-5563-447b-a7cf-db7fece941d0",
+    "machineHash" : "f20267a62b30283947f47cb3003fccd5b222f06dcb0b06ebeeaa801f5bd5f0ba",
+    "machineFactors" : {
+      "hostname" : "f5a171dbf24f685e14f32cb5ce30cc01430c162d4d76a430ac8e3f7d6bc2443e",
+      "mac.list" : "1278e6de56003a4ef850dc4145614f0c88f00e542bfb90e0fdfc521c125844cb",
+      "os.arch" : "ac257dd72ce8d4d5e988d4a1c823e6c19b848de2dd211c5c0c0d1147c55dba45",
+      "os.name" : "d51dd495ca11a35f6d30b3d8472e24c9b9fb037dd68b5cf138462db8d7b4af95",
+      "os.version" : "9ed884cf60b8bb2015ad434983147b0a3da9ff59528d7e08e6ee9a1064e5823a"
+    },
+    "issuedAt" : "2026-02-14T10:21:37.457Z",
+    "expiresAt" : "2026-02-20T13:15:00.457Z",
+    "features" : { },
+    "nonce" : "5b0eb0ec-83e1-4fc5-b6ff-8d49045c1551"
+  },
+  "signature" : "CnEDBsVOoob9FUWsws+MwIGjjtjtIinF02rvxLyhMxbf+5XHhaJ6ssYZ8FnfOlxGIYlcAUMp0Xv71IrNtNTCd7rr5IFmugVspcDQuF1D8lWCzw7Pxb2MKaEIE//tOTJttbgFrdH0gpMOyNOYUgqH2SNRTewPpkJoLzbH6WUc7DiISwGdI6XUTFE4g+VVAg3hg3QtJglHp2+TJtD81V6JOrbR5FFaofccw/cEKWDH8Rtp4Bf02fKZx4Rw4O1ImmZ5ts1bdb0+8PW+zmdVmb/tiltjhvTY3xg8kvkp2wdvJ6JWylA+WNb5Xy4jGQzOfWt+E4O25FKZLD0Dr4kFBsWKZw=="
+}
