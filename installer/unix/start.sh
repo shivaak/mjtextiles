@@ -1,5 +1,17 @@
 #!/bin/bash
 
+# Read .env file (if present)
+if [ -f .env ]; then
+    set -a
+    while IFS='=' read -r key value; do
+        [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | sed 's/[[:space:]]*#.*$//' | xargs)
+        export "$key=$value"
+    done < .env
+    set +a
+fi
+
 # Check if Java is installed
 if ! command -v java &> /dev/null; then
     echo ""
@@ -18,6 +30,18 @@ if lsof -i :8080 -sTCP:LISTEN &> /dev/null; then
     echo "Open your browser and go to http://localhost:8080"
     echo ""
     exit 0
+fi
+
+# Configure license verifier key from file
+LICENSE_KEY_PATH="${LICENSE_PUBLIC_KEY_PATH:-public_key.pem}"
+if [ -f "$LICENSE_KEY_PATH" ]; then
+    export LICENSE_PUBLIC_KEY_PEM="$(cat "$LICENSE_KEY_PATH")"
+else
+    echo ""
+    echo "License public key file not found: $LICENSE_KEY_PATH"
+    echo "Place public_key.pem in this folder or set LICENSE_PUBLIC_KEY_PATH in .env"
+    echo ""
+    exit 1
 fi
 
 # Start the application

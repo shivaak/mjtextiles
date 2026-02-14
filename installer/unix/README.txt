@@ -6,6 +6,8 @@ Prerequisites:
        macOS:  brew install openjdk@21
        Linux:  sudo apt install openjdk-21-jdk
    - PostgreSQL installed and running
+   - Place public key file as "public_key.pem" in this folder
+     (or set LICENSE_PUBLIC_KEY_PATH in .env)
 
 Starting the Application:
    1. Open a terminal in this folder
@@ -31,6 +33,7 @@ Configuration (.env file):
    - DB_USERNAME        : Database username
    - DB_PASSWORD        : Database password
    - JWT_SECRET         : Security key (don't change after first setup)
+   - LICENSE_PUBLIC_KEY_PATH    : Path to public_key.pem (default: public_key.pem)
    - APP_BACKUP_CRON    : Backup schedule (default: daily at midnight)
    - APP_BACKUP_RETENTION_COUNT : Number of backups to keep (default: 7)
    - APP_BACKUP_DIRECTORY       : Backup folder (default: backups)

@@ -4,6 +4,8 @@ Quick Start Guide (Windows)
 Prerequisites:
    - Java 21 or later (download from https://adoptium.net/)
    - PostgreSQL installed and running
+   - Place public key file as "public_key.pem" in this folder
+     (or set LICENSE_PUBLIC_KEY_PATH in .env)
 
 Starting the Application:
    1. Double-click "start.bat" to start the application
@@ -29,6 +31,7 @@ Configuration (.env file):
    - DB_USERNAME        : Database username
    - DB_PASSWORD        : Database password
    - JWT_SECRET         : Security key (don't change after first setup)
+   - LICENSE_PUBLIC_KEY_PATH    : Path to public_key.pem (default: public_key.pem)
    - APP_BACKUP_CRON    : Backup schedule (default: daily at midnight)
    - APP_BACKUP_RETENTION_COUNT : Number of backups to keep (default: 7)
    - APP_BACKUP_DIRECTORY       : Backup folder (default: backups)

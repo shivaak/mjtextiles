@@ -27,9 +27,32 @@ if exist ".app.pid" (
     )
 )
 
+REM Read .env file (if present)
+if exist ".env" (
+    for /f "usebackq tokens=1,* delims==" %%a in (".env") do (
+        set "key=%%a"
+        set "val=%%b"
+        echo !key! | findstr /b "#" >nul 2>&1
+        if errorlevel 1 (
+            if "!key!"=="LICENSE_PUBLIC_KEY_PATH" set "LICENSE_PUBLIC_KEY_PATH=!val!"
+        )
+    )
+)
+
+REM Configure license verifier key from file
+if not defined LICENSE_PUBLIC_KEY_PATH set "LICENSE_PUBLIC_KEY_PATH=public_key.pem"
+if not exist "!LICENSE_PUBLIC_KEY_PATH!" (
+    echo.
+    echo License public key file not found: !LICENSE_PUBLIC_KEY_PATH!
+    echo Place public_key.pem in this folder or set LICENSE_PUBLIC_KEY_PATH in .env
+    echo.
+    pause
+    exit /b 1
+)
+
 REM Start the application and capture PID
 echo Starting application...
-for /f %%i in ('powershell -nologo -noprofile -command "Start-Process java -ArgumentList '-jar','retailpos.jar' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id"') do set APP_PID=%%i
+for /f %%i in ('powershell -nologo -noprofile -command "$env:LICENSE_PUBLIC_KEY_PEM = Get-Content '!LICENSE_PUBLIC_KEY_PATH!' -Raw; Start-Process java -ArgumentList '-jar','retailpos.jar' -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id"') do set APP_PID=%%i
 
 echo !APP_PID! > ".app.pid"
 timeout /t 15 /nobreak >nul
