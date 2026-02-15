@@ -687,7 +687,8 @@ export interface CreateSaleRequest {
   customerPhone?: string;
   customerArea?: string;
   paymentMode: PaymentMode;
-  discountPercent: number;
+  discountAmount?: number;
+  discountPercent?: number;
   pointsToRedeem?: number;
   items: CreateSaleItemRequest[];
 }

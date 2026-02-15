@@ -218,8 +218,10 @@ export default function SaleDetailPage() {
   }
 
   /* ---------- derived values for summary ---------- */
-  const discountedSubtotal = sale.subtotal - sale.discountAmount;
-  const taxableValue = discountedSubtotal - sale.taxAmount;
+  const taxableValue = sale.subtotal - sale.taxAmount;
+  const halfTaxPercent = sale.taxPercent / 2;
+  const totalCgst = sale.taxAmount / 2;
+  const totalSgst = sale.taxAmount - totalCgst;
 
   /* ---------- per-item profit (before bill discount & points) ---------- */
   const taxDivisor = 1 + sale.taxPercent / 100;
@@ -456,7 +458,8 @@ export default function SaleDetailPage() {
                       </TableCell>
                       <TableCell align="right">Discount</TableCell>
                       <TableCell align="right">Taxable</TableCell>
-                      <TableCell align="right">GST ({sale.taxPercent}%)</TableCell>
+                      <TableCell align="right">CGST ({halfTaxPercent}%)</TableCell>
+                      <TableCell align="right">SGST ({halfTaxPercent}%)</TableCell>
                       <TableCell align="right">Amount</TableCell>
                       {isAdmin && <TableCell align="right">Cost</TableCell>}
                       {isAdmin && <TableCell align="right">Profit</TableCell>}
@@ -469,6 +472,8 @@ export default function SaleDetailPage() {
                       const lineAmount = item.qty * effectiveUnitPrice;
                       const lineTaxableValue = sale.taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
                       const lineGst = lineAmount - lineTaxableValue;
+                      const lineCgst = lineGst / 2;
+                      const lineSgst = lineGst - lineCgst;
                       const lineCost = (item.unitCostAtSale || 0) * item.qty;
                       const itemProfit = lineTaxableValue - lineCost;
 
@@ -515,7 +520,12 @@ export default function SaleDetailPage() {
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2" color="text.secondary">
-                              <Money value={lineGst} />
+                              <Money value={lineCgst} />
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              <Money value={lineSgst} />
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
@@ -560,18 +570,6 @@ export default function SaleDetailPage() {
                   <Typography variant="body2" fontWeight={500} sx={summaryAmountSx}><Money value={sale.subtotal} /></Typography>
                 </Box>
 
-                {/* Bill-level discount */}
-                {sale.discountAmount > 0 && (
-                  <Box sx={{ ...summaryRowSx, mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Bill Discount ({sale.discountPercent.toFixed(1)}%)
-                    </Typography>
-                    <Typography variant="body2" color="error.main" fontWeight={500} sx={summaryAmountSx}>
-                      -<Money value={sale.discountAmount} />
-                    </Typography>
-                  </Box>
-                )}
-
                 <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
 
                 {/* Taxable value */}
@@ -580,18 +578,34 @@ export default function SaleDetailPage() {
                   <Typography variant="body2" sx={summaryAmountSx}><Money value={taxableValue} /></Typography>
                 </Box>
 
-                {/* GST */}
+                {/* CGST / SGST */}
                 <Box sx={{ ...summaryRowSx, mb: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography variant="body2" color="text.secondary">GST ({sale.taxPercent}%)</Typography>
-                    <Tooltip title="GST is calculated after bill-level discount.">
+                    <Typography variant="body2" color="text.secondary">CGST ({halfTaxPercent}%)</Typography>
+                    <Tooltip title="GST is calculated on subtotal before additional discount.">
                       <Box component="span" sx={{ display: 'inline-flex' }}>
-                        <HelpOutlineIcon aria-label="GST is calculated after bill-level discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
+                        <HelpOutlineIcon aria-label="GST is calculated on subtotal before additional discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
                       </Box>
                     </Tooltip>
                   </Box>
-                  <Typography variant="body2" sx={summaryAmountSx}><Money value={sale.taxAmount} /></Typography>
+                  <Typography variant="body2" sx={summaryAmountSx}><Money value={totalCgst} /></Typography>
                 </Box>
+                <Box sx={{ ...summaryRowSx, mb: 1 }}>
+                  <Typography variant="body2" color="text.secondary">SGST ({halfTaxPercent}%)</Typography>
+                  <Typography variant="body2" sx={summaryAmountSx}><Money value={totalSgst} /></Typography>
+                </Box>
+
+                {/* Bill-level discount */}
+                {sale.discountAmount > 0 && (
+                  <Box sx={{ ...summaryRowSx, mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Addl. Discount (Post Tax)
+                    </Typography>
+                    <Typography variant="body2" color="error.main" fontWeight={500} sx={summaryAmountSx}>
+                      -<Money value={sale.discountAmount} />
+                    </Typography>
+                  </Box>
+                )}
 
                 {/* Points redeemed */}
                 {(sale.pointsRedeemed ?? 0) > 0 && (
@@ -632,7 +646,7 @@ export default function SaleDetailPage() {
                       textDecoration: isVoided ? 'line-through' : 'none',
                     }}
                   >
-                    <Money value={sale.total - (sale.pointsRedemptionAmount || 0)} />
+                    <Money value={sale.total - sale.discountAmount - (sale.pointsRedemptionAmount || 0)} />
                   </Typography>
                 </Box>
 
@@ -672,7 +686,7 @@ export default function SaleDetailPage() {
                         <Tooltip
                           title={
                             `Product Profit ${fmt(productProfitSum)}`
-                            + (sale.discountAmount > 0 ? ` − Bill Discount ${fmt(sale.discountAmount)}` : '')
+                            + (sale.discountAmount > 0 ? ` − Addl. Discount ${fmt(sale.discountAmount)}` : '')
                             + ((sale.pointsRedemptionAmount || 0) > 0 ? ` − Points ${fmt(sale.pointsRedemptionAmount || 0)}` : '')
                             + ` = ${fmt(sale.profit || 0)}`
                           }
@@ -792,7 +806,7 @@ export default function SaleDetailPage() {
               <ol style={{ margin: 0, paddingLeft: 20 }}>
                 <li>Click <strong>Void Sale</strong> to cancel this bill</li>
                 <li>Stock will be automatically restored</li>
-                <li>Refund the customer: <strong><Money value={sale.total - (sale.pointsRedemptionAmount || 0)} /></strong></li>
+                <li>Refund the customer: <strong><Money value={sale.total - sale.discountAmount - (sale.pointsRedemptionAmount || 0)} /></strong></li>
               </ol>
             </Typography>
           </Box>

@@ -154,17 +154,28 @@ public class SaleService {
             subtotal = subtotal.add(lineAmount);
         }
 
-        // 5. Calculate global (additional) discount on subtotal
-        BigDecimal discountPercent = request.getDiscountPercent() != null ? request.getDiscountPercent() : BigDecimal.ZERO;
-        BigDecimal discountAmount = subtotal.multiply(discountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        // 5. Calculate additional discount amount (applied after tax)
+        BigDecimal requestedDiscountAmount = request.getDiscountAmount();
+        BigDecimal discountPercentInput = request.getDiscountPercent() != null ? request.getDiscountPercent() : BigDecimal.ZERO;
+        BigDecimal computedDiscountAmount = requestedDiscountAmount != null
+                ? requestedDiscountAmount
+                : subtotal.multiply(discountPercentInput).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        // 6. Extract GST from discounted subtotal (since MRP is tax-inclusive)
-        BigDecimal discountedSubtotal = subtotal.subtract(discountAmount);
-        BigDecimal taxableValue = discountedSubtotal.divide(taxDivisor, 2, RoundingMode.HALF_UP);
-        BigDecimal taxAmount = discountedSubtotal.subtract(taxableValue);
+        BigDecimal discountAmount = computedDiscountAmount
+                .max(BigDecimal.ZERO)
+                .min(subtotal)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discountPercent = subtotal.compareTo(BigDecimal.ZERO) > 0
+                ? discountAmount.multiply(BigDecimal.valueOf(100)).divide(subtotal, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
 
-        // 7. Calculate total (before points redemption)
-        BigDecimal total = discountedSubtotal;
+        // 6. Extract GST from subtotal (tax-inclusive). Additional discount is post-tax.
+        BigDecimal taxableValue = subtotal.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+        BigDecimal taxAmount = subtotal.subtract(taxableValue);
+
+        // 7. Calculate total and net-after-discount (before points redemption)
+        BigDecimal total = subtotal;
+        BigDecimal netAfterDiscount = total.subtract(discountAmount);
 
         // 8. Handle customer lookup/creation
         Long customerId = null;
@@ -220,7 +231,7 @@ public class SaleService {
             // Validate max redemption percent
             BigDecimal maxRedemptionPercent = settings.getMaxPointsRedemptionPercent() != null
                     ? settings.getMaxPointsRedemptionPercent() : BigDecimal.valueOf(50);
-            BigDecimal maxRedemptionAmount = total.multiply(maxRedemptionPercent)
+            BigDecimal maxRedemptionAmount = netAfterDiscount.multiply(maxRedemptionPercent)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             int maxRedeemablePoints = maxRedemptionAmount.divide(pointValue, 0, RoundingMode.FLOOR).intValue();
 
@@ -271,12 +282,12 @@ public class SaleService {
             BigDecimal pointsPerHundred = settings.getPointsPerHundred() != null
                     ? settings.getPointsPerHundred() : BigDecimal.ONE;
 
-            if (total.compareTo(minPurchase) >= 0) {
-                pointsEarned = total.divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)
+            if (netAfterDiscount.compareTo(minPurchase) >= 0) {
+                pointsEarned = netAfterDiscount.divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)
                         .multiply(pointsPerHundred)
                         .intValue();
             }
-            log.debug("Points earned: {} (total: {}, minPurchase: {})", pointsEarned, total, minPurchase);
+            log.debug("Points earned: {} (netAfterDiscount: {}, minPurchase: {})", pointsEarned, netAfterDiscount, minPurchase);
         }
 
         // 12. Create sale record
@@ -331,7 +342,7 @@ public class SaleService {
             if (pointsEarned > 0) {
                 customerDao.addPoints(customerId, pointsEarned);
                 customerDao.createPointsLog(customerId, saleId, "EARNED", pointsEarned,
-                        String.format("Earned %d points on bill %s (total: %s)", pointsEarned, billNo, total),
+                        String.format("Earned %d points on bill %s (net after discount: %s)", pointsEarned, billNo, netAfterDiscount),
                         createdBy);
                 log.info("Awarded {} points to customer ID: {}", pointsEarned, customerId);
             }

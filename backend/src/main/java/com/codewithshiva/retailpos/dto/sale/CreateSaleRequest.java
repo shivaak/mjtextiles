@@ -30,6 +30,10 @@ public class CreateSaleRequest {
     @Pattern(regexp = "^(CASH|CARD|UPI|CREDIT)$", message = "Payment mode must be CASH, CARD, UPI, or CREDIT")
     private String paymentMode;
 
+    @DecimalMin(value = "0.00", message = "Discount amount must be non-negative")
+    private BigDecimal discountAmount;
+
+    // Backward-compatible field for older clients. New billing flow sends discountAmount.
     @DecimalMin(value = "0.00", message = "Discount percent must be non-negative")
     @DecimalMax(value = "100.00", message = "Discount percent cannot exceed 100")
     private BigDecimal discountPercent;

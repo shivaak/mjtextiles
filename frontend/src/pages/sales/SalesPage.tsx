@@ -95,7 +95,7 @@ export default function SalesPage() {
 
   const stats = useMemo(() => {
     const completed = sales.filter((sale) => sale.status === 'COMPLETED');
-    const totalSales = completed.reduce((sum, sale) => sum + sale.total - (sale.pointsRedemptionAmount || 0), 0);
+    const totalSales = completed.reduce((sum, sale) => sum + sale.total - sale.discountAmount - (sale.pointsRedemptionAmount || 0), 0);
     const totalProfit = completed.reduce((sum, sale) => sum + (sale.profit || 0), 0);
     const totalTransactions = completed.length;
     const voidedCount = sales.filter((sale) => sale.status === 'VOIDED').length;
@@ -211,7 +211,7 @@ export default function SalesPage() {
       minWidth: 110,
       align: 'right',
       headerAlign: 'right',
-      valueGetter: (_value: unknown, row: SaleList) => row.total - (row.pointsRedemptionAmount || 0),
+      valueGetter: (_value: unknown, row: SaleList) => row.total - row.discountAmount - (row.pointsRedemptionAmount || 0),
       renderCell: (params: GridRenderCellParams<SaleList>) => (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%' }}>
           <Typography

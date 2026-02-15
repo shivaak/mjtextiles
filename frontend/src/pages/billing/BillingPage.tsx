@@ -17,6 +17,7 @@ import {
   Autocomplete,
   Divider,
   FormControl,
+  FormHelperText,
   InputLabel,
   Select,
   MenuItem,
@@ -27,8 +28,8 @@ import {
   Chip,
   InputAdornment,
   Alert,
-  ToggleButton,
-  ToggleButtonGroup,
+  FormControlLabel,
+  Switch,
   CircularProgress,
   Tooltip,
 } from '@mui/material';
@@ -39,8 +40,7 @@ import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import SearchIcon from '@mui/icons-material/Search';
 import PrintIcon from '@mui/icons-material/Print';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import PercentIcon from '@mui/icons-material/Percent';
-import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
@@ -65,10 +65,7 @@ import type {
   SaleDetail,
   Settings,
 } from '../../domain/types';
-import {
-  calculateDiscountAmount,
-  formatCurrency,
-} from '../../utils/calculations';
+import { formatCurrency } from '../../utils/calculations';
 
 const getCurrencySymbol = (currency?: string): string => {
   switch ((currency || '').toUpperCase()) {
@@ -103,9 +100,8 @@ export default function BillingPage() {
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const customerLookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [discountType, setDiscountType] = useState<'percent' | 'amount'>('amount');
   const [discountValue, setDiscountValue] = useState(0);
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>('CASH');
+  const [paymentMode, setPaymentMode] = useState<PaymentMode | ''>('');
 
   const [completedSale, setCompletedSale] = useState<SaleDetail | null>(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -113,6 +109,7 @@ export default function BillingPage() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [paymentModes, setPaymentModes] = useState<string[]>([]);
   const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
+  const [showTaxColumns, setShowTaxColumns] = useState(false);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -164,35 +161,34 @@ export default function BillingPage() {
 
   // Subtotal = sum of line amounts (tax-inclusive, after item discounts)
   const subtotal = cart.reduce((sum, item) => sum + (getEffectiveUnitPrice(item) * item.qty), 0);
-  // Additional discount on subtotal (tax-inclusive)
-  const discountAmount = discountType === 'percent'
-    ? calculateDiscountAmount(subtotal, discountValue)
-    : Math.min(discountValue, subtotal);
-  // Extract taxable value and GST after global discount (tax-inclusive pricing)
-  const discountedSubtotal = subtotal - discountAmount;
-  const totalTaxableValue = taxPercent > 0 ? discountedSubtotal / taxDivisor : discountedSubtotal;
-  const totalGst = discountedSubtotal - totalTaxableValue;
-  const discountPercent = discountType === 'percent'
-    ? Math.min(discountValue, 100)
-    : subtotal > 0 ? Math.min((discountValue / subtotal) * 100, 100) : 0;
-  const finalAmount = subtotal - discountAmount;
+  // Extract taxable value and GST from subtotal (tax-inclusive pricing).
+  // Additional discount is applied AFTER tax.
+  const totalTaxableValue = taxPercent > 0 ? subtotal / taxDivisor : subtotal;
+  const totalGst = subtotal - totalTaxableValue;
+  const halfTaxPercent = taxPercent / 2;
+  const totalCgst = totalGst / 2;
+  const totalSgst = totalGst - totalCgst;
+  const finalAmount = subtotal;
+  const discountAmount = Math.min(discountValue, finalAmount);
+  const discountPercent = finalAmount > 0 ? Math.min((discountAmount / finalAmount) * 100, 100) : 0;
+  const netAfterDiscount = finalAmount - discountAmount;
 
   // Loyalty points calculations
   const loyaltyEnabled = !!settings?.loyaltyEnabled;
   const pointValue = settings?.pointValue || 1;
   const maxRedemptionPercent = settings?.maxPointsRedemptionPercent || 50;
   const pointsRedemptionAmount = pointsToRedeem * pointValue;
-  const netPayable = finalAmount - pointsRedemptionAmount;
+  const netPayable = netAfterDiscount - pointsRedemptionAmount;
   const roundedTotal = Math.round(netPayable);
   const roundOff = roundedTotal - netPayable;
 
   // Calculate max redeemable points
   const maxRedeemablePoints = useMemo(() => {
     if (!loyaltyEnabled || !matchedCustomer || matchedCustomer.loyaltyPoints <= 0) return 0;
-    const maxAmountFromPercent = finalAmount * maxRedemptionPercent / 100;
+    const maxAmountFromPercent = netAfterDiscount * maxRedemptionPercent / 100;
     const maxPointsFromAmount = Math.floor(maxAmountFromPercent / pointValue);
     return Math.min(matchedCustomer.loyaltyPoints, maxPointsFromAmount);
-  }, [loyaltyEnabled, matchedCustomer, finalAmount, maxRedemptionPercent, pointValue]);
+  }, [loyaltyEnabled, matchedCustomer, netAfterDiscount, maxRedemptionPercent, pointValue]);
 
   // Customer phone lookup with debounce
   const handleCustomerPhoneChange = useCallback((phone: string) => {
@@ -231,10 +227,15 @@ export default function BillingPage() {
     }
   }, [matchedCustomer]);
 
-  // Reset redeemed points when cart/discount changes (finalAmount drives this)
+  // Reset redeemed points when cart/discount changes (netAfterDiscount drives this)
   useEffect(() => {
     setPointsToRedeem(0);
-  }, [finalAmount]);
+  }, [netAfterDiscount]);
+
+  // Clear post-tax additional discount whenever cart composition/line math changes.
+  useEffect(() => {
+    setDiscountValue(0);
+  }, [cart]);
 
   const addToCart = useCallback((variant: VariantSearchResponse) => {
     setCart((prev) => {
@@ -560,13 +561,19 @@ export default function BillingPage() {
       return;
     }
 
+    if (!paymentMode) {
+      showError('Please select a payment mode');
+      return;
+    }
+
     setIsCompleting(true);
     try {
       const sale = await saleService.createSale({
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
         customerArea: customerArea || undefined,
-        paymentMode,
+        paymentMode: paymentMode as PaymentMode,
+        discountAmount,
         discountPercent,
         pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
         items: cart.map((item) => ({
@@ -589,6 +596,7 @@ export default function BillingPage() {
       setMatchedCustomer(null);
       setPointsToRedeem(0);
       setDiscountValue(0);
+      setPaymentMode('');
       setSearchQuery('');
       setSearchResults([]);
       setBarcodeInput('');
@@ -603,6 +611,7 @@ export default function BillingPage() {
     customerPhone,
     customerArea,
     paymentMode,
+    discountAmount,
     discountPercent,
     pointsToRedeem,
     showSuccess,
@@ -726,11 +735,24 @@ export default function BillingPage() {
                 <Typography variant="h6" fontWeight={600}>
                   Cart ({cart.length} items)
                 </Typography>
-                {cart.length > 0 && (
-                  <Button size="small" color="error" onClick={() => setShowClearConfirm(true)}>
-                    Clear All
-                  </Button>
-                )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={showTaxColumns}
+                        onChange={(event) => setShowTaxColumns(event.target.checked)}
+                      />
+                    }
+                    label="Show tax split"
+                    sx={{ mr: 0 }}
+                  />
+                  {cart.length > 0 && (
+                    <Button size="small" color="error" onClick={() => setShowClearConfirm(true)}>
+                      Clear All
+                    </Button>
+                  )}
+                </Box>
               </Box>
 
               {cart.length === 0 ? (
@@ -745,15 +767,22 @@ export default function BillingPage() {
                   <Table size="small" sx={{ tableLayout: 'auto' }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Product</TableCell>
-                        <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>Qty</TableCell>
+                        <TableCell sx={{ minWidth: 240, width: '34%' }}>Product</TableCell>
+                        <TableCell align="center" sx={{ whiteSpace: 'nowrap', width: 110 }}>Qty</TableCell>
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                           <Typography variant="body2" fontWeight={600}>Rate</Typography>
                           <Typography variant="caption" color="text.secondary">(Incl GST)</Typography>
                         </TableCell>
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Disc %</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Taxable</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>GST ({taxPercent}%)</TableCell>
+                        {showTaxColumns && (
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Taxable</TableCell>
+                        )}
+                        {showTaxColumns && (
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>CGST ({halfTaxPercent}%)</TableCell>
+                        )}
+                        {showTaxColumns && (
+                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>SGST ({halfTaxPercent}%)</TableCell>
+                        )}
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Amount</TableCell>
                         <TableCell align="center" width={40}></TableCell>
                       </TableRow>
@@ -763,8 +792,12 @@ export default function BillingPage() {
                       const itemDiscPct = getItemDiscountPercent(item);
                       const effectivePrice = getEffectiveUnitPrice(item);
                       const lineAmount = effectivePrice * item.qty;
+                      const baseLineAmount = item.unitPrice * item.qty;
+                      const lineDiscountAmount = baseLineAmount - lineAmount;
                       const lineTaxableValue = taxPercent > 0 ? lineAmount / taxDivisor : lineAmount;
                       const lineGst = lineAmount - lineTaxableValue;
+                      const lineCgst = lineGst / 2;
+                      const lineSgst = lineGst - lineCgst;
 
                       const itemHints = itemOfferHintsMap.get(item.variantId) || [];
 
@@ -825,7 +858,7 @@ export default function BillingPage() {
                               <Chip label="Max stock" size="small" color="warning" sx={{ ml: 1 }} />
                             )}
                           </TableCell>
-                          <TableCell align="center">
+                          <TableCell align="center" sx={{ width: 110 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <IconButton size="small" onClick={() => updateQuantity(item.variantId, -1)}>
                                 <RemoveIcon fontSize="small" />
@@ -838,7 +871,7 @@ export default function BillingPage() {
                                   if (delta !== 0) updateQuantity(item.variantId, delta);
                                 }}
                                 size="small"
-                                sx={{ width: 60, mx: 1 }}
+                                sx={{ width: 48, mx: 0.5 }}
                                 inputProps={{ style: { textAlign: 'center' } }}
                               />
                               <IconButton size="small" onClick={() => updateQuantity(item.variantId, 1)}>
@@ -874,18 +907,60 @@ export default function BillingPage() {
                               />
                             )}
                           </TableCell>
+                          {showTaxColumns && (
+                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                              <Money value={lineTaxableValue} symbol={currencySymbol} />
+                            </TableCell>
+                          )}
+                          {showTaxColumns && (
+                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                <Money value={lineCgst} symbol={currencySymbol} />
+                              </Typography>
+                            </TableCell>
+                          )}
+                          {showTaxColumns && (
+                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                <Money value={lineSgst} symbol={currencySymbol} />
+                              </Typography>
+                            </TableCell>
+                          )}
                           <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            <Money value={lineTaxableValue} symbol={currencySymbol} />
-                          </TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            <Typography variant="body2" color="text.secondary">
-                              <Money value={lineGst} symbol={currencySymbol} />
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            <Typography fontWeight={500}>
-                              <Money value={lineAmount} symbol={currencySymbol} />
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                              <Typography fontWeight={500}>
+                                <Money value={lineAmount} symbol={currencySymbol} />
+                              </Typography>
+                              <Tooltip
+                                arrow
+                                placement="left"
+                                title={
+                                  <Box>
+                                    <Typography variant="caption" component="div">
+                                      Base: {formatCurrency(item.unitPrice, currencySymbol)} × {item.qty} = {formatCurrency(baseLineAmount, currencySymbol)}
+                                    </Typography>
+                                    <Typography variant="caption" component="div">
+                                      Item Disc: {Math.round(itemDiscPct * 100) / 100}%
+                                    </Typography>
+                                    {lineDiscountAmount > 0 && (
+                                      <Typography variant="caption" component="div">
+                                        Discount Amount: -{formatCurrency(lineDiscountAmount, currencySymbol)}
+                                      </Typography>
+                                    )}
+                                    <Typography variant="caption" component="div">
+                                      Effective Rate: {formatCurrency(effectivePrice, currencySymbol)}
+                                    </Typography>
+                                    <Typography variant="caption" component="div">
+                                      Net Line Amount: {formatCurrency(lineAmount, currencySymbol)}
+                                    </Typography>
+                                  </Box>
+                                }
+                              >
+                                <Box component="span" sx={{ display: 'inline-flex', cursor: 'help' }}>
+                                  <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                </Box>
+                              </Tooltip>
+                            </Box>
                           </TableCell>
                           <TableCell align="center">
                             <IconButton size="small" color="error" onClick={() => removeFromCart(item.variantId)}>
@@ -987,49 +1062,38 @@ export default function BillingPage() {
 
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Bill-level Discount (affects GST)
+                  Less: Rounded Off (After GST)
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <ToggleButtonGroup
-                    value={discountType}
-                    exclusive
-                    onChange={(_, value) => value && setDiscountType(value)}
-                    size="small"
-                  >
-                    <ToggleButton value="percent">
-                      <PercentIcon fontSize="small" />
-                    </ToggleButton>
-                    <ToggleButton value="amount">
-                      <CurrencyRupeeIcon fontSize="small" />
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    value={discountValue}
-                    onChange={(event) => setDiscountValue(Math.max(0, parseFloat(event.target.value) || 0))}
-                    size="small"
-                    inputProps={{ min: 0, step: discountType === 'percent' ? 1 : 10 }}
-                  />
-                </Box>
+                <TextField
+                  fullWidth
+                  type="number"
+                  value={discountValue}
+                  onChange={(event) => setDiscountValue(Math.max(0, parseFloat(event.target.value) || 0))}
+                  size="small"
+                  inputProps={{ min: 0, step: 10 }}
+                />
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  GST is recalculated after bill-level discount.
+                  Additional discount is applied after GST.
                 </Typography>
               </Box>
 
-              <FormControl fullWidth size="small" sx={{ mb: 3 }}>
+              <FormControl fullWidth size="small" sx={{ mb: 3 }} error={!paymentMode}>
                 <InputLabel>Payment Mode</InputLabel>
                 <Select
                   value={paymentMode}
                   label="Payment Mode"
-                  onChange={(event) => setPaymentMode(event.target.value as PaymentMode)}
+                  onChange={(event) => setPaymentMode(event.target.value as PaymentMode | '')}
                 >
+                  <MenuItem value="">
+                    <em>Select Payment Mode</em>
+                  </MenuItem>
                   {paymentModes.map((mode) => (
                     <MenuItem key={mode} value={mode}>
                       {mode}
                     </MenuItem>
                   ))}
                 </Select>
+                {!paymentMode && <FormHelperText error>Payment mode is required</FormHelperText>}
               </FormControl>
 
               <Divider sx={{ my: 2 }} />
@@ -1039,32 +1103,36 @@ export default function BillingPage() {
                   <Typography fontWeight={500}>Subtotal (after item discounts)</Typography>
                   <Typography fontWeight={500}><Money value={subtotal} symbol={currencySymbol} /></Typography>
                 </Box>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="text.secondary">Taxable Value</Typography>
+                  <Typography><Money value={totalTaxableValue} symbol={currencySymbol} /></Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography color="text.secondary">CGST ({halfTaxPercent}%)</Typography>
+                    <Tooltip title="GST is calculated on subtotal before additional discount.">
+                      <Box component="span" sx={{ display: 'inline-flex' }}>
+                        <HelpOutlineIcon aria-label="GST is calculated on subtotal before additional discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
+                      </Box>
+                    </Tooltip>
+                  </Box>
+                  <Typography><Money value={totalCgst} symbol={currencySymbol} /></Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="text.secondary">SGST ({halfTaxPercent}%)</Typography>
+                  <Typography><Money value={totalSgst} symbol={currencySymbol} /></Typography>
+                </Box>
                 {discountAmount > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography color="text.secondary">
-                      Addl. Discount {discountType === 'percent' && `(${discountValue}%)`}
+                      Less: Rounded Off
                     </Typography>
                     <Typography color="error.main">
                       -<Money value={discountAmount} symbol={currencySymbol} />
                     </Typography>
                   </Box>
                 )}
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography color="text.secondary">Taxable Value (after bill discount)</Typography>
-                  <Typography><Money value={totalTaxableValue} symbol={currencySymbol} /></Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography color="text.secondary">Total GST ({taxPercent}%)</Typography>
-                    <Tooltip title="GST is calculated after bill-level discount.">
-                      <Box component="span" sx={{ display: 'inline-flex' }}>
-                        <HelpOutlineIcon aria-label="GST is calculated after bill-level discount" sx={{ fontSize: 14, color: 'text.disabled' }} />
-                      </Box>
-                    </Tooltip>
-                  </Box>
-                  <Typography><Money value={totalGst} symbol={currencySymbol} /></Typography>
-                </Box>
                 {pointsRedemptionAmount > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography color="text.secondary">
@@ -1097,7 +1165,7 @@ export default function BillingPage() {
                 variant="contained"
                 size="large"
                 onClick={handleCompleteSale}
-                disabled={cart.length === 0 || isCompleting || isSettingsLoading}
+                disabled={cart.length === 0 || isCompleting || isSettingsLoading || !paymentMode}
                 sx={{ py: 1.5 }}
               >
                 {isCompleting ? (
@@ -1148,7 +1216,7 @@ export default function BillingPage() {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography color="text.secondary">Net Payable</Typography>
                 <Typography fontWeight={600}>
-                  <Money value={completedSale.total - (completedSale.pointsRedemptionAmount || 0)} symbol={currencySymbol} />
+                  <Money value={completedSale.total - completedSale.discountAmount - (completedSale.pointsRedemptionAmount || 0)} symbol={currencySymbol} />
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
