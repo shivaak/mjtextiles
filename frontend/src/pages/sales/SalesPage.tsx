@@ -104,21 +104,50 @@ export default function SalesPage() {
 
   const columns: GridColDef[] = [
     {
+      field: 'actions',
+      headerName: '',
+      width: 80,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<SaleList>) => (
+        <Box>
+          <Tooltip title="View Details">
+            <IconButton size="small" onClick={() => navigate(`/sales/${params.row.id}`)}>
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
+    {
       field: 'billNo',
       headerName: 'Bill No',
       flex: 0.8,
       minWidth: 120,
       renderCell: (params: GridRenderCellParams<SaleList>) => (
-        <Typography
-          variant="body2"
-          fontWeight={500}
-          sx={{
-            textDecoration: params.row.status === 'VOIDED' ? 'line-through' : 'none',
-            color: params.row.status === 'VOIDED' ? 'text.secondary' : 'inherit',
-          }}
-        >
-          {params.value}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Typography
+            variant="body2"
+            fontWeight={500}
+            sx={{
+              textDecoration: params.row.status === 'VOIDED' ? 'line-through' : 'none',
+              color: params.row.status === 'VOIDED' ? 'text.secondary' : 'inherit',
+            }}
+          >
+            {params.value}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 130,
+      renderCell: (params: GridRenderCellParams) => (
+        <Chip
+          label={params.value}
+          size="small"
+          color={params.value === 'COMPLETED' ? 'success' : 'error'}
+        />
       ),
     },
     {
@@ -170,7 +199,9 @@ export default function SalesPage() {
       align: 'right',
       headerAlign: 'right',
       renderCell: (params: GridRenderCellParams) => (
-        (params.value as number) > 0 ? <Money value={-(params.value as number)} /> : <Typography>-</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%' }}>
+          {(params.value as number) > 0 ? <Money value={-(params.value as number)} /> : <Typography>-</Typography>}
+        </Box>
       ),
     },
     {
@@ -182,41 +213,63 @@ export default function SalesPage() {
       headerAlign: 'right',
       valueGetter: (_value: unknown, row: SaleList) => row.total - (row.pointsRedemptionAmount || 0),
       renderCell: (params: GridRenderCellParams<SaleList>) => (
-        <Typography
-          fontWeight={600}
-          sx={{ textDecoration: params.row.status === 'VOIDED' ? 'line-through' : 'none' }}
-        >
-          <Money value={params.value as number} />
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%' }}>
+          <Typography
+            fontWeight={600}
+            sx={{ textDecoration: params.row.status === 'VOIDED' ? 'line-through' : 'none' }}
+          >
+            <Money value={params.value as number} />
+          </Typography>
+        </Box>
       ),
     },
     {
       field: 'pointsEarned',
-      headerName: 'Pts Earned',
+      headerName: 'PTS +',
       width: 90,
       align: 'center',
       headerAlign: 'center',
+      renderHeader: () => (
+        <Tooltip title="Points Earned">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'help' }}>
+            <Typography variant="body2" fontWeight={500}>PTS</Typography>
+            <Typography variant="body2" fontWeight={700} color="success.main">+</Typography>
+          </Box>
+        </Tooltip>
+      ),
       renderCell: (params: GridRenderCellParams<SaleList>) => {
         const val = params.value as number || 0;
         return (
-          <Typography variant="body2" color={val > 0 ? 'success.main' : 'text.secondary'} fontWeight={val > 0 ? 500 : 400}>
-            {val}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <Typography variant="body2" color={val > 0 ? 'success.main' : 'text.secondary'} fontWeight={val > 0 ? 500 : 400}>
+              {val}
+            </Typography>
+          </Box>
         );
       },
     },
     {
       field: 'pointsRedeemed',
-      headerName: 'Pts Redeemed',
+      headerName: 'PTS -',
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      renderHeader: () => (
+        <Tooltip title="Points Redeemed">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'help' }}>
+            <Typography variant="body2" fontWeight={500}>PTS</Typography>
+            <Typography variant="body2" fontWeight={700} color="error.main">-</Typography>
+          </Box>
+        </Tooltip>
+      ),
       renderCell: (params: GridRenderCellParams<SaleList>) => {
         const val = params.value as number || 0;
         return (
-          <Typography variant="body2" color={val > 0 ? 'error.main' : 'text.secondary'} fontWeight={val > 0 ? 500 : 400}>
-            {val}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <Typography variant="body2" color={val > 0 ? 'error.main' : 'text.secondary'} fontWeight={val > 0 ? 500 : 400}>
+              {val}
+            </Typography>
+          </Box>
         );
       },
     },
@@ -228,11 +281,13 @@ export default function SalesPage() {
       align: 'right' as const,
       headerAlign: 'right' as const,
       renderCell: (params: GridRenderCellParams<SaleList>) => (
-        params.row.status === 'COMPLETED' ? (
-          <Typography color="success.main" fontWeight={500}>
-            <Money value={(params.value as number) || 0} />
-          </Typography>
-        ) : <Typography>-</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%' }}>
+          {params.row.status === 'COMPLETED' ? (
+            <Typography color="success.main" fontWeight={500}>
+              <Money value={(params.value as number) || 0} />
+            </Typography>
+          ) : <Typography>-</Typography>}
+        </Box>
       ),
     }] : []),
     {
@@ -241,33 +296,6 @@ export default function SalesPage() {
       flex: 0.8,
       minWidth: 120,
       valueGetter: (value) => value || '-',
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 100,
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={params.value === 'COMPLETED' ? 'success' : 'error'}
-        />
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 80,
-      sortable: false,
-      renderCell: (params: GridRenderCellParams<SaleList>) => (
-        <Box>
-          <Tooltip title="View Details">
-            <IconButton size="small" onClick={() => navigate(`/sales/${params.row.id}`)}>
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
     },
   ];
 

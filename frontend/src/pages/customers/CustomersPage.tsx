@@ -66,6 +66,7 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
@@ -80,7 +81,7 @@ export default function CustomersPage() {
     setLoading(true);
     try {
       const data = await customerService.getCustomers({
-        search: search || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
       setCustomers(data);
     } catch (error) {
@@ -88,7 +89,15 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, showError]);
+  }, [debouncedSearch, showError]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
 
   useEffect(() => {
     fetchCustomers();
@@ -166,9 +175,11 @@ export default function CustomersPage() {
       headerName: 'Phone',
       width: 150,
       renderCell: (params: GridRenderCellParams<Customer>) => (
-        <Typography variant="body2" fontWeight={500}>
-          {params.value}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Typography variant="body2" fontWeight={500}>
+            {params.value}
+          </Typography>
+        </Box>
       ),
     },
     {

@@ -52,6 +52,7 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const form = useForm<SupplierFormData>({
     resolver: zodResolver(supplierSchema),
@@ -69,7 +70,7 @@ export default function SuppliersPage() {
     setLoading(true);
     try {
       const data = await supplierService.getSuppliers({
-        search: search || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
       setSuppliers(data);
     } catch (error) {
@@ -77,7 +78,15 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, showError]);
+  }, [debouncedSearch, showError]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
 
   useEffect(() => {
     fetchSuppliers();
@@ -144,9 +153,11 @@ export default function SuppliersPage() {
       flex: 1,
       minWidth: 180,
       renderCell: (params: GridRenderCellParams<Supplier>) => (
-        <Typography variant="body2" fontWeight={500}>
-          {params.value}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Typography variant="body2" fontWeight={500}>
+            {params.value}
+          </Typography>
+        </Box>
       ),
     },
     {
