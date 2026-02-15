@@ -146,6 +146,14 @@ function getShortCodeForName(shortCodes: ShortCode[], type: string, name: string
   return found?.shortCode || '';
 }
 
+function normalizeShortCodeValue(value: string): string {
+  return value.replace(/\s+/g, '').toUpperCase();
+}
+
+function buildDefaultShortCode(name: string): string {
+  return normalizeShortCodeValue(name).slice(0, 3);
+}
+
 export default function ProductsPage() {
   const { success: showSuccess, error: showError } = useNotification();
   const { isAdmin } = useAuth();
@@ -162,6 +170,7 @@ export default function ProductsPage() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<VariantStatus | ''>('');
@@ -245,7 +254,7 @@ export default function ProductsPage() {
         category: categoryFilter || undefined,
         brand: brandFilter || undefined,
         status: statusFilter || undefined,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery.trim() || undefined,
         page: paginationModel.page,
         size: paginationModel.pageSize,
       });
@@ -257,7 +266,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, brandFilter, statusFilter, searchQuery, paginationModel, showError]);
+  }, [categoryFilter, brandFilter, statusFilter, debouncedSearchQuery, paginationModel, showError]);
 
   const fetchProducts = useCallback(async () => {
     setProductLoading(true);
@@ -265,7 +274,7 @@ export default function ProductsPage() {
       const data = await productService.getProducts({
         category: categoryFilter || undefined,
         brand: brandFilter || undefined,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery.trim() || undefined,
         includeInactive: true,
         page: productPaginationModel.page,
         size: productPaginationModel.pageSize,
@@ -278,7 +287,7 @@ export default function ProductsPage() {
     } finally {
       setProductLoading(false);
     }
-  }, [categoryFilter, brandFilter, searchQuery, productPaginationModel, showError]);
+  }, [categoryFilter, brandFilter, debouncedSearchQuery, productPaginationModel, showError]);
 
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
@@ -358,6 +367,14 @@ export default function ProductsPage() {
     fetchActiveOffers();
   }, [fetchFilterOptions, fetchSettings, fetchActiveOffers]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
   // Auto-update SKUs for product dialog variant rows
   useEffect(() => {
     const catCode = getShortCodeForName(shortCodes, 'CATEGORY', watchedCategory);
@@ -418,17 +435,23 @@ export default function ProductsPage() {
   const openShortCodeDialog = (type: 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR', name: string, callback: (name: string) => void) => {
     setNewShortCodeType(type);
     setNewShortCodeName(name);
-    setNewShortCodeValue(name.substring(0, 3).toUpperCase());
+    setNewShortCodeValue(buildDefaultShortCode(name));
     setShortCodeCallback(() => callback);
     setShortCodeDialogOpen(true);
   };
 
   const handleSaveShortCode = async () => {
     try {
+      const normalizedShortCode = normalizeShortCodeValue(newShortCodeValue);
+      if (!normalizedShortCode) {
+        showError('Short code cannot be empty');
+        return;
+      }
+
       await shortCodeService.createShortCode({
         type: newShortCodeType,
         name: newShortCodeName,
-        shortCode: newShortCodeValue.toUpperCase(),
+        shortCode: normalizedShortCode,
       });
       showSuccess(`${newShortCodeType.charAt(0) + newShortCodeType.slice(1).toLowerCase()} "${newShortCodeName}" added`);
       setShortCodeDialogOpen(false);
@@ -1943,7 +1966,7 @@ export default function ProductsPage() {
               fullWidth
               label="Short Code (for SKU)"
               value={newShortCodeValue}
-              onChange={(e) => setNewShortCodeValue(e.target.value.toUpperCase())}
+              onChange={(e) => setNewShortCodeValue(normalizeShortCodeValue(e.target.value))}
               inputProps={{ maxLength: 10 }}
               helperText="2-5 character code used in auto-generated SKU"
             />

@@ -52,7 +52,7 @@ public class ShortCodeService {
     public ShortCodeResponse createShortCode(CreateShortCodeRequest request) {
         log.info("Creating short code: {} - {} ({})", request.getType(), request.getName(), request.getShortCode());
 
-        String upperCode = request.getShortCode().toUpperCase();
+        String upperCode = request.getShortCode().replaceAll("\\s+", "").toUpperCase();
 
         // Check for duplicate name
         if (shortCodeDao.findByTypeAndName(request.getType(), request.getName()).isPresent()) {
@@ -89,7 +89,7 @@ public class ShortCodeService {
         ShortCode existing = shortCodeDao.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Short code not found with ID: " + id));
 
-        String upperCode = request.getShortCode().toUpperCase();
+        String upperCode = request.getShortCode().replaceAll("\\s+", "").toUpperCase();
 
         // Check for duplicate name (excluding current record)
         if (shortCodeDao.findByTypeAndNameExcludingId(existing.getType(), request.getName(), id).isPresent()) {

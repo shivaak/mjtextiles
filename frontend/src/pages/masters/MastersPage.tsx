@@ -59,6 +59,8 @@ const shortCodeSchema = z.object({
 
 type ShortCodeFormData = z.infer<typeof shortCodeSchema>;
 
+const normalizeShortCodeValue = (value: string): string => value.replace(/\s+/g, '').toUpperCase();
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -167,14 +169,14 @@ export default function MastersPage() {
       if (editingItem) {
         await shortCodeService.updateShortCode(editingItem.id, {
           name: data.name.trim(),
-          shortCode: data.shortCode.trim().toUpperCase(),
+          shortCode: normalizeShortCodeValue(data.shortCode.trim()),
         });
         showSuccess(`${activeType.singular} updated successfully`);
       } else {
         await shortCodeService.createShortCode({
           type: activeType.key,
           name: data.name.trim(),
-          shortCode: data.shortCode.trim().toUpperCase(),
+          shortCode: normalizeShortCodeValue(data.shortCode.trim()),
         });
         showSuccess(`${activeType.singular} created successfully`);
       }
