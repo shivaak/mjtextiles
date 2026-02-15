@@ -45,7 +45,7 @@ public class InvoiceService {
     private static final int ITEM_TABLE_HEADER_FONT_SIZE = 8;
     private static final int ITEM_TABLE_BODY_FONT_SIZE = 8;
     private static final float ITEM_TABLE_CELL_PADDING = 4f;
-    private static final float SECTION_SPACER = 4f;
+    private static final float SECTION_SPACER = 2f;
 
     private final SaleService saleService;
     private final SettingsService settingsService;
@@ -276,7 +276,7 @@ public class InvoiceService {
     private void addSummary(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
         Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
         Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
-        Font grandTotalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+        Font grandTotalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
         Font pointsFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(0, 128, 0));
 
         PdfPTable table = new PdfPTable(2);
@@ -366,7 +366,7 @@ public class InvoiceService {
 
         // Amount in words (using rounded net payable)
         addSpacer(document);
-        Font amountWordsFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        Font amountWordsFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7);
         Paragraph amountInWords = new Paragraph(
                 "Amount in Words: " + convertAmountToWords(roundedTotal),
                 amountWordsFont
@@ -380,8 +380,8 @@ public class InvoiceService {
         addSpacer(document);
 
         // Authorized Signatory - right aligned
-        Font signatoryFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-        Font signatoryLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
+        Font signatoryFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        Font signatoryLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 7);
 
         PdfPTable sigTable = new PdfPTable(1);
         sigTable.setWidthPercentage(35);
@@ -390,13 +390,13 @@ public class InvoiceService {
         PdfPCell forCell = new PdfPCell(new Phrase("For " + safe(settings.getShopName()), signatoryFont));
         forCell.setBorder(Rectangle.NO_BORDER);
         forCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        forCell.setPaddingBottom(12); // Space for signature
+        forCell.setPaddingBottom(8); // Compact space for signature
         sigTable.addCell(forCell);
 
         PdfPCell authCell = new PdfPCell(new Phrase("Authorized Signatory", signatoryLabelFont));
         authCell.setBorder(Rectangle.NO_BORDER);
         authCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        authCell.setPaddingTop(5);
+        authCell.setPaddingTop(2);
         sigTable.addCell(authCell);
 
         document.add(sigTable);
@@ -410,8 +410,8 @@ public class InvoiceService {
 
         addSpacer(document);
 
-        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-        Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(100, 100, 100));
+        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 7, new Color(100, 100, 100));
 
         Paragraph thankYou = new Paragraph("Thank you for your business!", footerFont);
         thankYou.setAlignment(Element.ALIGN_CENTER);
