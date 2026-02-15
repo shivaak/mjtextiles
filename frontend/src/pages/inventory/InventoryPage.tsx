@@ -368,7 +368,9 @@ export default function InventoryPage() {
         stockQty: row.stockQty,
       }),
       renderCell: (params: GridRenderCellParams) => (
-        <Typography fontWeight={500}><Money value={params.value as number} /></Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Typography fontWeight={500}><Money value={params.value as number} /></Typography>
+        </Box>
       ),
     },
     {
@@ -386,32 +388,34 @@ export default function InventoryPage() {
       renderCell: (params: GridRenderCellParams<Variant>) => {
         const markup = params.value as number;
         return (
-          <Tooltip
-            title={
-              <Box sx={{ p: 0.5 }}>
-                <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
-                  How is Markup calculated?
-                </Typography>
-                <Typography variant="caption" display="block" sx={{ mb: 1 }}>
-                  Markup % = ((Price − Cost) / Cost) × 100
-                </Typography>
-                <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
-                  Example:
-                </Typography>
-                <Typography variant="caption" display="block">Selling Price: ₹150</Typography>
-                <Typography variant="caption" display="block">Cost: ₹100</Typography>
-                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                  Markup = (150 − 100) / 100 × 100 = 50%
-                </Typography>
-              </Box>
-            }
-            arrow
-            placement="left"
-          >
-            <Typography variant="body2" color={markup >= 30 ? 'success.main' : 'warning.main'} sx={{ cursor: 'help' }}>
-              {markup.toFixed(1)}%
-            </Typography>
-          </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <Tooltip
+              title={
+                <Box sx={{ p: 0.5 }}>
+                  <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
+                    How is Markup calculated?
+                  </Typography>
+                  <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                    Markup % = ((Price − Cost) / Cost) × 100
+                  </Typography>
+                  <Typography variant="caption" fontWeight={600} display="block" gutterBottom>
+                    Example:
+                  </Typography>
+                  <Typography variant="caption" display="block">Selling Price: ₹150</Typography>
+                  <Typography variant="caption" display="block">Cost: ₹100</Typography>
+                  <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                    Markup = (150 − 100) / 100 × 100 = 50%
+                  </Typography>
+                </Box>
+              }
+              arrow
+              placement="left"
+            >
+              <Typography variant="body2" color={markup >= 30 ? 'success.main' : 'warning.main'} sx={{ cursor: 'help' }}>
+                {markup.toFixed(1)}%
+              </Typography>
+            </Tooltip>
+          </Box>
         );
       },
     }] : []),
