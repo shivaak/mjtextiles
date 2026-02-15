@@ -79,8 +79,10 @@ export default function InventoryPage() {
   const { success: showSuccess, error: showError } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearchQuery = searchParams.get('q') || '';
+  const urlSearchQuery = searchParams.get('q') || '';
 
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(initialSearchQuery);
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<string>('');
@@ -168,7 +170,7 @@ export default function InventoryPage() {
         category: categoryFilter || undefined,
         brand: brandFilter || undefined,
         status: 'ACTIVE',
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery.trim() || undefined,
         page: paginationModel.page,
         size: paginationModel.pageSize,
       };
@@ -184,7 +186,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, brandFilter, stockFilter, searchQuery, paginationModel, showError]);
+  }, [categoryFilter, brandFilter, stockFilter, debouncedSearchQuery, paginationModel, showError]);
 
   useEffect(() => {
     fetchFilters();
@@ -197,27 +199,36 @@ export default function InventoryPage() {
   }, [fetchVariants]);
 
   useEffect(() => {
-    const urlQuery = searchParams.get('q') || '';
-    if (urlQuery !== searchQuery) {
-      setSearchQuery(urlQuery);
-      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }
-  }, [searchParams, searchQuery]);
+    setSearchQuery((prev) => (prev === urlSearchQuery ? prev : urlSearchQuery));
+    setDebouncedSearchQuery((prev) => (prev === urlSearchQuery ? prev : urlSearchQuery));
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  }, [urlSearchQuery]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+
+      const nextParams = new URLSearchParams(searchParams);
+      const trimmed = searchQuery.trim();
+      const currentUrlQuery = urlSearchQuery;
+
+      if (trimmed) {
+        if (currentUrlQuery !== trimmed) {
+          nextParams.set('q', trimmed);
+          setSearchParams(nextParams, { replace: true });
+        }
+      } else if (currentUrlQuery) {
+        nextParams.delete('q');
+        setSearchParams(nextParams, { replace: true });
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery, searchParams, setSearchParams, urlSearchQuery]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-
-    const nextParams = new URLSearchParams(searchParams);
-    const trimmed = value.trim();
-
-    if (trimmed) {
-      nextParams.set('q', trimmed);
-    } else {
-      nextParams.delete('q');
-    }
-
-    setSearchParams(nextParams, { replace: true });
   };
 
   const stats = useMemo(() => {
