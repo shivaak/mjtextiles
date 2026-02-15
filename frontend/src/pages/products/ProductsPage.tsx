@@ -24,6 +24,8 @@ import {
   Autocomplete,
   Divider,
   Collapse,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams, GridPaginationModel } from '@mui/x-data-grid';
@@ -175,6 +177,7 @@ export default function ProductsPage() {
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<VariantStatus | ''>('');
   const [offerFilter, setOfferFilter] = useState<'' | 'with' | 'without'>('');
+  const [showVariantBarcodeColumn, setShowVariantBarcodeColumn] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
@@ -1062,14 +1065,14 @@ export default function ProductsPage() {
       renderCell: (params: GridRenderCellParams<Product>) => {
         const productOffers = getOffersForProduct(params.row.id);
         return (
-          <Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: 1.2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography variant="body2" fontWeight={500}>
                 {params.row.name}
               </Typography>
               {renderOfferIcon(productOffers, params.row.defaultDiscountPercent)}
             </Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.2 }}>
               {params.row.brand}
             </Typography>
           </Box>
@@ -1155,7 +1158,7 @@ export default function ProductsPage() {
   ];
 
   const variantColumns: GridColDef[] = [
-    { field: 'barcode', headerName: 'Barcode', width: 130 },
+    ...(showVariantBarcodeColumn ? [{ field: 'barcode', headerName: 'Barcode', width: 180 }] : []),
     { field: 'sku', headerName: 'SKU', width: 170 },
     {
       field: 'productName',
@@ -1165,14 +1168,14 @@ export default function ProductsPage() {
       renderCell: (params: GridRenderCellParams<Variant>) => {
         const variantOffers = getOffersForVariant(params.row.id, params.row.productId);
         return (
-          <Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', lineHeight: 1.2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Typography variant="body2" fontWeight={500}>
                 {params.row.productName}
               </Typography>
               {renderOfferIcon(variantOffers, params.row.effectiveDiscountPercent)}
             </Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.2 }}>
               {params.row.productBrand}
             </Typography>
           </Box>
@@ -1472,6 +1475,19 @@ export default function ProductsPage() {
         </Card>
       ) : (
         <Card>
+          <CardContent sx={{ pb: 0 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={showVariantBarcodeColumn}
+                    onChange={(event) => setShowVariantBarcodeColumn(event.target.checked)}
+                  />
+                )}
+                label="Show Barcode"
+              />
+            </Box>
+          </CardContent>
           <Box sx={{ width: '100%', overflow: 'auto' }}>
             <DataGrid
               rows={filteredVariants}
