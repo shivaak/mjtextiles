@@ -494,9 +494,11 @@ export default function PurchasesPage() {
       headerName: 'Invoice #',
       width: 120,
       renderCell: (params: GridRenderCellParams) => (
-        <Typography variant="body2" fontWeight={500}>
-          {params.value || '-'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Typography variant="body2" fontWeight={500}>
+            {params.value || '-'}
+          </Typography>
+        </Box>
       ),
     },
     {
@@ -524,9 +526,11 @@ export default function PurchasesPage() {
       width: 120,
       align: 'right',
       renderCell: (params: GridRenderCellParams) => (
-        <Typography fontWeight={500}>
-          <Money value={Number(params.value || 0)} />
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%', height: '100%' }}>
+          <Typography fontWeight={500}>
+            <Money value={Number(params.value || 0)} />
+          </Typography>
+        </Box>
       ),
     },
     {
