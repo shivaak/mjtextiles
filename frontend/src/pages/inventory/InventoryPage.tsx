@@ -31,6 +31,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Link,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRenderCellParams, GridPaginationModel } from '@mui/x-data-grid';
@@ -102,6 +104,7 @@ export default function InventoryPage() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [supplierSummary, setSupplierSummary] = useState<SupplierSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showBarcodeColumn, setShowBarcodeColumn] = useState(false);
 
   const form = useForm<AdjustmentFormData>({
     resolver: zodResolver(adjustmentSchema),
@@ -277,21 +280,21 @@ export default function InventoryPage() {
   };
 
   const columns: GridColDef[] = [
-    {
+    ...(showBarcodeColumn ? [{
       field: 'barcode',
       headerName: 'Barcode',
-      width: 130,
-    },
+      width: 180,
+    }] : []),
     {
       field: 'sku',
       headerName: 'SKU',
-      width: 140,
+      width: 260,
     },
     {
       field: 'productName',
       headerName: 'Product',
       flex: 1,
-      minWidth: 200,
+      minWidth: 160,
       renderCell: (params: GridRenderCellParams<Variant>) => (
         <Box>
           <Typography variant="body2" fontWeight={500}>
@@ -548,6 +551,19 @@ export default function InventoryPage() {
       </Card>
 
       <Card>
+        <CardContent sx={{ pb: 0 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <FormControlLabel
+              control={(
+                <Switch
+                  checked={showBarcodeColumn}
+                  onChange={(event) => setShowBarcodeColumn(event.target.checked)}
+                />
+              )}
+              label="Show Barcode"
+            />
+          </Box>
+        </CardContent>
         <DataGrid
           rows={variants}
           columns={columns}
