@@ -270,10 +270,26 @@ export default function PurchasesPage() {
     setVariantCache((prev) => ({ ...prev, [variant.id]: variant }));
   };
 
+  const getVariantDisplayText = (variant: Pick<VariantSearchResponse, 'productName' | 'size' | 'color'>): string => {
+    const size = variant.size?.trim();
+    const color = variant.color?.trim();
+    const details = [size, color].filter(Boolean).join(' ');
+    return details ? `${variant.productName} - ${details}` : variant.productName;
+  };
+
+  const getVariantMetaText = (variant: Pick<VariantSearchResponse, 'productBrand' | 'size' | 'color' | 'sku'>): string => {
+    return [
+      variant.productBrand?.trim(),
+      variant.size?.trim(),
+      variant.color?.trim(),
+      variant.sku?.trim(),
+    ].filter(Boolean).join(' | ');
+  };
+
   const getVariantName = (variantId: number): string => {
     const variant = variantCache[variantId];
     if (!variant) return variantId ? String(variantId) : '';
-    return `${variant.productName} - ${variant.size} ${variant.color}`;
+    return getVariantDisplayText(variant);
   };
 
   const handleAddEditVariant = (variant: VariantSearchResponse, index: number) => {
@@ -732,9 +748,7 @@ export default function PurchasesPage() {
                               render={({ field: f }) => (
                                 <Autocomplete
                                   options={variantResults}
-                                  getOptionLabel={(option) =>
-                                    `${option.productName} - ${option.size} ${option.color}`
-                                  }
+                                  getOptionLabel={(option) => getVariantDisplayText(option)}
                                   value={f.value ? variantCache[f.value] || null : null}
                                   inputValue={f.value ? getVariantName(f.value) : variantSearch}
                                   onInputChange={(_, value, reason) => {
@@ -771,7 +785,7 @@ export default function PurchasesPage() {
                                       <Box>
                                         <Typography variant="body2">{option.productName}</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                          {option.productBrand ? `${option.productBrand} | ` : ''}{option.size} | {option.color} | {option.sku}
+                                          {getVariantMetaText(option)}
                                         </Typography>
                                       </Box>
                                     </Box>
@@ -912,9 +926,7 @@ export default function PurchasesPage() {
                               render={({ field: f }) => (
                                 <Autocomplete
                                   options={variantResults}
-                                  getOptionLabel={(option) =>
-                                    `${option.productName} - ${option.size} ${option.color}`
-                                  }
+                                  getOptionLabel={(option) => getVariantDisplayText(option)}
                                   value={f.value ? variantCache[f.value] || null : null}
                                   inputValue={f.value ? getVariantName(f.value) : variantSearch}
                                   onInputChange={(_, value, reason) => {
@@ -951,7 +963,7 @@ export default function PurchasesPage() {
                                       <Box>
                                         <Typography variant="body2">{option.productName}</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                          {option.productBrand ? `${option.productBrand} | ` : ''}{option.size} | {option.color} | {option.sku}
+                                          {getVariantMetaText(option)}
                                         </Typography>
                                       </Box>
                                     </Box>
