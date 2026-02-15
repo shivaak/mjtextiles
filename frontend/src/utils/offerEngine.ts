@@ -10,6 +10,24 @@ export interface OfferApplication {
   discountPercent: number;
 }
 
+type OfferOp = {
+  offerId: number;
+  offerName: string;
+  consumedByItemIdx: Map<number, number>;
+  offeredCost: number;
+  savingsByItemIdx: Map<number, number>;
+};
+
+type PlanStep = {
+  op: OfferOp;
+  nextKey: string;
+};
+
+type PlanResult = {
+  cost: number;
+  steps: PlanStep[];
+};
+
 /**
  * Evaluate all active offers against the cart and return the best non-conflicting
  * offer applications (one per cart item, highest savings wins).
@@ -19,16 +37,30 @@ export function evaluateOffers(
   offers: Offer[]
 ): OfferApplication[] {
   if (cart.length === 0 || offers.length === 0) return [];
+  const relevantQty = cart.reduce(
+    (sum, item) => sum + (offers.some((offer) => offerTouchesCartItem(offer, item)) ? item.qty : 0),
+    0
+  );
 
-  // Collect all candidate applications from all offers
+  // Keep large baskets responsive with the previous per-variant approach.
+  if (relevantQty > 40) {
+    return evaluateOffersLegacy(cart, offers);
+  }
+
+  try {
+    return evaluateOffersOptimized(cart, offers);
+  } catch {
+    return evaluateOffersLegacy(cart, offers);
+  }
+}
+
+function evaluateOffersLegacy(cart: CartItem[], offers: Offer[]): OfferApplication[] {
   const allCandidates: OfferApplication[] = [];
-
   for (const offer of offers) {
     const apps = evaluateSingleOffer(cart, offer);
     allCandidates.push(...apps);
   }
 
-  // Pick the best offer per variant (highest discountPercent)
   const bestByVariant = new Map<number, OfferApplication>();
   for (const app of allCandidates) {
     if (app.discountPercent <= 0) continue;
@@ -37,7 +69,6 @@ export function evaluateOffers(
       bestByVariant.set(app.variantId, app);
     }
   }
-
   return Array.from(bestByVariant.values());
 }
 
@@ -59,6 +90,119 @@ function evaluateSingleOffer(cart: CartItem[], offer: Offer): OfferApplication[]
   }
 }
 
+function evaluateOffersOptimized(cart: CartItem[], offers: Offer[]): OfferApplication[] {
+  const relevantItemIndexes = cart
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => offers.some((offer) => offerTouchesCartItem(offer, item)))
+    .map(({ idx }) => idx);
+
+  if (relevantItemIndexes.length === 0) return [];
+
+  const initialState = relevantItemIndexes.map((idx) => cart[idx].qty);
+  const memo = new Map<string, PlanResult>();
+
+  const getKey = (state: number[]) => state.join('|');
+
+  const regularCost = (state: number[]) =>
+    state.reduce((sum, qty, pos) => sum + qty * cart[relevantItemIndexes[pos]].unitPrice, 0);
+
+  const solve = (state: number[]): PlanResult => {
+    const key = getKey(state);
+    const cached = memo.get(key);
+    if (cached) return cached;
+
+    let best: PlanResult = { cost: regularCost(state), steps: [] };
+    const ops = generateApplicableOps(cart, offers, relevantItemIndexes, state);
+
+    for (const op of ops) {
+      const nextState = state.slice();
+      let isApplicable = true;
+      for (const [itemIdx, consumeQty] of op.consumedByItemIdx) {
+        const pos = relevantItemIndexes.indexOf(itemIdx);
+        if (pos < 0 || nextState[pos] < consumeQty) {
+          isApplicable = false;
+          break;
+        }
+        nextState[pos] -= consumeQty;
+      }
+      if (!isApplicable) continue;
+
+      const nextResult = solve(nextState);
+      const candidateCost = op.offeredCost + nextResult.cost;
+      if (candidateCost + 1e-9 < best.cost) {
+        best = {
+          cost: candidateCost,
+          steps: [{ op, nextKey: getKey(nextState) }, ...nextResult.steps],
+        };
+      }
+    }
+
+    memo.set(key, best);
+    return best;
+  };
+
+  const bestPlan = solve(initialState);
+  if (bestPlan.steps.length === 0) return [];
+
+  const savingsByVariant = new Map<number, number>();
+  const savingsByVariantAndOffer = new Map<number, Map<number, { savings: number; offerName: string }>>();
+
+  for (const step of bestPlan.steps) {
+    for (const [itemIdx, savings] of step.op.savingsByItemIdx) {
+      if (savings <= 0) continue;
+      const variantId = cart[itemIdx].variantId;
+      savingsByVariant.set(variantId, (savingsByVariant.get(variantId) || 0) + savings);
+
+      let byOffer = savingsByVariantAndOffer.get(variantId);
+      if (!byOffer) {
+        byOffer = new Map();
+        savingsByVariantAndOffer.set(variantId, byOffer);
+      }
+      const existing = byOffer.get(step.op.offerId);
+      byOffer.set(step.op.offerId, {
+        savings: (existing?.savings || 0) + savings,
+        offerName: step.op.offerName,
+      });
+    }
+  }
+
+  const applications: OfferApplication[] = [];
+  for (let i = 0; i < cart.length; i++) {
+    const item = cart[i];
+    const baseValue = item.unitPrice * item.qty;
+    const savings = savingsByVariant.get(item.variantId) || 0;
+    if (baseValue <= 0 || savings <= 0) continue;
+
+    const discountPercent = (savings / baseValue) * 100;
+    if (discountPercent <= 0) continue;
+
+    const byOffer = savingsByVariantAndOffer.get(item.variantId);
+    let primaryOfferId = 0;
+    let primaryOfferName = '';
+    let maxSavings = -1;
+    if (byOffer) {
+      for (const [offerId, offerData] of byOffer.entries()) {
+        if (offerData.savings > maxSavings) {
+          maxSavings = offerData.savings;
+          primaryOfferId = offerId;
+          primaryOfferName = offerData.offerName;
+        }
+      }
+    }
+
+    if (primaryOfferId > 0) {
+      applications.push({
+        variantId: item.variantId,
+        offerId: primaryOfferId,
+        offerName: primaryOfferName,
+        discountPercent,
+      });
+    }
+  }
+
+  return applications;
+}
+
 /**
  * Check if a cart item matches an offer item (by product or variant).
  * Uses Number() to handle potential string/number type mismatches from JSON.
@@ -75,6 +219,213 @@ function itemMatchesRule(
     return Number(cartItem.variant.productId) === Number(ruleProductId);
   }
   return false;
+}
+
+function offerTouchesCartItem(offer: Offer, cartItem: CartItem): boolean {
+  if (offer.items.length === 0) return false;
+  return offer.items.some((rule) => itemMatchesRule(cartItem, rule.productId, rule.variantId));
+}
+
+function createConsumedMap(
+  itemIdxsInPriority: number[],
+  stateByItemIdx: Map<number, number>,
+  neededQty: number
+): Map<number, number> | null {
+  let remaining = neededQty;
+  const consumed = new Map<number, number>();
+
+  for (const itemIdx of itemIdxsInPriority) {
+    if (remaining <= 0) break;
+    const available = stateByItemIdx.get(itemIdx) || 0;
+    if (available <= 0) continue;
+    const take = Math.min(available, remaining);
+    if (take > 0) {
+      consumed.set(itemIdx, take);
+      remaining -= take;
+    }
+  }
+
+  return remaining > 0 ? null : consumed;
+}
+
+function generateApplicableOps(
+  cart: CartItem[],
+  offers: Offer[],
+  relevantItemIndexes: number[],
+  state: number[]
+): OfferOp[] {
+  const ops: OfferOp[] = [];
+  const stateByItemIdx = new Map<number, number>();
+  for (let i = 0; i < relevantItemIndexes.length; i++) {
+    stateByItemIdx.set(relevantItemIndexes[i], state[i]);
+  }
+
+  for (const offer of offers) {
+    if (!offer.items || offer.items.length === 0) continue;
+
+    if (offer.offerType === 'QUANTITY_PRICE') {
+      for (const rule of offer.items) {
+        if (rule.offerPrice == null || rule.minQty <= 0) continue;
+
+        const matching = relevantItemIndexes
+          .filter((idx) => itemMatchesRule(cart[idx], rule.productId, rule.variantId))
+          .sort((a, b) => cart[b].unitPrice - cart[a].unitPrice);
+        const totalQty = matching.reduce((sum, idx) => sum + (stateByItemIdx.get(idx) || 0), 0);
+        if (totalQty < rule.minQty) continue;
+
+        const consumed = createConsumedMap(matching, stateByItemIdx, rule.minQty);
+        if (!consumed) continue;
+
+        let regularCost = 0;
+        const savingsByItemIdx = new Map<number, number>();
+        for (const [idx, qty] of consumed.entries()) {
+          const lineRegular = qty * cart[idx].unitPrice;
+          regularCost += lineRegular;
+          const offeredLine = qty * rule.offerPrice;
+          savingsByItemIdx.set(idx, Math.max(0, lineRegular - offeredLine));
+        }
+
+        const offeredCost = rule.minQty * rule.offerPrice;
+        if (offeredCost >= regularCost) continue;
+
+        ops.push({
+          offerId: offer.id,
+          offerName: offer.name,
+          consumedByItemIdx: consumed,
+          offeredCost,
+          savingsByItemIdx,
+        });
+      }
+    } else if (offer.offerType === 'QUANTITY_DISCOUNT') {
+      for (const rule of offer.items) {
+        if (rule.discountPercent == null || rule.minQty <= 0 || rule.discountPercent <= 0) continue;
+
+        const matching = relevantItemIndexes
+          .filter((idx) => itemMatchesRule(cart[idx], rule.productId, rule.variantId))
+          .sort((a, b) => cart[b].unitPrice - cart[a].unitPrice);
+        const totalQty = matching.reduce((sum, idx) => sum + (stateByItemIdx.get(idx) || 0), 0);
+        if (totalQty < rule.minQty) continue;
+
+        const consumed = createConsumedMap(matching, stateByItemIdx, rule.minQty);
+        if (!consumed) continue;
+
+        let regularCost = 0;
+        let offeredCost = 0;
+        const savingsByItemIdx = new Map<number, number>();
+        const factor = 1 - rule.discountPercent / 100;
+        for (const [idx, qty] of consumed.entries()) {
+          const lineRegular = qty * cart[idx].unitPrice;
+          const lineOffer = lineRegular * factor;
+          regularCost += lineRegular;
+          offeredCost += lineOffer;
+          savingsByItemIdx.set(idx, Math.max(0, lineRegular - lineOffer));
+        }
+        if (offeredCost >= regularCost) continue;
+
+        ops.push({
+          offerId: offer.id,
+          offerName: offer.name,
+          consumedByItemIdx: consumed,
+          offeredCost,
+          savingsByItemIdx,
+        });
+      }
+    } else if (offer.offerType === 'COMBO') {
+      if (offer.comboPrice == null || offer.comboPrice <= 0) continue;
+
+      const consumed = new Map<number, number>();
+      const localRemaining = new Map<number, number>(stateByItemIdx);
+      let regularCost = 0;
+      let valid = true;
+
+      for (const rule of offer.items) {
+        const minQty = rule.minQty || 1;
+        if (minQty <= 0) continue;
+        const matching = relevantItemIndexes
+          .filter((idx) => itemMatchesRule(cart[idx], rule.productId, rule.variantId))
+          .sort((a, b) => cart[b].unitPrice - cart[a].unitPrice);
+        const consumedForRule = createConsumedMap(matching, localRemaining, minQty);
+        if (!consumedForRule) {
+          valid = false;
+          break;
+        }
+
+        for (const [idx, qty] of consumedForRule.entries()) {
+          consumed.set(idx, (consumed.get(idx) || 0) + qty);
+          localRemaining.set(idx, (localRemaining.get(idx) || 0) - qty);
+        }
+      }
+
+      if (!valid || consumed.size === 0) continue;
+
+      for (const [idx, qty] of consumed.entries()) {
+        regularCost += qty * cart[idx].unitPrice;
+      }
+      if (offer.comboPrice >= regularCost) continue;
+
+      const totalSavings = regularCost - offer.comboPrice;
+      const savingsByItemIdx = new Map<number, number>();
+      for (const [idx, qty] of consumed.entries()) {
+        const lineRegular = qty * cart[idx].unitPrice;
+        const share = regularCost > 0 ? lineRegular / regularCost : 0;
+        savingsByItemIdx.set(idx, totalSavings * share);
+      }
+
+      ops.push({
+        offerId: offer.id,
+        offerName: offer.name,
+        consumedByItemIdx: consumed,
+        offeredCost: offer.comboPrice,
+        savingsByItemIdx,
+      });
+    } else if (offer.offerType === 'BOGO') {
+      const buyQty = offer.buyQty || 0;
+      const freeQty = offer.freeQty || 0;
+      const groupSize = buyQty + freeQty;
+      if (buyQty <= 0 || freeQty <= 0 || groupSize <= 0) continue;
+
+      for (const rule of offer.items) {
+        const matching = relevantItemIndexes
+          .filter((idx) => itemMatchesRule(cart[idx], rule.productId, rule.variantId));
+        const totalQty = matching.reduce((sum, idx) => sum + (stateByItemIdx.get(idx) || 0), 0);
+        if (totalQty < groupSize) continue;
+
+        const units: { itemIdx: number; price: number }[] = [];
+        for (const idx of matching) {
+          const qty = stateByItemIdx.get(idx) || 0;
+          for (let i = 0; i < qty; i++) units.push({ itemIdx: idx, price: cart[idx].unitPrice });
+        }
+        if (units.length < groupSize) continue;
+        units.sort((a, b) => b.price - a.price); // Desc, keep highest-value group.
+        const group = units.slice(0, groupSize);
+
+        const consumed = new Map<number, number>();
+        for (const u of group) consumed.set(u.itemIdx, (consumed.get(u.itemIdx) || 0) + 1);
+
+        const groupAsc = group.slice().sort((a, b) => a.price - b.price);
+        const freeUnits = groupAsc.slice(0, freeQty);
+        const paidUnits = groupAsc.slice(freeQty);
+        const offeredCost = paidUnits.reduce((sum, u) => sum + u.price, 0);
+        const regularCost = group.reduce((sum, u) => sum + u.price, 0);
+        if (offeredCost >= regularCost) continue;
+
+        const savingsByItemIdx = new Map<number, number>();
+        for (const u of freeUnits) {
+          savingsByItemIdx.set(u.itemIdx, (savingsByItemIdx.get(u.itemIdx) || 0) + u.price);
+        }
+
+        ops.push({
+          offerId: offer.id,
+          offerName: offer.name,
+          consumedByItemIdx: consumed,
+          offeredCost,
+          savingsByItemIdx,
+        });
+      }
+    }
+  }
+
+  return ops;
 }
 
 /**
