@@ -147,6 +147,7 @@ public class ShortCodeService {
             case "FABRIC" -> shortCodeDao.countVariantsByFabric(name);
             case "SIZE" -> shortCodeDao.countVariantsBySize(name);
             case "COLOR" -> shortCodeDao.countVariantsByColor(name);
+            case "VARIANT_TYPE" -> shortCodeDao.countVariantsByVariantType(name);
             default -> 0;
         };
     }

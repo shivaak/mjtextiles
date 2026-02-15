@@ -328,6 +328,12 @@ export default function InventoryPage() {
       width: 100,
     },
     {
+      field: 'variantType',
+      headerName: 'Type',
+      width: 110,
+      valueGetter: (value) => value || '-',
+    },
+    {
       field: 'stockQty',
       headerName: 'Stock',
       width: 90,
@@ -608,7 +614,7 @@ export default function InventoryPage() {
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle2">{selectedVariant.productName}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedVariant.size} | {selectedVariant.color} | Current: {selectedVariant.stockQty}
+                    {[selectedVariant.size, selectedVariant.color, selectedVariant.variantType].filter(Boolean).join(' | ')} | Current: {selectedVariant.stockQty}
                   </Typography>
                 </Box>
               )}
@@ -704,7 +710,7 @@ export default function InventoryPage() {
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2">{selectedVariant.productName}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {selectedVariant.size} | {selectedVariant.color} | {selectedVariant.barcode}
+                {[selectedVariant.size, selectedVariant.color, selectedVariant.variantType, selectedVariant.barcode].filter(Boolean).join(' | ')}
               </Typography>
               <Chip
                 label={`Current Stock: ${selectedVariant.stockQty}`}

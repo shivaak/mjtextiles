@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 public class CreateShortCodeRequest {
 
     @NotBlank(message = "Type is required")
-    @Pattern(regexp = "^(CATEGORY|BRAND|FABRIC|SIZE|COLOR)$", message = "Type must be CATEGORY, BRAND, FABRIC, SIZE, or COLOR")
+    @Pattern(regexp = "^(CATEGORY|BRAND|FABRIC|SIZE|COLOR|VARIANT_TYPE)$", message = "Type must be CATEGORY, BRAND, FABRIC, SIZE, COLOR, or VARIANT_TYPE")
     private String type;
 
     @NotBlank(message = "Name is required")

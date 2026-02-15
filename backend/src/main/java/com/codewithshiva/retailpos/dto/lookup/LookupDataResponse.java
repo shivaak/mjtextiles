@@ -21,6 +21,7 @@ public class LookupDataResponse {
     private List<String> sizes;
     private List<String> colors;
     private List<String> fabrics;
+    private List<String> variantTypes;
     private List<String> paymentModes;
     private List<String> adjustmentReasons;
     private List<String> userRoles;

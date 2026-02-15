@@ -187,6 +187,7 @@ export default function PurchasesPage() {
     barcode: variant.barcode,
     size: variant.size,
     color: variant.color,
+    variantType: variant.variantType,
     sellingPrice: variant.sellingPrice,
     avgCost: variant.avgCost,
     stockQty: variant.stockQty,
@@ -270,18 +271,20 @@ export default function PurchasesPage() {
     setVariantCache((prev) => ({ ...prev, [variant.id]: variant }));
   };
 
-  const getVariantDisplayText = (variant: Pick<VariantSearchResponse, 'productName' | 'size' | 'color'>): string => {
+  const getVariantDisplayText = (variant: Pick<VariantSearchResponse, 'productName' | 'size' | 'color' | 'variantType'>): string => {
     const size = variant.size?.trim();
     const color = variant.color?.trim();
-    const details = [size, color].filter(Boolean).join(' ');
+    const variantType = variant.variantType?.trim();
+    const details = [size, color, variantType].filter(Boolean).join(' ');
     return details ? `${variant.productName} - ${details}` : variant.productName;
   };
 
-  const getVariantMetaText = (variant: Pick<VariantSearchResponse, 'productBrand' | 'size' | 'color' | 'sku'>): string => {
+  const getVariantMetaText = (variant: Pick<VariantSearchResponse, 'productBrand' | 'size' | 'color' | 'variantType' | 'sku'>): string => {
     return [
       variant.productBrand?.trim(),
       variant.size?.trim(),
       variant.color?.trim(),
+      variant.variantType?.trim(),
       variant.sku?.trim(),
     ].filter(Boolean).join(' | ');
   };
@@ -412,6 +415,7 @@ export default function PurchasesPage() {
               barcode: item.variantBarcode || '',
               size: item.size || '',
               color: item.color || '',
+              variantType: item.variantType || '',
               sellingPrice: 0,
               avgCost: item.unitCost,
               stockQty: 0,
@@ -1192,7 +1196,7 @@ export default function PurchasesPage() {
                       <TableCell>
                         <Typography variant="body2">{item.productName}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {item.size} | {item.color}
+                          {[item.size, item.color, item.variantType].filter(Boolean).join(' | ')}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">{item.qty}</TableCell>

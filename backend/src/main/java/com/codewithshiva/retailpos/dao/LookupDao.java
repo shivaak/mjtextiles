@@ -48,4 +48,12 @@ public interface LookupDao {
         ORDER BY name
         """)
     List<String> findAllFabrics();
+
+    @SqlQuery("""
+        SELECT DISTINCT name
+        FROM short_codes
+        WHERE type = 'VARIANT_TYPE'
+        ORDER BY name
+        """)
+    List<String> findAllVariantTypes();
 }

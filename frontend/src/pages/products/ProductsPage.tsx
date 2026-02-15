@@ -85,6 +85,7 @@ const editVariantSchema = z.object({
   size: z.string().optional(),
   color: z.string().optional(),
   fabric: z.string().optional(),
+  variantType: z.string().optional(),
   sellingPrice: z.number().min(0.01, 'Selling price must be greater than 0'),
   avgCost: z.number().min(0, 'Cost must be positive'),
   defaultDiscountPercent: z.number().min(0).max(100).nullable().optional(),
@@ -99,6 +100,7 @@ interface VariantRow {
   fabric: string;
   color: string;
   size: string;
+  variantType: string;
   sellingPrice: number;
   avgCost: number;
   initialStock: number;
@@ -114,6 +116,7 @@ const createEmptyVariantRow = (): VariantRow => ({
   fabric: '',
   color: '',
   size: '',
+  variantType: '',
   sellingPrice: 0,
   avgCost: 0,
   initialStock: 0,
@@ -129,6 +132,7 @@ function generateSku(
   categoryCode: string,
   brandCode: string,
   fabricCode: string,
+  variantTypeCode: string,
   colorCode: string,
   sizeCode: string
 ): string {
@@ -136,6 +140,7 @@ function generateSku(
   if (categoryCode) parts.push(categoryCode.toUpperCase());
   if (brandCode) parts.push(brandCode.toUpperCase());
   if (fabricCode) parts.push(fabricCode.toUpperCase());
+  if (variantTypeCode) parts.push(variantTypeCode.toUpperCase());
   if (colorCode) parts.push(colorCode.toUpperCase());
   if (sizeCode) parts.push(sizeCode.toUpperCase());
   return parts.join('-');
@@ -192,6 +197,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [fabrics, setFabrics] = useState<string[]>([]);
+  const [variantTypes, setVariantTypes] = useState<string[]>([]);
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>([]);
   const [shortCodes, setShortCodes] = useState<ShortCode[]>([]);
@@ -223,7 +229,7 @@ export default function ProductsPage() {
 
   // Short code dialog state
   const [shortCodeDialogOpen, setShortCodeDialogOpen] = useState(false);
-  const [newShortCodeType, setNewShortCodeType] = useState<'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR'>('CATEGORY');
+  const [newShortCodeType, setNewShortCodeType] = useState<'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR' | 'VARIANT_TYPE'>('CATEGORY');
   const [newShortCodeName, setNewShortCodeName] = useState('');
   const [newShortCodeValue, setNewShortCodeValue] = useState('');
   const [shortCodeCallback, setShortCodeCallback] = useState<((name: string) => void) | null>(null);
@@ -240,7 +246,7 @@ export default function ProductsPage() {
   const editVariantForm = useForm<EditVariantFormData>({
     resolver: zodResolver(editVariantSchema),
     defaultValues: {
-      productId: 0, sku: '', barcode: '', size: '', color: '', fabric: '',
+      productId: 0, sku: '', barcode: '', size: '', color: '', fabric: '', variantType: '',
       sellingPrice: 0, avgCost: 0, defaultDiscountPercent: null,
     },
   });
@@ -302,6 +308,7 @@ export default function ProductsPage() {
       setCategories(lookups.categories || []);
       setBrands(lookups.brands || []);
       setFabrics(lookups.fabrics || []);
+      setVariantTypes(lookups.variantTypes || []);
       setSizes(lookups.sizes || []);
       setColors(lookups.colors || []);
       setShortCodes(lookups.shortCodes || []);
@@ -387,9 +394,10 @@ export default function ProductsPage() {
       prev.map((row) => {
         if (row.skuEdited) return row;
         const fabCode = getShortCodeForName(shortCodes, 'FABRIC', row.fabric);
+        const typeCode = getShortCodeForName(shortCodes, 'VARIANT_TYPE', row.variantType);
         const colCode = getShortCodeForName(shortCodes, 'COLOR', row.color);
         const szCode = getShortCodeForName(shortCodes, 'SIZE', row.size);
-        const newSku = generateSku(catCode, braCode, fabCode, colCode, szCode);
+        const newSku = generateSku(catCode, braCode, fabCode, typeCode, colCode, szCode);
         const newBarcode = row.barcodeEdited ? row.barcode : newSku;
         return { ...row, sku: newSku, barcode: newBarcode };
       })
@@ -419,9 +427,10 @@ export default function ProductsPage() {
             const catCode = getShortCodeForName(shortCodes, 'CATEGORY', cat);
             const braCode = getShortCodeForName(shortCodes, 'BRAND', bra);
             const fabCode = getShortCodeForName(shortCodes, 'FABRIC', updated.fabric);
+            const typeCode = getShortCodeForName(shortCodes, 'VARIANT_TYPE', updated.variantType);
             const colCode = getShortCodeForName(shortCodes, 'COLOR', updated.color);
             const szCode = getShortCodeForName(shortCodes, 'SIZE', updated.size);
-            updated.sku = generateSku(catCode, braCode, fabCode, colCode, szCode);
+            updated.sku = generateSku(catCode, braCode, fabCode, typeCode, colCode, szCode);
           }
           // Sync barcode with SKU if not manually edited
           if (!updated.barcodeEdited) {
@@ -435,7 +444,7 @@ export default function ProductsPage() {
   );
 
   // Short code dialog
-  const openShortCodeDialog = (type: 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR', name: string, callback: (name: string) => void) => {
+  const openShortCodeDialog = (type: 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR' | 'VARIANT_TYPE', name: string, callback: (name: string) => void) => {
     setNewShortCodeType(type);
     setNewShortCodeName(name);
     setNewShortCodeValue(buildDefaultShortCode(name));
@@ -463,6 +472,7 @@ export default function ProductsPage() {
       setCategories(lookups.categories || []);
       setBrands(lookups.brands || []);
       setFabrics(lookups.fabrics || []);
+      setVariantTypes(lookups.variantTypes || []);
       setSizes(lookups.sizes || []);
       setColors(lookups.colors || []);
       setShortCodes(lookups.shortCodes || []);
@@ -510,6 +520,7 @@ export default function ProductsPage() {
       size: variant.size,
       color: variant.color,
       fabric: variant.fabric || '',
+      variantType: variant.variantType || '',
       sellingPrice: variant.sellingPrice,
       avgCost: variant.avgCost,
       defaultDiscountPercent: variant.effectiveDiscountPercent ?? null,
@@ -535,6 +546,7 @@ export default function ProductsPage() {
               size: r.size || undefined,
               color: r.color || undefined,
               fabric: r.fabric || undefined,
+              variantType: r.variantType || undefined,
               sellingPrice: r.sellingPrice,
               avgCost: r.avgCost || undefined,
               defaultDiscountPercent: r.defaultDiscountPercent ?? undefined,
@@ -578,6 +590,7 @@ export default function ProductsPage() {
           size: r.size || undefined,
           color: r.color || undefined,
           fabric: r.fabric || undefined,
+          variantType: r.variantType || undefined,
           sellingPrice: r.sellingPrice,
           avgCost: r.avgCost || undefined,
           defaultDiscountPercent: r.defaultDiscountPercent ?? undefined,
@@ -600,7 +613,8 @@ export default function ProductsPage() {
     if (!editingVariant) return;
     setSaving(true);
     try {
-      const { productId: _productId, ...updateData } = data;
+      const { productId, ...updateData } = data;
+      void productId;
       await productService.updateVariant(editingVariant.id, updateData as UpdateVariantRequest);
       showSuccess('Variant updated successfully');
       setEditVariantDialogOpen(false);
@@ -820,7 +834,7 @@ export default function ProductsPage() {
             )}
           </Box>
           <Grid container spacing={1.5}>
-            <Grid size={{ xs: 4 }}>
+            <Grid size={{ xs: 3 }}>
               <Autocomplete
                 freeSolo
                 size="small"
@@ -858,7 +872,7 @@ export default function ProductsPage() {
                 renderInput={(params) => <TextField {...params} label="Fabric" />}
               />
             </Grid>
-            <Grid size={{ xs: 4 }}>
+            <Grid size={{ xs: 3 }}>
               <Autocomplete
                 freeSolo
                 size="small"
@@ -896,7 +910,7 @@ export default function ProductsPage() {
                 renderInput={(params) => <TextField {...params} label="Color (Optional)" />}
               />
             </Grid>
-            <Grid size={{ xs: 4 }}>
+            <Grid size={{ xs: 3 }}>
               <Autocomplete
                 freeSolo
                 size="small"
@@ -932,6 +946,44 @@ export default function ProductsPage() {
                   }
                 }}
                 renderInput={(params) => <TextField {...params} label="Size" />}
+              />
+            </Grid>
+            <Grid size={{ xs: 3 }}>
+              <Autocomplete
+                freeSolo
+                size="small"
+                options={variantTypes}
+                value={row.variantType}
+                inputValue={row.variantType || ''}
+                onChange={(_, value) => {
+                  if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                    const name = value.slice(7, -1);
+                    openShortCodeDialog('VARIANT_TYPE', name, (savedName) => {
+                      updateVariantRow(rows, setRows, row.key, 'variantType', savedName, catName, brandName);
+                    });
+                    updateVariantRow(rows, setRows, row.key, 'variantType', name, catName, brandName);
+                  } else {
+                    updateVariantRow(rows, setRows, row.key, 'variantType', typeof value === 'string' ? value : value || '', catName, brandName);
+                  }
+                }}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'input' || reason === 'reset') {
+                    updateVariantRow(rows, setRows, row.key, 'variantType', stripAddPrefix(value), catName, brandName);
+                  }
+                }}
+                filterOptions={(opts, state) => {
+                  const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                  if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                    filtered.push(`+ Add "${state.inputValue}"`);
+                  }
+                  return filtered;
+                }}
+                onBlur={() => {
+                  if (row.variantType && !variantTypes.some((t) => t.toLowerCase() === row.variantType.toLowerCase())) {
+                    updateVariantRow(rows, setRows, row.key, 'variantType', '', catName, brandName);
+                  }
+                }}
+                renderInput={(params) => <TextField {...params} label="Type (Optional)" />}
               />
             </Grid>
             <Grid size={{ xs: 4 }}>
@@ -1184,6 +1236,7 @@ export default function ProductsPage() {
     },
     { field: 'productHsn', headerName: 'HSN', width: 100 },
     { field: 'fabric', headerName: 'Fabric', width: 100 },
+    { field: 'variantType', headerName: 'Type', width: 110 },
     { field: 'size', headerName: 'Size', width: 70 },
     { field: 'color', headerName: 'Color', width: 90 },
     {
@@ -1762,7 +1815,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 4 }}>
+              <Grid size={{ xs: 3 }}>
                 <Controller
                   name="fabric"
                   control={editVariantForm.control}
@@ -1805,7 +1858,50 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 4 }}>
+              <Grid size={{ xs: 3 }}>
+                <Controller
+                  name="variantType"
+                  control={editVariantForm.control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={variantTypes}
+                      value={field.value || ''}
+                      inputValue={field.value || ''}
+                      onChange={(_, value) => {
+                        if (typeof value === 'string' && value.startsWith('+ Add "')) {
+                          const name = value.slice(7, -1);
+                          openShortCodeDialog('VARIANT_TYPE', name, (savedName) => {
+                            field.onChange(savedName);
+                          });
+                          field.onChange(name);
+                        } else {
+                          field.onChange(typeof value === 'string' ? value : value || '');
+                        }
+                      }}
+                      onInputChange={(_, value, reason) => {
+                        if (reason === 'input' || reason === 'reset') {
+                          field.onChange(stripAddPrefix(value));
+                        }
+                      }}
+                      filterOptions={(opts, state) => {
+                        const filtered = opts.filter((o) => o.toLowerCase().includes(state.inputValue.toLowerCase()));
+                        if (state.inputValue !== '' && !opts.some((o) => o.toLowerCase() === state.inputValue.toLowerCase())) {
+                          filtered.push(`+ Add "${state.inputValue}"`);
+                        }
+                        return filtered;
+                      }}
+                      onBlur={() => {
+                        if (field.value && !variantTypes.some((t) => t.toLowerCase() === (field.value || '').toLowerCase())) {
+                          field.onChange('');
+                        }
+                      }}
+                      renderInput={(params) => <TextField {...params} label="Type (Optional)" />}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 3 }}>
                 <Controller
                   name="color"
                   control={editVariantForm.control}
@@ -1848,7 +1944,7 @@ export default function ProductsPage() {
                   )}
                 />
               </Grid>
-              <Grid size={{ xs: 4 }}>
+              <Grid size={{ xs: 3 }}>
                 <Controller
                   name="size"
                   control={editVariantForm.control}

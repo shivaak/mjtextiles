@@ -92,6 +92,9 @@ public interface ShortCodeDao {
     @SqlQuery("SELECT COUNT(*) FROM variants WHERE color = :name")
     int countVariantsByColor(@Bind("name") String name);
 
+    @SqlQuery("SELECT COUNT(*) FROM variants WHERE variant_type = :name")
+    int countVariantsByVariantType(@Bind("name") String name);
+
     @SqlUpdate("""
         INSERT INTO short_codes (type, name, short_code)
         VALUES (:type, :name, :shortCode)

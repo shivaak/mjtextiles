@@ -54,6 +54,7 @@ public class LookupService {
         List<String> sizes = lookupDao.findAllSizes();
         List<String> colors = lookupDao.findAllColors();
         List<String> fabrics = lookupDao.findAllFabrics();
+        List<String> variantTypes = lookupDao.findAllVariantTypes();
         List<ShortCodeResponse> shortCodes = shortCodeDao.findAll().stream()
                 .map(ShortCodeResponse::fromShortCode)
                 .collect(Collectors.toList());
@@ -64,6 +65,7 @@ public class LookupService {
                 .sizes(sizes)
                 .colors(colors)
                 .fabrics(fabrics)
+                .variantTypes(variantTypes)
                 .paymentModes(PAYMENT_MODES)
                 .adjustmentReasons(ADJUSTMENT_REASONS)
                 .userRoles(USER_ROLES)

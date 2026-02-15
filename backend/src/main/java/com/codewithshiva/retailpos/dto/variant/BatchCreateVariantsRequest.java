@@ -44,6 +44,9 @@ public class BatchCreateVariantsRequest {
         @jakarta.validation.constraints.Size(max = 50, message = "Fabric must not exceed 50 characters")
         private String fabric;
 
+        @jakarta.validation.constraints.Size(max = 50, message = "Variant type must not exceed 50 characters")
+        private String variantType;
+
         @jakarta.validation.constraints.NotNull(message = "Selling price is required")
         @jakarta.validation.constraints.DecimalMin(value = "0.00", message = "Selling price must be non-negative")
         private java.math.BigDecimal sellingPrice;

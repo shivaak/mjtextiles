@@ -21,6 +21,7 @@ SELECT
     v.size,
     v.color,
     v.fabric,
+    v.variant_type,
     v.selling_price,
     v.avg_cost,
     v.stock_qty,

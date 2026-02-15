@@ -38,6 +38,9 @@ public class CreateVariantRequest {
     @Size(max = 50, message = "Fabric must not exceed 50 characters")
     private String fabric;
 
+    @Size(max = 50, message = "Variant type must not exceed 50 characters")
+    private String variantType;
+
     @NotNull(message = "Selling price is required")
     @DecimalMin(value = "0.00", message = "Selling price must be non-negative")
     private BigDecimal sellingPrice;

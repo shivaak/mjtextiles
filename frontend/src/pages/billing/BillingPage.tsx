@@ -664,7 +664,7 @@ export default function BillingPage() {
                 getOptionLabel={(option) =>
                   typeof option === 'string'
                     ? option
-                    : `${option.productName} - ${option.sku} - ${option.size} ${option.color} (${option.barcode})`
+                    : `${option.productName} - ${option.sku} - ${[option.size, option.color, option.variantType].filter(Boolean).join(' ')} (${option.barcode})`
                 }
                 inputValue={searchQuery}
                 onInputChange={(_, value, reason) => {
@@ -699,7 +699,7 @@ export default function BillingPage() {
                         {option.productName}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.sku} | {option.size} | {option.color} | {option.barcode}
+                        {[option.sku, option.size, option.color, option.variantType, option.barcode].filter(Boolean).join(' | ')}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'right' }}>
@@ -819,7 +819,7 @@ export default function BillingPage() {
                               )}
                             </Box>
                             <Typography variant="caption" color="text.secondary" component="div">
-                              {item.variant.size} | {item.variant.color} | {item.variant.sku}
+                              {[item.variant.size, item.variant.color, item.variant.variantType, item.variant.sku].filter(Boolean).join(' | ')}
                             </Typography>
                             {item.qty >= item.variant.stockQty && (
                               <Chip label="Max stock" size="small" color="warning" sx={{ ml: 1 }} />

@@ -119,6 +119,7 @@ export interface Variant {
   size: string;
   color: string;
   fabric?: string;
+  variantType?: string;
   sellingPrice: number;
   avgCost: number;
   stockQty: number;
@@ -139,6 +140,7 @@ export interface VariantSearchResponse {
   size: string;
   color: string;
   fabric?: string;
+  variantType?: string;
   sellingPrice: number;
   avgCost: number;
   stockQty: number;
@@ -173,6 +175,7 @@ export interface CreateVariantRequest {
   size?: string;
   color?: string;
   fabric?: string;
+  variantType?: string;
   sellingPrice: number;
   avgCost?: number;
   defaultDiscountPercent?: number;
@@ -185,6 +188,7 @@ export interface UpdateVariantRequest {
   size?: string;
   color?: string;
   fabric?: string;
+  variantType?: string;
   sellingPrice: number;
   avgCost?: number;
   defaultDiscountPercent?: number;
@@ -340,6 +344,7 @@ export interface PurchaseItem {
   productName?: string;
   size?: string;
   color?: string;
+  variantType?: string;
   qty: number;
   unitCost: number;
   totalCost?: number;
@@ -446,6 +451,7 @@ export interface SaleItem {
   productName?: string;
   size?: string;
   color?: string;
+  variantType?: string;
   qty: number;
   unitPrice: number;
   unitCostAtSale?: number;
@@ -513,7 +519,7 @@ export interface UserLookup {
   isActive: boolean;
 }
 
-export type ShortCodeType = 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR';
+export type ShortCodeType = 'CATEGORY' | 'BRAND' | 'FABRIC' | 'SIZE' | 'COLOR' | 'VARIANT_TYPE';
 
 export interface ShortCode {
   id: number;
@@ -539,6 +545,7 @@ export interface VariantItemRequest {
   size?: string;
   color?: string;
   fabric?: string;
+  variantType?: string;
   sellingPrice: number;
   avgCost?: number;
   defaultDiscountPercent?: number;
@@ -571,6 +578,7 @@ export interface LookupDataResponse {
   sizes: string[];
   colors: string[];
   fabrics: string[];
+  variantTypes: string[];
   paymentModes: string[];
   adjustmentReasons: string[];
   userRoles: string[];
@@ -601,6 +609,7 @@ export interface TopProduct {
   sku?: string;
   size?: string;
   color?: string;
+  variantType?: string;
   qtySold: number;
   revenue: number;
   profit: number;
@@ -612,6 +621,7 @@ export interface LowStockItem {
   sku?: string;
   size?: string;
   color?: string;
+  variantType?: string;
   stockQty: number;
   threshold?: number;
 }

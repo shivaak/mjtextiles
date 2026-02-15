@@ -30,6 +30,7 @@ public class VariantDetailResponse {
     private String size;
     private String color;
     private String fabric;
+    private String variantType;
     private BigDecimal sellingPrice;
     private BigDecimal avgCost;
     private Integer stockQty;
@@ -53,6 +54,7 @@ public class VariantDetailResponse {
                 .size(variant.getSize())
                 .color(variant.getColor())
                 .fabric(variant.getFabric())
+                .variantType(variant.getVariantType())
                 .sellingPrice(variant.getSellingPrice())
                 .avgCost(variant.getAvgCost())
                 .stockQty(variant.getStockQty())

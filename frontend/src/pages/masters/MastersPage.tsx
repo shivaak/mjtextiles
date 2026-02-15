@@ -45,6 +45,7 @@ const MASTER_TYPES: MasterTypeConfig[] = [
   { key: 'CATEGORY', label: 'Categories', singular: 'Category', description: 'Product categories' },
   { key: 'BRAND', label: 'Brands', singular: 'Brand', description: 'Product brands' },
   { key: 'FABRIC', label: 'Fabrics', singular: 'Fabric', description: 'Fabric types' },
+  { key: 'VARIANT_TYPE', label: 'Variant Types', singular: 'Variant Type', description: 'Variant type classifications' },
   { key: 'SIZE', label: 'Sizes', singular: 'Size', description: 'Variant sizes' },
   { key: 'COLOR', label: 'Colors', singular: 'Color', description: 'Variant colors' },
 ];

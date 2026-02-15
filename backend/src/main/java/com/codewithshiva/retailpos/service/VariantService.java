@@ -163,6 +163,7 @@ public class VariantService {
                 request.getSize(),
                 request.getColor(),
                 request.getFabric(),
+                request.getVariantType(),
                 request.getSellingPrice(),
                 avgCost,
                 initialStock,
@@ -211,6 +212,7 @@ public class VariantService {
             cvr.setSize(variantItem.getSize());
             cvr.setColor(variantItem.getColor());
             cvr.setFabric(variantItem.getFabric());
+            cvr.setVariantType(variantItem.getVariantType());
             cvr.setSellingPrice(variantItem.getSellingPrice());
             cvr.setAvgCost(variantItem.getAvgCost());
             cvr.setDefaultDiscountPercent(variantItem.getDefaultDiscountPercent());
@@ -270,6 +272,7 @@ public class VariantService {
                 request.getSize(),
                 request.getColor(),
                 request.getFabric(),
+                request.getVariantType(),
                 request.getSellingPrice(),
                 avgCost,
                 request.getDefaultDiscountPercent()
