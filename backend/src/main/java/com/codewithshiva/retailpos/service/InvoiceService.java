@@ -39,6 +39,13 @@ public class InvoiceService {
 
     private static final DateTimeFormatter DATE_TIME_FORMAT =
             DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+    private static final Rectangle INVOICE_PAGE_SIZE = PageSize.A5;
+    private static final float PAGE_MARGIN = 20f;
+    private static final float PAGE_BORDER_OFFSET = 8f;
+    private static final int ITEM_TABLE_HEADER_FONT_SIZE = 8;
+    private static final int ITEM_TABLE_BODY_FONT_SIZE = 8;
+    private static final float ITEM_TABLE_CELL_PADDING = 4f;
+    private static final float SECTION_SPACER = 4f;
 
     private final SaleService saleService;
     private final SettingsService settingsService;
@@ -48,7 +55,7 @@ public class InvoiceService {
         SettingsResponse settings = settingsService.getSettings();
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4, 36, 36, 36, 36);
+            Document document = new Document(INVOICE_PAGE_SIZE, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN);
             PdfWriter writer = PdfWriter.getInstance(document, outputStream);
 
             boolean isVoided = "VOIDED".equalsIgnoreCase(sale.getStatus());
@@ -63,9 +70,9 @@ public class InvoiceService {
                     cb.setLineWidth(1.5f);
                     cb.setColorStroke(new Color(80, 80, 80));
                     cb.rectangle(
-                            doc.left() - 15, doc.bottom() - 15,
-                            doc.getPageSize().getWidth() - doc.leftMargin() - doc.rightMargin() + 30,
-                            doc.getPageSize().getHeight() - doc.topMargin() - doc.bottomMargin() + 30
+                            doc.left() - PAGE_BORDER_OFFSET, doc.bottom() - PAGE_BORDER_OFFSET,
+                            doc.getPageSize().getWidth() - doc.leftMargin() - doc.rightMargin() + (PAGE_BORDER_OFFSET * 2),
+                            doc.getPageSize().getHeight() - doc.topMargin() - doc.bottomMargin() + (PAGE_BORDER_OFFSET * 2)
                     );
                     cb.stroke();
 
@@ -109,9 +116,9 @@ public class InvoiceService {
     }
     
     private void addHeader(Document document, SettingsResponse settings) throws DocumentException {
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, new Color(25, 25, 112)); // Midnight blue
-        Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 10, new Color(60, 60, 60));
-        Font invoiceFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, new Color(25, 25, 112));
+        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(25, 25, 112)); // Midnight blue
+        Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(60, 60, 60));
+        Font invoiceFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, new Color(25, 25, 112));
 
         // Shop name
         Paragraph title = new Paragraph(safe(settings.getShopName()), titleFont);
@@ -137,24 +144,24 @@ public class InvoiceService {
             document.add(gst);
         }
 
-        document.add(new Paragraph(" "));
+        addSpacer(document);
         
         // Add "TAX INVOICE" label
         Paragraph invoiceLabel = new Paragraph("TAX INVOICE", invoiceFont);
         invoiceLabel.setAlignment(Element.ALIGN_CENTER);
         document.add(invoiceLabel);
         
-        document.add(new Paragraph(" "));
+        addSpacer(document);
         LineSeparator separator = new LineSeparator();
         separator.setLineColor(new Color(100, 100, 100));
         separator.setLineWidth(1);
         document.add(separator);
-        document.add(new Paragraph(" "));
+        addSpacer(document);
     }
 
     private void addInvoiceMeta(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
-        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
+        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
 
         // Create a 2-column layout for Invoice Details and Customer Details side by side
         PdfPTable mainTable = new PdfPTable(2);
@@ -165,7 +172,7 @@ public class InvoiceService {
         PdfPCell invoiceCell = new PdfPCell();
         invoiceCell.setBorder(Rectangle.BOX);
         invoiceCell.setBorderColor(new Color(150, 150, 150));
-        invoiceCell.setPadding(10);
+        invoiceCell.setPadding(5);
         invoiceCell.addElement(new Phrase("Invoice Details", labelFont));
         invoiceCell.addElement(new Phrase(" ", valueFont)); // spacer
         invoiceCell.addElement(new Phrase("Invoice No: " + safe(sale.getBillNo()), valueFont));
@@ -177,7 +184,7 @@ public class InvoiceService {
         PdfPCell customerCell = new PdfPCell();
         customerCell.setBorder(Rectangle.BOX);
         customerCell.setBorderColor(new Color(150, 150, 150));
-        customerCell.setPadding(10);
+        customerCell.setPadding(5);
         customerCell.addElement(new Phrase("Billed To", labelFont));
         customerCell.addElement(new Phrase(" ", valueFont)); // spacer
         
@@ -194,12 +201,12 @@ public class InvoiceService {
         mainTable.addCell(customerCell);
 
         document.add(mainTable);
-        document.add(new Paragraph(" "));
+        addSpacer(document);
     }
 
     private void addItemsTable(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
-        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-        Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, ITEM_TABLE_HEADER_FONT_SIZE);
+        Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, ITEM_TABLE_BODY_FONT_SIZE);
 
         BigDecimal taxPercent = defaultZero(sale.getTaxPercent());
         BigDecimal taxDivisor = BigDecimal.ONE.add(taxPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
@@ -212,11 +219,11 @@ public class InvoiceService {
         if (hasAnyDiscount) {
             table = new PdfPTable(9);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{0.4f, 2.3f, 0.7f, 0.5f, 0.8f, 0.8f, 0.8f, 0.8f, 1.0f});
+            table.setWidths(new float[]{0.4f, 2.0f, 0.6f, 0.5f, 0.75f, 0.6f, 0.85f, 0.65f, 0.95f});
         } else {
             table = new PdfPTable(8);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{0.4f, 2.5f, 0.8f, 0.5f, 0.8f, 1.0f, 0.8f, 1.0f});
+            table.setWidths(new float[]{0.4f, 2.2f, 0.7f, 0.5f, 0.85f, 0.95f, 0.75f, 1.0f});
         }
 
         addHeaderCell(table, "#", headerFont);
@@ -263,17 +270,17 @@ public class InvoiceService {
         }
 
         document.add(table);
-        document.add(new Paragraph(" "));
+        addSpacer(document);
     }
 
     private void addSummary(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
-        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
-        Font grandTotalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        Font pointsFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(0, 128, 0));
+        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        Font valueFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font grandTotalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+        Font pointsFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(0, 128, 0));
 
         PdfPTable table = new PdfPTable(2);
-        table.setWidthPercentage(50);
+        table.setWidthPercentage(56);
         table.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.setWidths(new float[]{1.5f, 1f});
 
@@ -282,7 +289,7 @@ public class InvoiceService {
         BigDecimal discountAmount = defaultZero(sale.getDiscountAmount());
         BigDecimal discountedSubtotal = subtotal.subtract(discountAmount);
         BigDecimal taxableValue = discountedSubtotal.subtract(defaultZero(sale.getTaxAmount()));
-        addSummaryRow(table, "Subtotal (after item discounts)", formatMoney(sale.getSubtotal(), settings.getCurrency()), labelFont, valueFont);
+        addSummaryRow(table, "Subtotal (item discounts)", formatMoney(sale.getSubtotal(), settings.getCurrency()), labelFont, valueFont);
         if (defaultZero(sale.getDiscountAmount()).compareTo(BigDecimal.ZERO) > 0) {
             addSummaryRow(
                     table,
@@ -293,7 +300,7 @@ public class InvoiceService {
             );
         }
         addDividerRow(table);
-        addSummaryRow(table, "Taxable Value (after bill discount)", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
+        addSummaryRow(table, "Taxable Value (bill discount)", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
         addSummaryRow(table, "GST (" + defaultZero(sale.getTaxPercent()).stripTrailingZeros().toPlainString() + "%)", 
                      formatMoney(sale.getTaxAmount(), settings.getCurrency()), labelFont, valueFont);
         addDividerRow(table);
@@ -327,8 +334,8 @@ public class InvoiceService {
         spacerLeft.setBorder(Rectangle.TOP | Rectangle.BOTTOM);
         spacerLeft.setBorderWidth(1.5f);
         spacerLeft.setBorderColor(new Color(100, 100, 100));
-        spacerLeft.setPaddingTop(8);
-        spacerLeft.setPaddingBottom(8);
+        spacerLeft.setPaddingTop(6);
+        spacerLeft.setPaddingBottom(6);
         spacerLeft.setPaddingLeft(5);
         
         PdfPCell spacerRight = new PdfPCell(new Phrase(formatMoney(roundedTotal, settings.getCurrency()), grandTotalFont));
@@ -336,8 +343,8 @@ public class InvoiceService {
         spacerRight.setBorderWidth(1.5f);
         spacerRight.setBorderColor(new Color(100, 100, 100));
         spacerRight.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        spacerRight.setPaddingTop(8);
-        spacerRight.setPaddingBottom(8);
+        spacerRight.setPaddingTop(6);
+        spacerRight.setPaddingBottom(6);
         spacerRight.setPaddingRight(5);
         
         table.addCell(spacerLeft);
@@ -348,7 +355,7 @@ public class InvoiceService {
         // Points earned note
         int pointsEarned = sale.getPointsEarned() != null ? sale.getPointsEarned() : 0;
         if (pointsEarned > 0) {
-            document.add(new Paragraph(" "));
+            addSpacer(document);
             Paragraph pointsNote = new Paragraph(
                     "You earned " + pointsEarned + " loyalty points on this purchase!",
                     pointsFont
@@ -358,23 +365,23 @@ public class InvoiceService {
         }
 
         // Amount in words (using rounded net payable)
-        document.add(new Paragraph(" "));
-        Font amountWordsFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        addSpacer(document);
+        Font amountWordsFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
         Paragraph amountInWords = new Paragraph(
                 "Amount in Words: " + convertAmountToWords(roundedTotal),
                 amountWordsFont
         );
         amountInWords.setAlignment(Element.ALIGN_LEFT);
         document.add(amountInWords);
-        document.add(new Paragraph(" "));
+        addSpacer(document);
     }
 
     private void addFooter(Document document, SettingsResponse settings) throws DocumentException {
-        document.add(new Paragraph(" "));
+        addSpacer(document);
 
         // Authorized Signatory - right aligned
-        Font signatoryFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-        Font signatoryLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
+        Font signatoryFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+        Font signatoryLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
 
         PdfPTable sigTable = new PdfPTable(1);
         sigTable.setWidthPercentage(35);
@@ -383,7 +390,7 @@ public class InvoiceService {
         PdfPCell forCell = new PdfPCell(new Phrase("For " + safe(settings.getShopName()), signatoryFont));
         forCell.setBorder(Rectangle.NO_BORDER);
         forCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        forCell.setPaddingBottom(30); // Space for signature
+        forCell.setPaddingBottom(12); // Space for signature
         sigTable.addCell(forCell);
 
         PdfPCell authCell = new PdfPCell(new Phrase("Authorized Signatory", signatoryLabelFont));
@@ -394,17 +401,16 @@ public class InvoiceService {
 
         document.add(sigTable);
 
-        document.add(new Paragraph(" "));
-        document.add(new Paragraph(" "));
+        addSpacer(document);
 
         LineSeparator separator = new LineSeparator();
         separator.setLineColor(new Color(150, 150, 150));
         separator.setLineWidth(0.5f);
         document.add(separator);
 
-        document.add(new Paragraph(" "));
+        addSpacer(document);
 
-        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+        Font footerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
         Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(100, 100, 100));
 
         Paragraph thankYou = new Paragraph("Thank you for your business!", footerFont);
@@ -420,7 +426,7 @@ public class InvoiceService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setPadding(8);
+        cell.setPadding(ITEM_TABLE_CELL_PADDING);
         cell.setBorderWidth(1);
         cell.setBorderColor(new Color(100, 100, 100));
         table.addCell(cell);
@@ -430,7 +436,7 @@ public class InvoiceService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setHorizontalAlignment(align);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        cell.setPadding(8);
+        cell.setPadding(ITEM_TABLE_CELL_PADDING);
         cell.setBorderColor(new Color(180, 180, 180));
         cell.setBorderWidth(0.5f);
         table.addCell(cell);
@@ -465,6 +471,12 @@ public class InvoiceService {
 
         table.addCell(left);
         table.addCell(right);
+    }
+
+    private void addSpacer(Document document) throws DocumentException {
+        Paragraph spacer = new Paragraph(" ");
+        spacer.setLeading(SECTION_SPACER);
+        document.add(spacer);
     }
 
     private String formatItemName(SaleItemResponse item) {
