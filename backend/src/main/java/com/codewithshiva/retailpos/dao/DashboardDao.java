@@ -125,7 +125,7 @@ public interface DashboardDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -146,14 +146,14 @@ public interface DashboardDao {
             color,
             SUM(qty) as qtySold,
             SUM(line_taxable) as revenue,
-            SUM(line_taxable - line_cost - allocated_redemption) as profit
+            SUM(line_taxable - line_cost - allocated_discount - allocated_redemption) as profit
         FROM (
             SELECT
                 *,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         ) t
         GROUP BY variant_id, productName, sku, size, color

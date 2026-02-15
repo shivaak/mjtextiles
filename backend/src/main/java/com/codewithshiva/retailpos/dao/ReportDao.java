@@ -144,7 +144,7 @@ public interface ReportDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -162,10 +162,10 @@ public interface ReportDao {
         calc AS (
             SELECT
                 *,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         )
         SELECT 
@@ -177,7 +177,7 @@ public interface ReportDao {
             SUM(qty) as qtySold,
             SUM(line_taxable) as revenue,
             SUM(line_cost) as cost,
-            SUM(line_taxable - line_cost - allocated_redemption) as profit
+            SUM(line_taxable - line_cost - allocated_discount - allocated_redemption) as profit
         FROM calc
         GROUP BY variant_id, productName, sku, category, brand
         ORDER BY 
@@ -185,8 +185,8 @@ public interface ReportDao {
             CASE WHEN :sortBy = 'qtySold' AND :sortOrder = 'ASC' THEN SUM(qty) END ASC,
             CASE WHEN :sortBy = 'revenue' AND :sortOrder = 'DESC' THEN SUM(line_taxable) END DESC,
             CASE WHEN :sortBy = 'revenue' AND :sortOrder = 'ASC' THEN SUM(line_taxable) END ASC,
-            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'DESC' THEN SUM(line_taxable - line_cost - allocated_redemption) END DESC,
-            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'ASC' THEN SUM(line_taxable - line_cost - allocated_redemption) END ASC,
+            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'DESC' THEN SUM(line_taxable - line_cost - allocated_discount - allocated_redemption) END DESC,
+            CASE WHEN :sortBy = 'profit' AND :sortOrder = 'ASC' THEN SUM(line_taxable - line_cost - allocated_discount - allocated_redemption) END ASC,
             SUM(qty) DESC
         LIMIT :limit
         """)
@@ -242,7 +242,7 @@ public interface ReportDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -258,10 +258,10 @@ public interface ReportDao {
         calc AS (
             SELECT
                 *,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         )
         SELECT 
@@ -269,7 +269,7 @@ public interface ReportDao {
             SUM(qty) as qtySold,
             SUM(line_taxable) as revenue,
             SUM(line_cost) as cost,
-            SUM(line_taxable - line_cost - allocated_redemption) as profit
+            SUM(line_taxable - line_cost - allocated_discount - allocated_redemption) as profit
         FROM calc
         GROUP BY category
         ORDER BY revenue DESC
@@ -288,7 +288,7 @@ public interface ReportDao {
                 si.qty,
                 si.unit_price,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -302,9 +302,7 @@ public interface ReportDao {
         SELECT COALESCE(SUM(line_taxable), 0)
         FROM (
             SELECT
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                line_amount / (1 + tax_percent / 100.0) as line_taxable
             FROM line_calc
         ) t
         """)
@@ -334,7 +332,7 @@ public interface ReportDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -349,14 +347,14 @@ public interface ReportDao {
             TO_CHAR(DATE(sold_at), 'YYYY-MM-DD') as period,
             COALESCE(SUM(line_taxable), 0) as revenue,
             COALESCE(SUM(line_cost), 0) as cost,
-            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit
+            COALESCE(SUM(line_taxable - line_cost - allocated_discount - allocated_redemption), 0) as profit
         FROM (
             SELECT
                 sold_at,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         ) t
         GROUP BY DATE(sold_at)
@@ -374,7 +372,7 @@ public interface ReportDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -389,14 +387,14 @@ public interface ReportDao {
             TO_CHAR(DATE_TRUNC('week', sold_at), 'YYYY-MM-DD') as period,
             COALESCE(SUM(line_taxable), 0) as revenue,
             COALESCE(SUM(line_cost), 0) as cost,
-            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit
+            COALESCE(SUM(line_taxable - line_cost - allocated_discount - allocated_redemption), 0) as profit
         FROM (
             SELECT
                 sold_at,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         ) t
         GROUP BY DATE_TRUNC('week', sold_at)
@@ -414,7 +412,7 @@ public interface ReportDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -429,14 +427,14 @@ public interface ReportDao {
             TO_CHAR(DATE_TRUNC('month', sold_at), 'YYYY-MM') as period,
             COALESCE(SUM(line_taxable), 0) as revenue,
             COALESCE(SUM(line_cost), 0) as cost,
-            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit
+            COALESCE(SUM(line_taxable - line_cost - allocated_discount - allocated_redemption), 0) as profit
         FROM (
             SELECT
                 sold_at,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         ) t
         GROUP BY DATE_TRUNC('month', sold_at)
@@ -460,7 +458,7 @@ public interface ReportDao {
                 si.unit_price,
                 si.unit_cost_at_sale,
                 COALESCE(si.item_discount_percent, 0) as item_discount_percent,
-                COALESCE(s.discount_percent, 0) as discount_percent,
+                COALESCE(s.discount_amount, 0) as discount_amount,
                 COALESCE(s.tax_percent, 0) as tax_percent,
                 COALESCE(s.points_redemption_amount, 0) as points_redemption_amount,
                 s.total,
@@ -475,17 +473,17 @@ public interface ReportDao {
         calc AS (
             SELECT
                 *,
-                (line_amount * (1 - discount_percent / 100.0)) as line_after_global,
-                (line_amount * (1 - discount_percent / 100.0)) / (1 + tax_percent / 100.0) as line_taxable,
+                line_amount / (1 + tax_percent / 100.0) as line_taxable,
                 (unit_cost_at_sale * qty) as line_cost,
-                COALESCE(points_redemption_amount * ((line_amount * (1 - discount_percent / 100.0)) / NULLIF(total, 0)), 0) as allocated_redemption
+                COALESCE(discount_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_discount,
+                COALESCE(points_redemption_amount * (line_amount / NULLIF(total, 0)), 0) as allocated_redemption
             FROM line_calc
         )
         SELECT 
             userId,
             userName,
             COALESCE(SUM(line_taxable), 0) as revenue,
-            COALESCE(SUM(line_taxable - line_cost - allocated_redemption), 0) as profit,
+            COALESCE(SUM(line_taxable - line_cost - allocated_discount - allocated_redemption), 0) as profit,
             COUNT(DISTINCT saleId) as transactions
         FROM calc
         GROUP BY userId, userName

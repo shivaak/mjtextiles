@@ -243,6 +243,7 @@ export default function SaleDetailPage() {
     };
   });
   const productProfitSum = itemProfitData.reduce((sum, p) => sum + p.profit, 0);
+  const discountImpactOnProfit = sale.discountAmount || 0;
 
   /* ---------- styles ---------- */
   const summaryRowSx = { display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 2 };
@@ -685,10 +686,29 @@ export default function SaleDetailPage() {
                         </Typography>
                         <Tooltip
                           title={
-                            `Product Profit ${fmt(productProfitSum)}`
-                            + (sale.discountAmount > 0 ? ` − Addl. Discount ${fmt(sale.discountAmount)}` : '')
-                            + ((sale.pointsRedemptionAmount || 0) > 0 ? ` − Points ${fmt(sale.pointsRedemptionAmount || 0)}` : '')
-                            + ` = ${fmt(sale.profit || 0)}`
+                            <Box>
+                              <Typography variant="caption" component="div">
+                                Product Profit: {fmt(productProfitSum)}
+                              </Typography>
+                              {sale.discountAmount > 0 && (
+                                <>
+                                  <Typography variant="caption" component="div">
+                                    Discount given to customer (reduces profit): -{fmt(discountImpactOnProfit)}
+                                  </Typography>
+                                  <Typography variant="caption" component="div" color="text.secondary">
+                                    How: Full discount amount is reduced from profit.
+                                  </Typography>
+                                </>
+                              )}
+                              {(sale.pointsRedemptionAmount || 0) > 0 && (
+                                <Typography variant="caption" component="div">
+                                  Points Redeemed Impact: -{fmt(sale.pointsRedemptionAmount || 0)}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" component="div" sx={{ mt: 0.5, fontWeight: 600 }}>
+                                Net Profit: {fmt(sale.profit || 0)}
+                              </Typography>
+                            </Box>
                           }
                           arrow
                           placement="top"

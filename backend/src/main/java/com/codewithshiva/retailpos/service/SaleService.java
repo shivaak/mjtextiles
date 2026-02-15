@@ -258,9 +258,6 @@ public class SaleService {
             BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(item.getQty()));
             BigDecimal revenue = lineAmount.divide(taxDivisor, 2, RoundingMode.HALF_UP);
 
-            BigDecimal globalDiscountFactor = BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
-            revenue = revenue.multiply(globalDiscountFactor).setScale(2, RoundingMode.HALF_UP);
-
             BigDecimal cost = avgCost.multiply(BigDecimal.valueOf(item.getQty()));
             BigDecimal itemProfit = revenue.subtract(cost);
             totalProfit = totalProfit.add(itemProfit);
@@ -269,7 +266,10 @@ public class SaleService {
                     item.getVariantId(), item.getQty(), avgCost, itemProfit);
         }
 
-        // Adjust profit for points redemption (points redemption reduces revenue)
+        // Adjust profit for additional discount and points redemption (both reduce revenue)
+        if (discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            totalProfit = totalProfit.subtract(discountAmount);
+        }
         if (pointsRedemptionAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalProfit = totalProfit.subtract(pointsRedemptionAmount);
         }
