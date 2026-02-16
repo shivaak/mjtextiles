@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
   FormControlLabel,
   Grid,
   InputAdornment,
@@ -16,6 +15,10 @@ import {
   Typography,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
+import LoyaltyRoundedIcon from '@mui/icons-material/LoyaltyRounded';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -192,6 +195,8 @@ export default function SettingsPage() {
     }
   };
 
+  const loyaltyEnabled = form.watch('loyaltyEnabled');
+
   return (
     <Box>
       <PageHeader
@@ -215,352 +220,390 @@ export default function SettingsPage() {
               </Typography>
 
               <form onSubmit={form.handleSubmit(handleSaveSettings)}>
-                <Grid container spacing={2}>
+                <Grid container spacing={2.5}>
                   <Grid size={{ xs: 12 }}>
-                    <Controller
-                      name="shopName"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Shop Name"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Controller
-                      name="address"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Address"
-                          multiline
-                          rows={2}
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="phone"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Phone"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="email"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Email (Optional)"
-                          type="email"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="gstNumber"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="GSTIN (Optional)"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Shop Logo (Optional)
-                    </Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                      {logoUrl && !logoLoadFailed ? (
-                        <Box
-                          component="img"
-                          src={logoUrl}
-                          alt="Shop logo"
-                          onError={() => setLogoLoadFailed(true)}
-                          sx={{
-                            width: 140,
-                            height: 72,
-                            objectFit: 'contain',
-                            border: (theme) => `1px solid ${theme.palette.divider}`,
-                            borderRadius: 1,
-                            p: 1,
-                            bgcolor: 'background.paper',
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          sx={{
-                            width: 140,
-                            height: 72,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: (theme) => `1px dashed ${theme.palette.divider}`,
-                            borderRadius: 1,
-                            color: 'text.secondary',
-                            fontSize: '0.8rem',
-                          }}
-                        >
-                          No logo uploaded
-                        </Box>
-                      )}
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          component="label"
-                          variant="outlined"
-                          disabled={uploadingLogo || removingLogo}
-                        >
-                          {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
-                          <input
-                            hidden
-                            type="file"
-                            accept="image/png,image/jpeg,image/jpg,image/webp"
-                            onChange={handleLogoUpload}
-                          />
-                        </Button>
-                        <Button
-                          variant="text"
-                          color="error"
-                          disabled={!logoUrl || uploadingLogo || removingLogo}
-                          onClick={handleRemoveLogo}
-                        >
-                          {removingLogo ? 'Removing...' : 'Remove'}
-                        </Button>
-                      </Stack>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                      Allowed formats: PNG, JPG, WEBP. Max size: 2MB.
-                    </Typography>
-                  </Grid>
-                </Grid>
-
-                <Divider sx={{ my: 3 }} />
-
-                <Typography variant="h6" gutterBottom>
-                  Billing Configuration
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Configure tax, currency, and invoice settings
-                </Typography>
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Controller
-                      name="currency"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Currency"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Controller
-                      name="taxPercent"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Tax Rate"
-                          type="number"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                          InputProps={{
-                            endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                          }}
-                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Controller
-                      name="invoicePrefix"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Invoice Prefix"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'e.g., INV000001'}
-                        />
-                      )}
-                    />
-                  </Grid>
-                </Grid>
-
-                <Divider sx={{ my: 3 }} />
-
-                <Typography variant="h6" gutterBottom>
-                  Inventory Settings
-                </Typography>
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="lowStockThreshold"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Low Stock Threshold"
-                          type="number"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'Items at or below this quantity will be flagged'}
-                          onChange={(event) => field.onChange(parseInt(event.target.value) || 0)}
-                        />
-                      )}
-                    />
-                  </Grid>
-                </Grid>
-
-                <Divider sx={{ my: 3 }} />
-
-                <Typography variant="h6" gutterBottom>
-                  Loyalty Program
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Configure customer loyalty points earning and redemption
-                </Typography>
-
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12 }}>
-                    <Controller
-                      name="loyaltyEnabled"
-                      control={form.control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={field.value}
-                              onChange={(e) => field.onChange(e.target.checked)}
+                    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2.5 }}>
+                          <StorefrontRoundedIcon color="primary" fontSize="small" />
+                          <Box>
+                            <Typography variant="h6">Shop Information</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              This information appears on invoices and receipts
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Grid container spacing={2}>
+                          <Grid size={{ xs: 12 }}>
+                            <Controller
+                              name="shopName"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Shop Name"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                />
+                              )}
                             />
-                          }
-                          label="Enable Loyalty Program"
-                        />
-                      )}
-                    />
+                          </Grid>
+                          <Grid size={{ xs: 12 }}>
+                            <Controller
+                              name="address"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Address"
+                                  multiline
+                                  rows={2}
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="phone"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Phone"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="email"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Email (Optional)"
+                                  type="email"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="gstNumber"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="GSTIN (Optional)"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                              Shop Logo (Optional)
+                            </Typography>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                              {logoUrl && !logoLoadFailed ? (
+                                <Box
+                                  component="img"
+                                  src={logoUrl}
+                                  alt="Shop logo"
+                                  onError={() => setLogoLoadFailed(true)}
+                                  sx={{
+                                    width: 140,
+                                    height: 72,
+                                    objectFit: 'contain',
+                                    border: (theme) => `1px solid ${theme.palette.divider}`,
+                                    borderRadius: 1,
+                                    p: 1,
+                                    bgcolor: 'background.paper',
+                                  }}
+                                />
+                              ) : (
+                                <Box
+                                  sx={{
+                                    width: 140,
+                                    height: 72,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: (theme) => `1px dashed ${theme.palette.divider}`,
+                                    borderRadius: 1,
+                                    color: 'text.secondary',
+                                    fontSize: '0.8rem',
+                                  }}
+                                >
+                                  No logo uploaded
+                                </Box>
+                              )}
+                              <Stack direction="row" spacing={1}>
+                                <Button
+                                  component="label"
+                                  variant="outlined"
+                                  disabled={uploadingLogo || removingLogo}
+                                >
+                                  {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
+                                  <input
+                                    hidden
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                                    onChange={handleLogoUpload}
+                                  />
+                                </Button>
+                                <Button
+                                  variant="text"
+                                  color="error"
+                                  disabled={!logoUrl || uploadingLogo || removingLogo}
+                                  onClick={handleRemoveLogo}
+                                >
+                                  {removingLogo ? 'Removing...' : 'Remove'}
+                                </Button>
+                              </Stack>
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                              Allowed formats: PNG, JPG, WEBP. Max size: 2MB.
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="pointsMinPurchaseAmount"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Min Purchase to Earn Points"
-                          type="number"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'Customer must spend at least this amount to earn points'}
-                          disabled={!form.watch('loyaltyEnabled')}
-                          InputProps={{
-                            startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                          }}
-                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
-                        />
-                      )}
-                    />
+
+                  <Grid size={{ xs: 12, md: 8 }}>
+                    <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2.5 }}>
+                          <ReceiptLongRoundedIcon color="primary" fontSize="small" />
+                          <Box>
+                            <Typography variant="h6">Billing Configuration</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Configure tax, currency, and invoice settings
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Grid container spacing={2}>
+                          <Grid size={{ xs: 12, sm: 4 }}>
+                            <Controller
+                              name="currency"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Currency"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 4 }}>
+                            <Controller
+                              name="taxPercent"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Tax Rate"
+                                  type="number"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message}
+                                  InputProps={{
+                                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                  }}
+                                  onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 4 }}>
+                            <Controller
+                              name="invoicePrefix"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Invoice Prefix"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message || 'e.g., INV000001'}
+                                />
+                              )}
+                            />
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="pointsPerHundred"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Points Earned per ₹100 Spent"
-                          type="number"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'Number of points earned for every ₹100 spent'}
-                          disabled={!form.watch('loyaltyEnabled')}
-                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
-                        />
-                      )}
-                    />
+
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Card variant="outlined" sx={{ borderRadius: 2, height: '100%' }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2.5 }}>
+                          <Inventory2RoundedIcon color="primary" fontSize="small" />
+                          <Box>
+                            <Typography variant="h6">Inventory Settings</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Configure low stock alert behavior
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Grid container spacing={2}>
+                          <Grid size={{ xs: 12 }}>
+                            <Controller
+                              name="lowStockThreshold"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Low Stock Threshold"
+                                  type="number"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message || 'Items at or below this quantity will be flagged'}
+                                  onChange={(event) => field.onChange(parseInt(event.target.value) || 0)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="pointValue"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Point Value in Currency"
-                          type="number"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'How much 1 point is worth in ₹'}
-                          disabled={!form.watch('loyaltyEnabled')}
-                          InputProps={{
-                            startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                          }}
-                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Controller
-                      name="maxPointsRedemptionPercent"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Max Redemption % of Bill"
-                          type="number"
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message || 'Maximum percentage of bill that can be paid with points'}
-                          disabled={!form.watch('loyaltyEnabled')}
-                          InputProps={{
-                            endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                          }}
-                          onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
-                        />
-                      )}
-                    />
+
+                  <Grid size={{ xs: 12 }}>
+                    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                      <CardContent>
+                        <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2.5 }}>
+                          <LoyaltyRoundedIcon color="primary" fontSize="small" />
+                          <Box>
+                            <Typography variant="h6">Loyalty Program</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Configure customer loyalty points earning and redemption
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Grid container spacing={2}>
+                          <Grid size={{ xs: 12 }}>
+                            <Controller
+                              name="loyaltyEnabled"
+                              control={form.control}
+                              render={({ field }) => (
+                                <FormControlLabel
+                                  control={
+                                    <Switch
+                                      checked={field.value}
+                                      onChange={(e) => field.onChange(e.target.checked)}
+                                    />
+                                  }
+                                  label="Enable Loyalty Program"
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="pointsMinPurchaseAmount"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Min Purchase to Earn Points"
+                                  type="number"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message || 'Customer must spend at least this amount to earn points'}
+                                  disabled={!loyaltyEnabled}
+                                  InputProps={{
+                                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                                  }}
+                                  onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="pointsPerHundred"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Points Earned per ₹100 Spent"
+                                  type="number"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message || 'Number of points earned for every ₹100 spent'}
+                                  disabled={!loyaltyEnabled}
+                                  onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="pointValue"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Point Value in Currency"
+                                  type="number"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message || 'How much 1 point is worth in ₹'}
+                                  disabled={!loyaltyEnabled}
+                                  InputProps={{
+                                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                                  }}
+                                  onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <Controller
+                              name="maxPointsRedemptionPercent"
+                              control={form.control}
+                              render={({ field, fieldState }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Max Redemption % of Bill"
+                                  type="number"
+                                  error={!!fieldState.error}
+                                  helperText={fieldState.error?.message || 'Maximum percentage of bill that can be paid with points'}
+                                  disabled={!loyaltyEnabled}
+                                  InputProps={{
+                                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                  }}
+                                  onChange={(event) => field.onChange(parseFloat(event.target.value) || 0)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
                   </Grid>
                 </Grid>
 
-                <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
+                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
                     type="submit"
                     variant="contained"
