@@ -47,8 +47,8 @@ public class InvoiceService {
     private static final int ITEM_TABLE_BODY_FONT_SIZE = 8;
     private static final float ITEM_TABLE_CELL_PADDING = 4f;
     private static final float SECTION_SPACER = 2f;
-    private static final float MAX_LOGO_WIDTH = 120f;
-    private static final float MAX_LOGO_HEIGHT = 60f;
+    private static final float MAX_LOGO_WIDTH = 70f;
+    private static final float MAX_LOGO_HEIGHT = 40f;
 
     private final SaleService saleService;
     private final SettingsService settingsService;
@@ -123,41 +123,99 @@ public class InvoiceService {
         Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, new Color(25, 25, 112)); // Midnight blue
         Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(60, 60, 60));
         Font invoiceFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, new Color(25, 25, 112));
+        boolean invoiceInHeaderRow = false;
 
-        addLogoIfAvailable(document, settings);
+        Image logo = loadLogoImage(settings);
+        if (logo != null) {
+            PdfPTable headerTable = new PdfPTable(3);
+            headerTable.setWidthPercentage(100);
+            // Keep left/right blocks equal so middle title stays exactly centered.
+            headerTable.setWidths(new float[]{1.7f, 1.6f, 1.7f});
+            headerTable.setSpacingAfter(6f);
 
-        // Shop name
-        Paragraph title = new Paragraph(safe(settings.getShopName()), titleFont);
-        title.setAlignment(Element.ALIGN_CENTER);
-        document.add(title);
+            PdfPCell logoCell = new PdfPCell();
+            logoCell.setBorder(Rectangle.NO_BORDER);
+            logoCell.setPadding(0);
+            logoCell.setPaddingBottom(2f);
+            logoCell.setVerticalAlignment(Element.ALIGN_TOP);
+            logoCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+            logoCell.addElement(logo);
 
-        if (hasValue(settings.getAddress())) {
-            Paragraph address = new Paragraph(settings.getAddress(), subtitleFont);
-            address.setAlignment(Element.ALIGN_CENTER);
-            document.add(address);
+            PdfPCell invoiceCell = new PdfPCell(new Phrase("TAX INVOICE", invoiceFont));
+            invoiceCell.setBorder(Rectangle.NO_BORDER);
+            invoiceCell.setPadding(0);
+            invoiceCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            invoiceCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+
+            PdfPCell infoCell = new PdfPCell();
+            infoCell.setBorder(Rectangle.NO_BORDER);
+            infoCell.setPadding(0);
+            infoCell.setPaddingBottom(2f);
+            infoCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+
+            Paragraph title = new Paragraph(safe(settings.getShopName()), titleFont);
+            title.setAlignment(Element.ALIGN_RIGHT);
+            infoCell.addElement(title);
+
+            if (hasValue(settings.getAddress())) {
+                Paragraph address = new Paragraph(settings.getAddress(), subtitleFont);
+                address.setAlignment(Element.ALIGN_RIGHT);
+                infoCell.addElement(address);
+            }
+
+            String contact = joinNonEmpty(" | ", settings.getPhone(), settings.getEmail());
+            if (hasValue(contact)) {
+                Paragraph contactLine = new Paragraph(contact, subtitleFont);
+                contactLine.setAlignment(Element.ALIGN_RIGHT);
+                infoCell.addElement(contactLine);
+            }
+
+            if (hasValue(settings.getGstNumber())) {
+                Paragraph gst = new Paragraph("GSTIN: " + settings.getGstNumber(), subtitleFont);
+                gst.setAlignment(Element.ALIGN_RIGHT);
+                infoCell.addElement(gst);
+            }
+
+            headerTable.addCell(logoCell);
+            headerTable.addCell(invoiceCell);
+            headerTable.addCell(infoCell);
+            document.add(headerTable);
+            invoiceInHeaderRow = true;
+        } else {
+            // Keep centered fallback when no logo is configured.
+            Paragraph title = new Paragraph(safe(settings.getShopName()), titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+
+            if (hasValue(settings.getAddress())) {
+                Paragraph address = new Paragraph(settings.getAddress(), subtitleFont);
+                address.setAlignment(Element.ALIGN_CENTER);
+                document.add(address);
+            }
+
+            String contact = joinNonEmpty(" | ", settings.getPhone(), settings.getEmail());
+            if (hasValue(contact)) {
+                Paragraph contactLine = new Paragraph(contact, subtitleFont);
+                contactLine.setAlignment(Element.ALIGN_CENTER);
+                document.add(contactLine);
+            }
+
+            if (hasValue(settings.getGstNumber())) {
+                Paragraph gst = new Paragraph("GSTIN: " + settings.getGstNumber(), subtitleFont);
+                gst.setAlignment(Element.ALIGN_CENTER);
+                document.add(gst);
+            }
         }
 
-        String contact = joinNonEmpty(" | ", settings.getPhone(), settings.getEmail());
-        if (hasValue(contact)) {
-            Paragraph contactLine = new Paragraph(contact, subtitleFont);
-            contactLine.setAlignment(Element.ALIGN_CENTER);
-            document.add(contactLine);
+        if (!invoiceInHeaderRow) {
+            // Add "TAX INVOICE" label when logo isn't present.
+            Paragraph invoiceLabel = new Paragraph("TAX INVOICE", invoiceFont);
+            invoiceLabel.setAlignment(Element.ALIGN_CENTER);
+            invoiceLabel.setSpacingBefore(0f);
+            invoiceLabel.setSpacingAfter(5f);
+            document.add(invoiceLabel);
         }
 
-        if (hasValue(settings.getGstNumber())) {
-            Paragraph gst = new Paragraph("GSTIN: " + settings.getGstNumber(), subtitleFont);
-            gst.setAlignment(Element.ALIGN_CENTER);
-            document.add(gst);
-        }
-
-        addSpacer(document);
-        
-        // Add "TAX INVOICE" label
-        Paragraph invoiceLabel = new Paragraph("TAX INVOICE", invoiceFont);
-        invoiceLabel.setAlignment(Element.ALIGN_CENTER);
-        document.add(invoiceLabel);
-        
-        addSpacer(document);
         LineSeparator separator = new LineSeparator();
         separator.setLineColor(new Color(100, 100, 100));
         separator.setLineWidth(1);
@@ -165,22 +223,24 @@ public class InvoiceService {
         addSpacer(document);
     }
 
-    private void addLogoIfAvailable(Document document, SettingsResponse settings) {
+    private Image loadLogoImage(SettingsResponse settings) {
         if (!hasValue(settings.getLogoPath())) {
-            return;
+            return null;
         }
 
-        logoStorageService.resolveExistingPath(settings.getLogoPath()).ifPresent(path -> {
-            try {
-                Image logo = Image.getInstance(path.toAbsolutePath().toString());
-                logo.scaleToFit(MAX_LOGO_WIDTH, MAX_LOGO_HEIGHT);
-                logo.setAlignment(Image.ALIGN_CENTER);
-                logo.setSpacingAfter(4f);
-                document.add(logo);
-            } catch (Exception ex) {
-                log.warn("Skipping invoice logo because file is not readable: {}", path, ex);
-            }
-        });
+        return logoStorageService.resolveExistingPath(settings.getLogoPath())
+                .map(path -> {
+                    try {
+                        Image logo = Image.getInstance(path.toAbsolutePath().toString());
+                        logo.scaleToFit(MAX_LOGO_WIDTH, MAX_LOGO_HEIGHT);
+                        logo.setAlignment(Image.ALIGN_LEFT);
+                        return logo;
+                    } catch (Exception ex) {
+                        log.warn("Skipping invoice logo because file is not readable: {}", path, ex);
+                        return null;
+                    }
+                })
+                .orElse(null);
     }
 
     private void addInvoiceMeta(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
@@ -426,24 +486,52 @@ public class InvoiceService {
         // Authorized Signatory - right aligned
         Font signatoryFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
         Font signatoryLabelFont = FontFactory.getFont(FontFactory.HELVETICA, 7);
+        Font declarationTitleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+        Font declarationTextFont = FontFactory.getFont(FontFactory.HELVETICA, 7);
 
         PdfPTable sigTable = new PdfPTable(1);
-        sigTable.setWidthPercentage(35);
+        sigTable.setWidthPercentage(100);
         sigTable.setHorizontalAlignment(Element.ALIGN_RIGHT);
 
         PdfPCell forCell = new PdfPCell(new Phrase("For " + safe(settings.getShopName()), signatoryFont));
         forCell.setBorder(Rectangle.NO_BORDER);
         forCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        forCell.setNoWrap(true);
         forCell.setPaddingBottom(18); // Leave writing space above signatory label
         sigTable.addCell(forCell);
 
         PdfPCell authCell = new PdfPCell(new Phrase("Authorized Signatory", signatoryLabelFont));
         authCell.setBorder(Rectangle.NO_BORDER);
         authCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        authCell.setNoWrap(true);
         authCell.setPaddingTop(2);
         sigTable.addCell(authCell);
 
-        document.add(sigTable);
+        PdfPTable footerTopTable = new PdfPTable(2);
+        footerTopTable.setWidthPercentage(100);
+        footerTopTable.setWidths(new float[]{1.8f, 1.5f});
+
+        PdfPCell declarationCell = new PdfPCell();
+        declarationCell.setBorder(Rectangle.NO_BORDER);
+        declarationCell.setPadding(0);
+        declarationCell.setPaddingRight(10f);
+        declarationCell.setVerticalAlignment(Element.ALIGN_TOP);
+        declarationCell.addElement(new Phrase("Declaration:", declarationTitleFont));
+        declarationCell.addElement(new Phrase(
+                "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct",
+                declarationTextFont
+        ));
+
+        PdfPCell signatoryCell = new PdfPCell();
+        signatoryCell.setBorder(Rectangle.NO_BORDER);
+        signatoryCell.setPadding(0);
+        signatoryCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        signatoryCell.addElement(sigTable);
+
+        footerTopTable.addCell(declarationCell);
+        footerTopTable.addCell(signatoryCell);
+
+        document.add(footerTopTable);
 
         addSpacer(document);
 
