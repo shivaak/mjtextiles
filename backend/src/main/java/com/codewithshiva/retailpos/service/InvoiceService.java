@@ -341,7 +341,7 @@ public class InvoiceService {
         if (discountAmount.compareTo(BigDecimal.ZERO) > 0) {
             addSummaryRow(
                     table,
-                    "Addl. Discount (Post Tax)",
+                    "Less: Rounded Off",
                     "-" + formatMoney(discountAmount, settings.getCurrency()),
                     labelFont,
                     valueFont
