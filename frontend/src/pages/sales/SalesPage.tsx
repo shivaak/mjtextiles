@@ -43,6 +43,7 @@ export default function SalesPage() {
     endDate: dayjs().format('YYYY-MM-DD'),
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<string>('');
   const [cashierFilter, setCashierFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -73,7 +74,7 @@ export default function SalesPage() {
         paymentMode: paymentFilter || undefined,
         status: statusFilter || undefined,
         createdBy: cashierFilter ? Number(cashierFilter) : undefined,
-        search: searchQuery || undefined,
+        search: debouncedSearchQuery || undefined,
         page: 0,
         size: 1000,
       });
@@ -83,11 +84,19 @@ export default function SalesPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, paymentFilter, statusFilter, cashierFilter, searchQuery, showError]);
+  }, [dateRange, paymentFilter, statusFilter, cashierFilter, debouncedSearchQuery, showError]);
 
   useEffect(() => {
     fetchCashiers();
   }, [fetchCashiers]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchSales();

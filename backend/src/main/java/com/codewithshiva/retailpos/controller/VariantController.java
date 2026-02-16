@@ -39,15 +39,16 @@ public class VariantController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String brand,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean inStock,
             @RequestParam(required = false) Boolean lowStock,
             @RequestParam(required = false) Boolean outOfStock,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        log.debug("List variants request - productId: {}, category: {}, brand: {}, status: {}, lowStock: {}, outOfStock: {}, search: {}, page: {}, size: {}",
-                productId, category, brand, status, lowStock, outOfStock, search, page, size);
+        log.debug("List variants request - productId: {}, category: {}, brand: {}, status: {}, inStock: {}, lowStock: {}, outOfStock: {}, search: {}, page: {}, size: {}",
+                productId, category, brand, status, inStock, lowStock, outOfStock, search, page, size);
         List<VariantListResponse> variants = variantService.listVariants(
-                productId, category, brand, status, lowStock, outOfStock, search);
+                productId, category, brand, status, inStock, lowStock, outOfStock, search);
         PagedResponse<VariantListResponse> pagedResponse = PagedResponse.of(variants, page, size);
         return ResponseEntity.ok(ApiResponse.success(pagedResponse));
     }

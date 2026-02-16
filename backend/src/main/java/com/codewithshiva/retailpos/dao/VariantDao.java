@@ -134,6 +134,34 @@ public interface VariantDao {
                                             @Bind("status") String status,
                                             @Bind("search") String search);
 
+    @SqlQuery("""
+        SELECT id, product_id as productId, product_name as productName,
+               product_brand as productBrand, product_category as productCategory, product_hsn as productHsn,
+               sku, barcode, size, color, fabric, variant_type as variantType, selling_price as sellingPrice,
+               avg_cost as avgCost, stock_qty as stockQty, status,
+               created_at as createdAt, updated_at as updatedAt,
+               effective_discount_percent as effectiveDiscountPercent
+        FROM v_variants_with_products
+        WHERE stock_qty > 0
+          AND (:productId IS NULL OR product_id = :productId)
+          AND (:category IS NULL OR product_category = :category)
+          AND (:brand IS NULL OR product_brand = :brand)
+          AND (:status IS NULL OR status = :status)
+          AND (:search IS NULL OR (
+               LOWER(sku) LIKE LOWER('%' || :search || '%')
+               OR LOWER(barcode) LIKE LOWER('%' || :search || '%')
+               OR LOWER(product_name) LIKE LOWER('%' || :search || '%')
+               OR LOWER(product_hsn) LIKE LOWER('%' || :search || '%')
+          ))
+        ORDER BY updated_at DESC
+        """)
+    @RegisterConstructorMapper(VariantWithProduct.class)
+    List<VariantWithProduct> findInStock(@Bind("productId") Long productId,
+                                         @Bind("category") String category,
+                                         @Bind("brand") String brand,
+                                         @Bind("status") String status,
+                                         @Bind("search") String search);
+
     // ==========================================
     // Search for POS autocomplete
     // ==========================================

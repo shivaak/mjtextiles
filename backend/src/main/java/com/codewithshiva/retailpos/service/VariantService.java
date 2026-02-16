@@ -46,16 +46,18 @@ public class VariantService {
      */
     @Transactional(readOnly = true)
     public List<VariantListResponse> listVariants(Long productId, String category, String brand,
-                                                   String status, Boolean lowStock, Boolean outOfStock,
+                                                   String status, Boolean inStock, Boolean lowStock, Boolean outOfStock,
                                                    String search) {
-        log.debug("Listing variants with filters - productId: {}, category: {}, brand: {}, status: {}, lowStock: {}, outOfStock: {}, search: {}",
-                productId, category, brand, status, lowStock, outOfStock, search);
+        log.debug("Listing variants with filters - productId: {}, category: {}, brand: {}, status: {}, inStock: {}, lowStock: {}, outOfStock: {}, search: {}",
+                productId, category, brand, status, inStock, lowStock, outOfStock, search);
 
         List<VariantWithProduct> variants;
 
         // Handle special filters
         if (Boolean.TRUE.equals(outOfStock)) {
             variants = variantDao.findOutOfStock(productId, category, brand, status, search);
+        } else if (Boolean.TRUE.equals(inStock)) {
+            variants = variantDao.findInStock(productId, category, brand, status, search);
         } else if (Boolean.TRUE.equals(lowStock)) {
             variants = variantDao.findLowStock(productId, category, brand, status, search);
         } else {

@@ -161,6 +161,7 @@ export default function InventoryPage() {
         category?: string;
         brand?: string;
         status?: VariantStatus;
+        inStock?: boolean;
         lowStock?: boolean;
         outOfStock?: boolean;
         search?: string;
@@ -175,6 +176,7 @@ export default function InventoryPage() {
         size: paginationModel.pageSize,
       };
 
+      if (stockFilter === 'in') params.inStock = true;
       if (stockFilter === 'low') params.lowStock = true;
       if (stockFilter === 'out') params.outOfStock = true;
 
@@ -239,6 +241,22 @@ export default function InventoryPage() {
     const totalSkus = summary?.totalSkus || 0;
     return { totalValue, lowStock, outOfStock, totalItems, totalSkus };
   }, [summary]);
+
+  const stockFilterLabel = stockFilter === 'in'
+    ? 'In Stock'
+    : stockFilter === 'low'
+      ? 'Low Stock'
+      : stockFilter === 'out'
+        ? 'Out of Stock'
+        : 'All Items';
+
+  const stockFilterChipColor = stockFilter === 'in'
+    ? 'success'
+    : stockFilter === 'low'
+      ? 'warning'
+      : stockFilter === 'out'
+        ? 'error'
+        : 'default';
 
   const openAdjustDialog = (variant: Variant) => {
     setSelectedVariant(variant);
@@ -573,7 +591,13 @@ export default function InventoryPage() {
 
       <Card>
         <CardContent sx={{ pb: 0 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+            <Chip
+              size="small"
+              color={stockFilterChipColor}
+              variant="outlined"
+              label={`${stockFilterLabel}: ${totalElements.toLocaleString()} item${totalElements === 1 ? '' : 's'}`}
+            />
             <FormControlLabel
               control={(
                 <Switch
