@@ -43,3 +43,6 @@ backups/
 
 # license
 backend/license
+
+# uploaded branding assets
+uploads/

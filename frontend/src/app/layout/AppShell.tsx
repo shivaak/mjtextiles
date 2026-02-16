@@ -54,6 +54,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useNotification } from '../context/NotificationContext';
 import { useLicense } from '../context/LicenseContext';
 import { productService } from '../../services/productService';
+import { settingsService } from '../../services/settingsService';
 import type { Product, VariantSearchResponse } from '../../domain/types';
 
 const DRAWER_WIDTH = 260;
@@ -177,6 +178,8 @@ interface SidebarContentProps {
   items: NavItem[];
   currentPath: string;
   user: { fullName?: string; role?: string } | null;
+  shopName?: string;
+  logoUrl?: string;
   onMobileClick?: () => void;
 }
 
@@ -184,8 +187,12 @@ const SidebarContent = memo(function SidebarContent({
   items, 
   currentPath, 
   user, 
+  shopName,
+  logoUrl,
   onMobileClick 
 }: SidebarContentProps) {
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Logo/Brand */}
@@ -197,25 +204,43 @@ const SidebarContent = memo(function SidebarContent({
           gap: 1.5,
         }}
       >
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            bgcolor: 'primary.main',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 700,
-            fontSize: '1.2rem',
-          }}
-        >
-          {import.meta.env.VITE_COMPANY_SHORT_NAME || 'POS'}
-        </Box>
+        {logoUrl && !logoLoadFailed ? (
+          <Box
+            component="img"
+            src={logoUrl}
+            alt="Shop logo"
+            onError={() => setLogoLoadFailed(true)}
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              objectFit: 'contain',
+              bgcolor: 'background.paper',
+              p: 0.5,
+              border: (theme) => `1px solid ${theme.palette.divider}`,
+            }}
+          />
+        ) : (
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: '1.2rem',
+            }}
+          >
+            {import.meta.env.VITE_COMPANY_SHORT_NAME || 'POS'}
+          </Box>
+        )}
         <Box>
           <Typography variant="h6" fontWeight={700} lineHeight={1.2}>
-            {import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}
+            {shopName || import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Stock & Billing
@@ -338,7 +363,7 @@ const TopBar = memo(function TopBar({
           });
 
         setSearchOptions([...productOptions, ...variantOptions]);
-      } catch (error) {
+      } catch {
         if (!active) return;
         setSearchOptions([]);
         notification.error('Search failed');
@@ -541,6 +566,8 @@ export default function AppShell() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [brandingName, setBrandingName] = useState<string | undefined>(undefined);
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState<string | undefined>(undefined);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -560,7 +587,7 @@ export default function AppShell() {
       await logout();
       notification.success('Logged out successfully');
       navigate('/login');
-    } catch (error) {
+    } catch {
       notification.error('Logout failed');
     }
   };
@@ -570,6 +597,33 @@ export default function AppShell() {
       setMobileOpen(false);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+
+    const loadBranding = async () => {
+      try {
+        const settings = await settingsService.getSettings();
+        if (!active) {
+          return;
+        }
+        setBrandingName(settings.shopName);
+        setBrandingLogoUrl(settings.logoUrl);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setBrandingName(undefined);
+        setBrandingLogoUrl(undefined);
+      }
+    };
+
+    loadBranding();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Memoize filtered nav items
   const filteredNavItems = useMemo(() => 
@@ -641,9 +695,12 @@ export default function AppShell() {
           }}
         >
           <SidebarContent
+            key={`mobile-${brandingLogoUrl ?? 'none'}`}
             items={filteredNavItems}
             currentPath={location.pathname}
             user={sidebarUser}
+            shopName={brandingName}
+            logoUrl={brandingLogoUrl}
             onMobileClick={handleMobileNavClick}
           />
         </Drawer>
@@ -661,9 +718,12 @@ export default function AppShell() {
           open
         >
           <SidebarContent
+            key={`desktop-${brandingLogoUrl ?? 'none'}`}
             items={filteredNavItems}
             currentPath={location.pathname}
             user={sidebarUser}
+            shopName={brandingName}
+            logoUrl={brandingLogoUrl}
           />
         </Drawer>
       </Box>

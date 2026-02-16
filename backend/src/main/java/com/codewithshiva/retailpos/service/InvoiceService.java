@@ -10,6 +10,7 @@ import org.openpdf.text.DocumentException;
 import org.openpdf.text.Element;
 import org.openpdf.text.Font;
 import org.openpdf.text.FontFactory;
+import org.openpdf.text.Image;
 import org.openpdf.text.PageSize;
 import org.openpdf.text.Paragraph;
 import org.openpdf.text.Phrase;
@@ -46,9 +47,12 @@ public class InvoiceService {
     private static final int ITEM_TABLE_BODY_FONT_SIZE = 8;
     private static final float ITEM_TABLE_CELL_PADDING = 4f;
     private static final float SECTION_SPACER = 2f;
+    private static final float MAX_LOGO_WIDTH = 120f;
+    private static final float MAX_LOGO_HEIGHT = 60f;
 
     private final SaleService saleService;
     private final SettingsService settingsService;
+    private final LogoStorageService logoStorageService;
 
     public byte[] generateSaleInvoice(Long saleId) {
         SaleDetailResponse sale = saleService.getSaleById(saleId);
@@ -120,6 +124,8 @@ public class InvoiceService {
         Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(60, 60, 60));
         Font invoiceFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, new Color(25, 25, 112));
 
+        addLogoIfAvailable(document, settings);
+
         // Shop name
         Paragraph title = new Paragraph(safe(settings.getShopName()), titleFont);
         title.setAlignment(Element.ALIGN_CENTER);
@@ -157,6 +163,24 @@ public class InvoiceService {
         separator.setLineWidth(1);
         document.add(separator);
         addSpacer(document);
+    }
+
+    private void addLogoIfAvailable(Document document, SettingsResponse settings) {
+        if (!hasValue(settings.getLogoPath())) {
+            return;
+        }
+
+        logoStorageService.resolveExistingPath(settings.getLogoPath()).ifPresent(path -> {
+            try {
+                Image logo = Image.getInstance(path.toAbsolutePath().toString());
+                logo.scaleToFit(MAX_LOGO_WIDTH, MAX_LOGO_HEIGHT);
+                logo.setAlignment(Image.ALIGN_CENTER);
+                logo.setSpacingAfter(4f);
+                document.add(logo);
+            } catch (Exception ex) {
+                log.warn("Skipping invoice logo because file is not readable: {}", path, ex);
+            }
+        });
     }
 
     private void addInvoiceMeta(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {

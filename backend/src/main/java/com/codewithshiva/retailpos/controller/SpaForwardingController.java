@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class SpaForwardingController {
 
-    @GetMapping(value = "/{path:^(?!api|swagger|actuator|v3|assets)[^\\.]*$}")
+    @GetMapping(value = "/{path:^(?!api|swagger|actuator|v3|assets|uploads)[^\\.]*$}")
     public String forwardRoot() {
         return "forward:/index.html";
     }
 
-    @GetMapping(value = "/{path:^(?!api|swagger|actuator|v3|assets)[^\\.]*$}/**")
+    @GetMapping(value = "/{path:^(?!api|swagger|actuator|v3|assets|uploads)[^\\.]*$}/**")
     public String forwardNested() {
         return "forward:/index.html";
     }

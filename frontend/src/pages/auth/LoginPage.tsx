@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,6 +27,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { useNotification } from '../../app/context/NotificationContext';
 import { ApiError, formatApiError } from '../../services/api';
 import { licenseService } from '../../services/licenseService';
+import { settingsService } from '../../services/settingsService';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -41,6 +42,9 @@ export default function LoginPage() {
   const notification = useNotification();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [brandName, setBrandName] = useState<string | undefined>(undefined);
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | undefined>(undefined);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
 
   const {
     control,
@@ -53,6 +57,33 @@ export default function LoginPage() {
       password: '',
     },
   });
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchPublicBranding = async () => {
+      try {
+        const branding = await settingsService.getPublicBranding();
+        if (!active) {
+          return;
+        }
+        setBrandName(branding.shopName);
+        setBrandLogoUrl(branding.logoUrl);
+        setLogoLoadFailed(false);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setBrandName(undefined);
+        setBrandLogoUrl(undefined);
+      }
+    };
+
+    fetchPublicBranding();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
@@ -140,23 +171,44 @@ export default function LoginPage() {
                   mb: 4,
                 }}
               >
-                <Box
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: '50%',
-                    background: (theme) =>
-                      `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mb: 2,
-                    boxShadow: (theme) =>
-                      `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
-                  }}
-                >
-                  <Store sx={{ fontSize: 40, color: 'white' }} />
-                </Box>
+                {brandLogoUrl && !logoLoadFailed ? (
+                  <Box
+                    component="img"
+                    src={brandLogoUrl}
+                    alt="Shop logo"
+                    onError={() => setLogoLoadFailed(true)}
+                    sx={{
+                      width: 92,
+                      height: 92,
+                      objectFit: 'contain',
+                      mb: 2,
+                      borderRadius: 2,
+                      p: 1,
+                      bgcolor: 'background.paper',
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      boxShadow: (theme) =>
+                        `0 8px 24px ${alpha(theme.palette.primary.main, 0.2)}`,
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      background: (theme) =>
+                        `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mb: 2,
+                      boxShadow: (theme) =>
+                        `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
+                    }}
+                  >
+                    <Store sx={{ fontSize: 40, color: 'white' }} />
+                  </Box>
+                )}
                 <Typography
                   variant="h4"
                   component="h1"
@@ -171,7 +223,7 @@ export default function LoginPage() {
                     WebkitTextFillColor: 'transparent',
                   }}
                 >
-                  {import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}
+                  {brandName || import.meta.env.VITE_COMPANY_NAME || 'Retail POS'}
                 </Typography>
                 <Typography
                   variant="body2"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import {
   Alert,
   Box,
@@ -57,6 +57,10 @@ export default function SettingsPage() {
   const { success: showSuccess, error: showError } = useNotification();
   const [loading, setLoading] = useState(true);
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatusInfo | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [removingLogo, setRemovingLogo] = useState(false);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -102,6 +106,8 @@ export default function SettingsPage() {
           pointValue: data.pointValue ?? 1,
           maxPointsRedemptionPercent: data.maxPointsRedemptionPercent ?? 50,
         });
+        setLogoUrl(data.logoUrl);
+        setLogoLoadFailed(false);
         setLicenseStatus(licenseData);
       } catch (error) {
         showError(formatApiError(error, 'Failed to load settings'));
@@ -150,6 +156,40 @@ export default function SettingsPage() {
       return 'warning';
     }
     return 'error';
+  };
+
+  const handleLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      const updatedSettings = await settingsService.uploadLogo(file);
+      setLogoUrl(updatedSettings.logoUrl);
+      setLogoLoadFailed(false);
+      showSuccess('Logo uploaded successfully');
+    } catch (error) {
+      showError(formatApiError(error, 'Failed to upload logo'));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      setRemovingLogo(true);
+      await settingsService.deleteLogo();
+      setLogoUrl(undefined);
+      setLogoLoadFailed(false);
+      showSuccess('Logo removed successfully');
+    } catch (error) {
+      showError(formatApiError(error, 'Failed to remove logo'));
+    } finally {
+      setRemovingLogo(false);
+    }
   };
 
   return (
@@ -253,6 +293,72 @@ export default function SettingsPage() {
                         />
                       )}
                     />
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Shop Logo (Optional)
+                    </Typography>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                      {logoUrl && !logoLoadFailed ? (
+                        <Box
+                          component="img"
+                          src={logoUrl}
+                          alt="Shop logo"
+                          onError={() => setLogoLoadFailed(true)}
+                          sx={{
+                            width: 140,
+                            height: 72,
+                            objectFit: 'contain',
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
+                            borderRadius: 1,
+                            p: 1,
+                            bgcolor: 'background.paper',
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            width: 140,
+                            height: 72,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: (theme) => `1px dashed ${theme.palette.divider}`,
+                            borderRadius: 1,
+                            color: 'text.secondary',
+                            fontSize: '0.8rem',
+                          }}
+                        >
+                          No logo uploaded
+                        </Box>
+                      )}
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          component="label"
+                          variant="outlined"
+                          disabled={uploadingLogo || removingLogo}
+                        >
+                          {uploadingLogo ? 'Uploading...' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
+                          <input
+                            hidden
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                            onChange={handleLogoUpload}
+                          />
+                        </Button>
+                        <Button
+                          variant="text"
+                          color="error"
+                          disabled={!logoUrl || uploadingLogo || removingLogo}
+                          onClick={handleRemoveLogo}
+                        >
+                          {removingLogo ? 'Removing...' : 'Remove'}
+                        </Button>
+                      </Stack>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      Allowed formats: PNG, JPG, WEBP. Max size: 2MB.
+                    </Typography>
                   </Grid>
                 </Grid>
 

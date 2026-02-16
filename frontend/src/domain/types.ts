@@ -700,6 +700,7 @@ export interface Settings {
   phone?: string;
   email?: string;
   gstNumber?: string;
+  logoUrl?: string;
   currency: string;
   taxPercent: number;
   invoicePrefix: string;
@@ -729,6 +730,11 @@ export interface UpdateSettingsRequest {
   pointsPerHundred?: number;
   pointValue?: number;
   maxPointsRedemptionPercent?: number;
+}
+
+export interface PublicBranding {
+  shopName: string;
+  logoUrl?: string;
 }
 
 // Reports

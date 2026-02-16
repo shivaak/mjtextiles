@@ -18,6 +18,7 @@ public interface SettingsDao {
 
     @SqlQuery("""
         SELECT id, shop_name as shopName, address, phone, email, gst_number as gstNumber,
+               logo_path as logoPath,
                currency, tax_percent as taxPercent, invoice_prefix as invoicePrefix,
                last_bill_number as lastBillNumber, low_stock_threshold as lowStockThreshold,
                loyalty_enabled as loyaltyEnabled,
@@ -63,6 +64,20 @@ public interface SettingsDao {
                 @Bind("pointsPerHundred") BigDecimal pointsPerHundred,
                 @Bind("pointValue") BigDecimal pointValue,
                 @Bind("maxPointsRedemptionPercent") BigDecimal maxPointsRedemptionPercent);
+
+    @SqlUpdate("""
+        UPDATE settings
+        SET logo_path = :logoPath
+        WHERE id = 1
+        """)
+    void updateLogoPath(@Bind("logoPath") String logoPath);
+
+    @SqlUpdate("""
+        UPDATE settings
+        SET logo_path = NULL
+        WHERE id = 1
+        """)
+    void clearLogoPath();
 
     @SqlUpdate("""
         INSERT INTO settings (id, shop_name, currency, tax_percent, invoice_prefix, low_stock_threshold)

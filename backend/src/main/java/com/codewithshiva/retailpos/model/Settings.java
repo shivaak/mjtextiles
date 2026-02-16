@@ -22,6 +22,7 @@ public class Settings {
     private String phone;
     private String email;
     private String gstNumber;
+    private String logoPath;
     private String currency;
     private BigDecimal taxPercent;
     private String invoicePrefix;
@@ -36,14 +37,14 @@ public class Settings {
     private OffsetDateTime updatedAt;
 
     @ConstructorProperties({
-        "id", "shopName", "address", "phone", "email", "gstNumber",
+        "id", "shopName", "address", "phone", "email", "gstNumber", "logoPath",
         "currency", "taxPercent", "invoicePrefix", "lastBillNumber",
         "lowStockThreshold", "loyaltyEnabled", "pointsMinPurchaseAmount",
         "pointsPerHundred", "pointValue", "maxPointsRedemptionPercent",
         "createdAt", "updatedAt"
     })
     public Settings(Integer id, String shopName, String address, String phone,
-                    String email, String gstNumber, String currency, BigDecimal taxPercent,
+                    String email, String gstNumber, String logoPath, String currency, BigDecimal taxPercent,
                     String invoicePrefix, Integer lastBillNumber, Integer lowStockThreshold,
                     Boolean loyaltyEnabled, BigDecimal pointsMinPurchaseAmount,
                     BigDecimal pointsPerHundred, BigDecimal pointValue,
@@ -55,6 +56,7 @@ public class Settings {
         this.phone = phone;
         this.email = email;
         this.gstNumber = gstNumber;
+        this.logoPath = logoPath;
         this.currency = currency;
         this.taxPercent = taxPercent;
         this.invoicePrefix = invoicePrefix;

@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/v1/auth/login",
                     "/api/v1/auth/refresh",
+                    "/api/v1/settings/public-branding",
                     "/api/v1/license",
                     "/api/v1/license/status",
                     "/api/v1/license/installation-id",

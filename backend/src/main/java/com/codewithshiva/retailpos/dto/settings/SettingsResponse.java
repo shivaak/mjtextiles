@@ -1,6 +1,7 @@
 package com.codewithshiva.retailpos.dto.settings;
 
 import com.codewithshiva.retailpos.model.Settings;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +22,9 @@ public class SettingsResponse {
     private String phone;
     private String email;
     private String gstNumber;
+    @JsonIgnore
+    private String logoPath;
+    private String logoUrl;
     private String currency;
     private BigDecimal taxPercent;
     private String invoicePrefix;
@@ -42,6 +46,7 @@ public class SettingsResponse {
                 .phone(settings.getPhone())
                 .email(settings.getEmail())
                 .gstNumber(settings.getGstNumber())
+                .logoPath(settings.getLogoPath())
                 .currency(settings.getCurrency())
                 .taxPercent(settings.getTaxPercent())
                 .invoicePrefix(settings.getInvoicePrefix())
