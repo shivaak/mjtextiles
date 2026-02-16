@@ -290,6 +290,7 @@ public class InvoiceService {
 
     private void addItemsTable(Document document, SaleDetailResponse sale, SettingsResponse settings) throws DocumentException {
         Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, ITEM_TABLE_HEADER_FONT_SIZE);
+        Font compactHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, ITEM_TABLE_HEADER_FONT_SIZE - 1);
         Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, ITEM_TABLE_BODY_FONT_SIZE);
 
         BigDecimal taxPercent = defaultZero(sale.getTaxPercent());
@@ -303,7 +304,7 @@ public class InvoiceService {
         if (hasAnyDiscount) {
             table = new PdfPTable(8);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{0.5f, 2.3f, 0.7f, 0.6f, 1.1f, 1.1f, 0.7f, 1.2f});
+            table.setWidths(new float[]{0.5f, 2.3f, 0.7f, 0.6f, 1.1f, 1.0f, 0.8f, 1.2f});
         } else {
             table = new PdfPTable(7);
             table.setWidthPercentage(100);
@@ -314,7 +315,7 @@ public class InvoiceService {
         addHeaderCell(table, "Item Description", headerFont);
         addHeaderCell(table, "HSN", headerFont);
         addHeaderCell(table, "Qty", headerFont);
-        addHeaderCell(table, "Rate (Incl GST)", headerFont);
+        addHeaderCell(table, "Rate\n(Incl GST)", compactHeaderFont);
         addHeaderCell(table, "Taxable Value", headerFont);
         if (hasAnyDiscount) {
             addHeaderCell(table, "Disc", headerFont);
