@@ -67,6 +67,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(false);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -87,7 +88,7 @@ export default function UsersPage() {
       const data = await userService.getUsers({
         role: roleFilter || undefined,
         isActive: statusFilter === '' ? undefined : statusFilter === 'active',
-        search: search || undefined,
+        search: debouncedSearch || undefined,
       });
       setUsers(data);
     } catch (error) {
@@ -95,11 +96,19 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [roleFilter, statusFilter, search, showError]);
+  }, [roleFilter, statusFilter, debouncedSearch, showError]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [search]);
 
   const openDialog = (selected?: User) => {
     if (selected) {
@@ -189,9 +198,11 @@ export default function UsersPage() {
       headerName: 'Username',
       width: 150,
       renderCell: (params: GridRenderCellParams<User>) => (
-        <Typography variant="body2" fontWeight={500}>
-          {params.value}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Typography variant="body2" fontWeight={500}>
+            {params.value}
+          </Typography>
+        </Box>
       ),
     },
     {
@@ -329,6 +340,7 @@ export default function UsersPage() {
                 fullWidth
                 onClick={() => {
                   setSearch('');
+                  setDebouncedSearch('');
                   setRoleFilter('');
                   setStatusFilter('');
                 }}

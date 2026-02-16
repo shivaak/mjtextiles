@@ -76,6 +76,7 @@ export const productService = {
     category?: string;
     brand?: string;
     status?: VariantStatus;
+    inStock?: boolean;
     lowStock?: boolean;
     outOfStock?: boolean;
     search?: string;
