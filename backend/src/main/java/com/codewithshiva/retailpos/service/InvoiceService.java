@@ -217,13 +217,13 @@ public class InvoiceService {
 
         PdfPTable table;
         if (hasAnyDiscount) {
-            table = new PdfPTable(10);
+            table = new PdfPTable(8);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{0.4f, 1.9f, 0.6f, 0.5f, 0.75f, 0.6f, 0.8f, 0.6f, 0.6f, 0.95f});
+            table.setWidths(new float[]{0.5f, 2.3f, 0.7f, 0.6f, 1.1f, 1.1f, 0.7f, 1.2f});
         } else {
-            table = new PdfPTable(9);
+            table = new PdfPTable(7);
             table.setWidthPercentage(100);
-            table.setWidths(new float[]{0.4f, 2.1f, 0.7f, 0.5f, 0.85f, 0.9f, 0.65f, 0.65f, 1.0f});
+            table.setWidths(new float[]{0.5f, 2.4f, 0.8f, 0.6f, 1.2f, 1.2f, 1.3f});
         }
 
         addHeaderCell(table, "#", headerFont);
@@ -231,30 +231,23 @@ public class InvoiceService {
         addHeaderCell(table, "HSN", headerFont);
         addHeaderCell(table, "Qty", headerFont);
         addHeaderCell(table, "Rate (Incl GST)", headerFont);
+        addHeaderCell(table, "Taxable Value", headerFont);
         if (hasAnyDiscount) {
             addHeaderCell(table, "Disc", headerFont);
         }
-        addHeaderCell(table, "Taxable Value", headerFont);
-        BigDecimal halfTaxPercent = defaultZero(sale.getTaxPercent()).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-        String cgstHeader = "CGST (" + halfTaxPercent.stripTrailingZeros().toPlainString() + "%)";
-        String sgstHeader = "SGST (" + halfTaxPercent.stripTrailingZeros().toPlainString() + "%)";
-        addHeaderCell(table, cgstHeader, headerFont);
-        addHeaderCell(table, sgstHeader, headerFont);
         addHeaderCell(table, "Amount", headerFont);
 
         int index = 1;
         for (SaleItemResponse item : sale.getItems()) {
-            // Apply item-level discount to unit price (MRP, tax-inclusive)
+            // Compute taxable value first, then apply item-level discount on taxable amount.
             BigDecimal itemDiscountPct = defaultZero(item.getItemDiscountPercent());
-            BigDecimal itemDiscountFactor = BigDecimal.ONE.subtract(itemDiscountPct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
-            BigDecimal effectiveUnitPrice = defaultZero(item.getUnitPrice()).multiply(itemDiscountFactor).setScale(2, RoundingMode.HALF_UP);
             int qty = item.getQty() == null ? 0 : item.getQty();
-            BigDecimal lineAmount = effectiveUnitPrice.multiply(BigDecimal.valueOf(qty));
-            // Extract taxable value and GST from line amount
-            BigDecimal lineTaxableValue = lineAmount.divide(taxDivisor, 2, RoundingMode.HALF_UP);
-            BigDecimal lineGst = lineAmount.subtract(lineTaxableValue);
-            BigDecimal lineCgst = lineGst.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-            BigDecimal lineSgst = lineGst.subtract(lineCgst);
+            BigDecimal lineAmountInclTax = defaultZero(item.getUnitPrice()).multiply(BigDecimal.valueOf(qty));
+            BigDecimal lineTaxableValue = lineAmountInclTax.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+            BigDecimal itemDiscountAmount = lineTaxableValue
+                    .multiply(itemDiscountPct)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal lineAmount = lineTaxableValue.subtract(itemDiscountAmount);
 
             String itemName = formatItemName(item);
 
@@ -263,15 +256,13 @@ public class InvoiceService {
             addBodyCell(table, safe(item.getProductHsn()), bodyFont, Element.ALIGN_CENTER);
             addBodyCell(table, String.valueOf(qty), bodyFont, Element.ALIGN_CENTER);
             addBodyCell(table, formatMoney(defaultZero(item.getUnitPrice()), settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
+            addBodyCell(table, formatMoney(lineTaxableValue, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
             if (hasAnyDiscount) {
                 String discountDisplay = itemDiscountPct.compareTo(BigDecimal.ZERO) > 0
                         ? itemDiscountPct.stripTrailingZeros().toPlainString() + "%"
                         : "-";
                 addBodyCell(table, discountDisplay, bodyFont, Element.ALIGN_CENTER);
             }
-            addBodyCell(table, formatMoney(lineTaxableValue, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
-            addBodyCell(table, formatMoney(lineCgst, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
-            addBodyCell(table, formatMoney(lineSgst, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
             addBodyCell(table, formatMoney(lineAmount, settings.getCurrency()), bodyFont, Element.ALIGN_RIGHT);
         }
 
@@ -290,18 +281,35 @@ public class InvoiceService {
         table.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.setWidths(new float[]{1.5f, 1f});
 
-        // Taxable value and GST are derived from subtotal (tax-inclusive pricing).
-        // Additional discount is applied after tax.
-        BigDecimal subtotal = defaultZero(sale.getSubtotal());
+        // Summary is aligned with item table:
+        // Amount column = Taxable Value - Item Discount.
+        BigDecimal taxPercent = defaultZero(sale.getTaxPercent());
+        BigDecimal taxDivisor = BigDecimal.ONE.add(taxPercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+        BigDecimal subtotal = BigDecimal.ZERO;
+
+        for (SaleItemResponse item : sale.getItems()) {
+            int qty = item.getQty() == null ? 0 : item.getQty();
+            BigDecimal lineAmountInclTax = defaultZero(item.getUnitPrice()).multiply(BigDecimal.valueOf(qty));
+            BigDecimal lineTaxableValue = lineAmountInclTax.divide(taxDivisor, 2, RoundingMode.HALF_UP);
+            BigDecimal lineItemDiscount = lineTaxableValue
+                    .multiply(defaultZero(item.getItemDiscountPercent()))
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal lineAmount = lineTaxableValue.subtract(lineItemDiscount);
+            subtotal = subtotal.add(lineAmount);
+        }
+
+        BigDecimal taxableValue = subtotal.setScale(2, RoundingMode.HALF_UP);
         BigDecimal discountAmount = defaultZero(sale.getDiscountAmount());
-        BigDecimal taxAmount = defaultZero(sale.getTaxAmount());
-        BigDecimal taxableValue = subtotal.subtract(taxAmount);
+        BigDecimal taxAmount = taxableValue
+                .multiply(taxPercent)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         BigDecimal cgstAmount = taxAmount.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
         BigDecimal sgstAmount = taxAmount.subtract(cgstAmount);
-        BigDecimal halfTaxPercent = defaultZero(sale.getTaxPercent()).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-        addSummaryRow(table, "Subtotal (item discounts)", formatMoney(sale.getSubtotal(), settings.getCurrency()), labelFont, valueFont);
+        BigDecimal halfTaxPercent = taxPercent.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+
+        // Subtotal is the sum of item Amount column values.
+        addSummaryRow(table, "Subtotal", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
         addDividerRow(table);
-        addSummaryRow(table, "Taxable Value", formatMoney(taxableValue, settings.getCurrency()), labelFont, valueFont);
         addSummaryRow(table, "CGST (" + halfTaxPercent.stripTrailingZeros().toPlainString() + "%)",
                 formatMoney(cgstAmount, settings.getCurrency()), labelFont, valueFont);
         addSummaryRow(table, "SGST (" + halfTaxPercent.stripTrailingZeros().toPlainString() + "%)",
@@ -330,8 +338,8 @@ public class InvoiceService {
             );
         }
 
-        // Net payable = total - points redemption amount
-        BigDecimal total = defaultZero(sale.getTotal());
+        // Net payable = taxable + GST - post-tax deductions
+        BigDecimal total = taxableValue.add(taxAmount);
         BigDecimal netPayable = total.subtract(discountAmount).subtract(pointsRedemptionAmount);
         BigDecimal roundedTotal = netPayable.setScale(0, RoundingMode.HALF_UP);
         BigDecimal roundOff = roundedTotal.subtract(netPayable);
@@ -402,7 +410,7 @@ public class InvoiceService {
         PdfPCell forCell = new PdfPCell(new Phrase("For " + safe(settings.getShopName()), signatoryFont));
         forCell.setBorder(Rectangle.NO_BORDER);
         forCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        forCell.setPaddingBottom(8); // Compact space for signature
+        forCell.setPaddingBottom(18); // Leave writing space above signatory label
         sigTable.addCell(forCell);
 
         PdfPCell authCell = new PdfPCell(new Phrase("Authorized Signatory", signatoryLabelFont));

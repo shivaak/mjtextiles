@@ -40,3 +40,6 @@ backups/
 
 # claude
 .claude/
+
+# license
+backend/license
